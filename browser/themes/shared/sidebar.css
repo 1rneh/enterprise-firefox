@@ -60,6 +60,34 @@
   border-bottom: 1px solid var(--sidebar-border-color);
 }
 
+#sidebar-panel-header {
+  --sidebar-panel-header-heading-margin-block: var(--space-large);
+  padding-inline: var(--space-large);
+
+  :root[uidensity="compact"] & {
+    --sidebar-panel-header-heading-margin-block: var(--space-medium);
+  }
+
+  @media not -moz-pref("sidebar.revamp") {
+    display: none;
+  }
+
+  @media -moz-pref("sidebar.revamp") and (not -moz-pref("sidebar.visibility", "hide-launcher")) {
+    &[panel-has-custom-header] {
+      display: none;
+
+      @media -moz-pref("browser.nova.enabled") {
+        /* Since the header isn't there, the browser itself now sits on the edge.
+         * The browser needs the same rounded corners as #sidebar-box to prevent overflow. */
+        & + .sidebar-browser-stack > #sidebar {
+          border-start-start-radius: var(--sidebar-box-start-start-radius);
+          border-start-end-radius: var(--sidebar-box-start-end-radius);
+        }
+      }
+    }
+  }
+}
+
 #sidebar-spacer {
   /* To ensure the button doesn't expand unnecessarily for short labels, the
      spacer should significantly out-flex the button. */
@@ -686,10 +714,8 @@ menuseparator + #sidebar-extensions-separator {
     }
   }
 
-  /* The box needs the radius for its border, the browser for the surface it
-   * paints. */
-  #sidebar-box,
-  #sidebar-box #sidebar {
+  /* The box needs the radius for its border. */
+  #sidebar-box {
     border-start-start-radius: var(--sidebar-box-start-start-radius);
     border-start-end-radius: var(--sidebar-box-start-end-radius);
   }

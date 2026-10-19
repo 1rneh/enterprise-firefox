@@ -344,14 +344,6 @@ def create_parser(mach_interface=False):
         help="Disable Fission (site isolation) in Gecko.",
     )
     add_arg(
-        "--enable-fission-mobile",
-        dest="fission_mobile",
-        action="store_true",
-        default=False,
-        help="Temporary work-around to enable fission on mobile as it is enabled "
-        "by default for desktop now but not mobile.",
-    )
-    add_arg(
         "--setpref",
         dest="extra_prefs",
         action="append",

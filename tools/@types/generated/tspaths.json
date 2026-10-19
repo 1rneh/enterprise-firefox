@@ -532,6 +532,9 @@
       "chrome://browser/content/webrtc/webrtc-preview.mjs": [
         "../../../browser/components/webrtc/content/webrtc-preview/webrtc-preview.mjs"
       ],
+      "chrome://browser/content/widgets/moz-widget-header.mjs": [
+        "../../../browser/components/widgets/content/moz-widget-header.mjs"
+      ],
       "chrome://devtools-startup/content/DevToolsShim.sys.mjs": [
         "../../../devtools/startup/DevToolsShim.sys.mjs"
       ],
@@ -6097,6 +6100,9 @@
       "resource://gre/modules/GeckoViewModule.sys.mjs": [
         "../../../mobile/shared/modules/geckoview/GeckoViewModule.sys.mjs"
       ],
+      "resource://gre/modules/GeckoViewPictureInPicture.sys.mjs": [
+        "../../../mobile/shared/modules/geckoview/GeckoViewPictureInPicture.sys.mjs"
+      ],
       "resource://gre/modules/GeckoViewPreferences.sys.mjs": [
         "../../../mobile/shared/components/geckoview/GeckoViewPreferences.sys.mjs"
       ],
@@ -6438,9 +6444,6 @@
       ],
       "resource://gre/modules/SitePolicyUtils.sys.mjs": [
         "../../../toolkit/components/enterprisepolicies/SitePolicyUtils.sys.mjs"
-      ],
-      "resource://gre/modules/SpeechRecognitionFeature.sys.mjs": [
-        "../../../dom/media/webspeech/recognition/SpeechRecognitionFeature.sys.mjs"
       ],
       "resource://gre/modules/Sqlite.sys.mjs": [
         "../../../toolkit/modules/Sqlite.sys.mjs"
@@ -6850,9 +6853,6 @@
       "resource://gre/modules/translations/LanguageDetector.sys.mjs": [
         "../../../toolkit/components/translations/LanguageDetector.sys.mjs"
       ],
-      "resource://gre/modules/vtt.sys.mjs": [
-        "../../../dom/media/webvtt/vtt.sys.mjs"
-      ],
       "resource://gre/modules/workers/PromiseWorker.js": [
         "../../../tools/@types/subs/PromiseWorker.d.ts"
       ],
@@ -6945,6 +6945,9 @@
       ],
       "resource://newtab/lib/InferredModel/InferredConstants.sys.mjs": [
         "../../../browser/extensions/newtab/lib/InferredModel/InferredConstants.sys.mjs"
+      ],
+      "resource://newtab/lib/InferredModel/LocationInterestGrid.sys.mjs": [
+        "../../../browser/extensions/newtab/lib/InferredModel/LocationInterestGrid.sys.mjs"
       ],
       "resource://newtab/lib/InferredPersonalizationFeed.sys.mjs": [
         "../../../browser/extensions/newtab/lib/InferredPersonalizationFeed.sys.mjs"
@@ -7048,6 +7051,9 @@
       "resource://newtab/lib/WebNotificationsFeed.sys.mjs": [
         "../../../browser/extensions/newtab/lib/WebNotificationsFeed.sys.mjs"
       ],
+      "resource://newtab/lib/Widgets/ExtensionWidgetsFeed.sys.mjs": [
+        "../../../browser/extensions/newtab/lib/Widgets/ExtensionWidgetsFeed.sys.mjs"
+      ],
       "resource://newtab/lib/Widgets/ListsFeed.sys.mjs": [
         "../../../browser/extensions/newtab/lib/Widgets/ListsFeed.sys.mjs"
       ],
@@ -7068,6 +7074,9 @@
       ],
       "resource://newtab/lib/Widgets/TimerFeed.sys.mjs": [
         "../../../browser/extensions/newtab/lib/Widgets/TimerFeed.sys.mjs"
+      ],
+      "resource://newtab/lib/Widgets/TravelFeed.sys.mjs": [
+        "../../../browser/extensions/newtab/lib/Widgets/TravelFeed.sys.mjs"
       ],
       "resource://newtab/lib/actors/NewTabAttributionParent.sys.mjs": [
         "../../../browser/extensions/newtab/lib/actors/NewTabAttributionParent.sys.mjs"

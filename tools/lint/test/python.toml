@@ -33,6 +33,8 @@ skip-if = ["os == 'win'"]  # busts the tree for subsequent tasks on the same wor
 # Setup conflicts with stylelint setup so this should run sequentially.
 sequential = true
 
+["test_extra_js_modules.py"]
+
 ["test_file_license.py"]
 
 ["test_file_perm.py"]

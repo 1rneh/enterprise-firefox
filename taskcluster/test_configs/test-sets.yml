@@ -127,6 +127,7 @@ browsertime:
     - browsertime-webcodecs
     - browsertime-trr-performance
     - browsertime-hev3-connection
+    - browsertime-doh-busy-site
 
 browsertime-clang:
     - browsertime-tp6
@@ -691,6 +692,7 @@ android-hw-browsertime:
     - browsertime-youtube-playback-power-mobile
     - browsertime-trr-performance-m
     - browsertime-hev3-connection-m
+    - browsertime-doh-busy-site-m
 
 android-hw-browsertime-profiling:
     - browsertime-tp6m-profiling
@@ -698,6 +700,9 @@ android-hw-browsertime-profiling:
 android-hw-speedometer-tests:
     - browsertime-benchmark-speedometer2-mobile
     - browsertime-benchmark-speedometer3-mobile
+
+android-hw-doh-tests:
+    - browsertime-doh-busy-site-m
 
 android-em-arm64-benchmark-tests:
     - browsertime-benchmark-speedometer3-mobile

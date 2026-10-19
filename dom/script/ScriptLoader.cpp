@@ -3280,8 +3280,7 @@ void ScriptLoader::CalculateCacheFlag(ScriptLoadRequest* aRequest) {
     return;
   }
 
-  if (!aRequest->URI()->SchemeIs("http") &&
-      !aRequest->URI()->SchemeIs("https")) {
+  if (!net::SchemeIsHttpOrHttps(aRequest->URI())) {
     LOG(("ScriptLoadRequest (%p): Bytecode-cache: Skip all: Unsupported scheme",
          aRequest));
     // Internal resources can be exposed to the web content, but they don't

@@ -187,8 +187,8 @@ class WebTransportSessionProxy final
       const Maybe<mozilla::dom::WebTransportStatsData>& aStats);
   void OnOutgoingDatagramOutComeInternal(
       uint64_t aId, WebTransportSessionEventListener::DatagramOutcome aOutCome);
-  void OnStopSendingInternal(uint64_t aStreamId, nsresult aError);
-  void OnResetReceivedInternal(uint64_t aStreamId, nsresult aError);
+  void OnStopSendingInternal(uint64_t aStreamId, uint64_t aErrorCode);
+  void OnResetReceivedInternal(uint64_t aStreamId, uint64_t aErrorCode);
 
   nsCOMPtr<nsIChannel> mChannel;
   uint64_t mHttpChannelID = 0;
@@ -200,6 +200,8 @@ class WebTransportSessionProxy final
   uint32_t mCloseStatus MOZ_GUARDED_BY(mMutex) = 0;
   nsCString mReason MOZ_GUARDED_BY(mMutex);
   nsCString mProtocol MOZ_GUARDED_BY(mMutex);
+  nsTArray<nsCString> mResponseHeaderNames MOZ_GUARDED_BY(mMutex);
+  nsTArray<nsCString> mResponseHeaderValues MOZ_GUARDED_BY(mMutex);
   nsTArray<nsString> mOfferedProtocols MOZ_GUARDED_BY(mMutex);
   bool mCleanly MOZ_GUARDED_BY(mMutex) = false;
   bool mStopRequestCalled MOZ_GUARDED_BY(mMutex) = false;

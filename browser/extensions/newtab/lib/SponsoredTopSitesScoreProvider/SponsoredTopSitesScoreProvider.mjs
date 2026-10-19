@@ -50,6 +50,9 @@ const PREF_LAST_RELEASE_TIME =
 // Places events that indicate browsing history was removed.
 const PLACES_EVENTS = ["history-cleared", "page-removed"];
 
+// Held while the scores are refreshed or cleared, so the two never interleave.
+const SCORES_LOCK = "newtab-sponsored-topsites-scoring";
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "LAST_RELEASE_TIME_PREF_VALUE",
@@ -71,6 +74,7 @@ export class _SponsoredTopSitesScoreProvider {
    *  selecting a configuration record through remote settings.
    */
   init(getFlags) {
+    lazy.logConsole.debug("Initializing");
     this._getFlags = getFlags;
     if (!this._cache) {
       this._cache = new lazy.PersistentCache(CACHE_KEY, false);
@@ -93,6 +97,7 @@ export class _SponsoredTopSitesScoreProvider {
    * Invoke this when scoring is disabled or the consumer is uninitializing.
    */
   uninit() {
+    lazy.logConsole.debug("Uninitializing");
     if (this._placesListener) {
       lazy.PlacesUtils.observers.removeListener(
         PLACES_EVENTS,
@@ -106,7 +111,7 @@ export class _SponsoredTopSitesScoreProvider {
 
   /**
    * Load any active config and update the cached scores. Clears existing
-   * scores when no config exists.
+   * scores when no config exists. Callers must hold SCORES_LOCK.
    *
    * @returns {Promise<void>} Resolves once the cached scores are updated.
    */
@@ -114,6 +119,7 @@ export class _SponsoredTopSitesScoreProvider {
     // Return early if a full release interval has not elapsed.
     const now = Math.round(Date.now() / 1000);
     if (now - this._getLastReleaseTime() < RELEASE_INTERVAL_MS / 1000) {
+      lazy.logConsole.debug("Refresh skipped until the next release interval");
       return;
     }
 
@@ -166,14 +172,17 @@ export class _SponsoredTopSitesScoreProvider {
   async _loadConfig() {
     const recordId = this._getRecordId();
     if (!recordId) {
+      lazy.logConsole.debug("No config record is enabled");
       return null;
     }
 
     const records = await this._rs?.get();
     const record = records?.find(r => r.id === recordId);
     if (!record || !this._isValidConfig(record)) {
+      lazy.logConsole.debug(`No valid config found for ${recordId}`);
       return null;
     }
+    lazy.logConsole.debug(`Loaded config ${recordId}`);
 
     return {
       ...record,
@@ -244,7 +253,9 @@ export class _SponsoredTopSitesScoreProvider {
   async getScores() {
     const scores = (await this._cache?.get(SCORES_CACHE_KEY)) ?? {};
     if (this._rs && !this._refreshPromise) {
-      this._refreshPromise = this._refreshScores()
+      // @ts-expect-error The locks global is not declared in tools/@types yet.
+      this._refreshPromise = locks
+        .request(SCORES_LOCK, () => this._refreshScores())
         .catch(e => lazy.logConsole.debug("Refresh failed", e))
         .finally(() => {
           this._refreshPromise = null;
@@ -264,20 +275,21 @@ export class _SponsoredTopSitesScoreProvider {
     if (!this._cache) {
       return;
     }
-    // Let a running refresh finish first so that it cannot write its scores
-    // back after they are cleared.
-    await this._refreshPromise;
-    const data = await this._cache.get();
-    const hasData =
-      Object.keys(data[SCORES_CACHE_KEY] ?? {}).length ||
-      data[HISTORY_CACHE_KEY]?.length;
-    if (!hasData && !this._getLastReleaseTime()) {
-      return;
-    }
+    // @ts-expect-error The locks global is not declared in tools/@types yet.
+    await locks.request(SCORES_LOCK, async () => {
+      const data = await this._cache.get();
+      const hasData =
+        Object.keys(data[SCORES_CACHE_KEY] ?? {}).length ||
+        data[HISTORY_CACHE_KEY]?.length;
+      if (!hasData && !this._getLastReleaseTime()) {
+        return;
+      }
 
-    this._setLastReleaseTime(Math.round(Date.now() / 1000));
-    await this._cache.set(SCORES_CACHE_KEY, {});
-    await this._cache.set(HISTORY_CACHE_KEY, []);
+      lazy.logConsole.debug("Clearing scores and score history");
+      this._setLastReleaseTime(Math.round(Date.now() / 1000));
+      await this._cache.set(SCORES_CACHE_KEY, {});
+      await this._cache.set(HISTORY_CACHE_KEY, []);
+    });
   }
 
   /**

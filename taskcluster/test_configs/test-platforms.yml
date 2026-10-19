@@ -574,6 +574,7 @@ android-hw-p6-13-0-aarch64-shippable/opt:
     test-sets:
         - android-hw-speedometer-tests
         - android-hw-power-tests
+        - android-hw-doh-tests
 
 android-hw-p6-13-0-aarch64-nightlyasrelease/opt:
     build-platform: android-aarch64-nightlyasrelease/opt

@@ -6,6 +6,10 @@ task-defaults:
     suite: awsy
     max-run-time: 7200
     use-python: system
+    use-caches:
+        by-test-platform:
+            windows.*: [checkout, pip]
+            default: [checkout, pip, uv]
     instance-size: xlarge-noscratch
     worker-type:
         by-test-platform:

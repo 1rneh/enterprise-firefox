@@ -7,6 +7,7 @@
 
 #include "js/TypeDecls.h"
 #include "mozilla/NotNull.h"
+#include "mozilla/Span.h"
 #include "mozilla/UniquePtr.h"
 #include "mozilla/dom/CSSMathSumBindingFwd.h"
 #include "mozilla/dom/CSSMathValueBindingFwd.h"
@@ -20,6 +21,8 @@ struct already_AddRefed;
 template <class T>
 class nsCOMPtr;
 class nsISupports;
+template <class T>
+class RefPtr;
 
 namespace mozilla {
 
@@ -179,6 +182,12 @@ class CSSNumericValue : public CSSStyleValue {
   // https://drafts.css-houdini.org/css-typed-om-1/#equal-numeric-value
   static bool EqualNumericValues(const CSSNumericValue& aValue1,
                                  const CSSNumericValue& aValue2);
+
+  static UniquePtr<StyleNumericType> AddTypes(
+      Span<const RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv);
+
+  static UniquePtr<StyleNumericType> MultiplyTypes(
+      Span<const RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv);
 
  protected:
   virtual ~CSSNumericValue() = default;

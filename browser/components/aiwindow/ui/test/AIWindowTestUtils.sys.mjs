@@ -16,7 +16,13 @@ import { sinon } from "resource://testing-common/Sinon.sys.mjs";
 import { MLTestUtils } from "resource://testing-common/MLTestUtils.sys.mjs";
 
 import { TestUtils } from "resource://testing-common/TestUtils.sys.mjs";
+import { Chat } from "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs";
 import { openAIEngine } from "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs";
+import {
+  MODEL_FEATURES,
+  PURPOSES,
+  SERVICE_TYPES,
+} from "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs";
 import { ExaSearchProvider } from "moz-src:///browser/components/aiwindow/models/search/SearchProviders.sys.mjs";
 import { MemoryStore } from "moz-src:///browser/components/aiwindow/services/MemoryStore.sys.mjs";
 import { embeddingsGeneratorFactory } from "chrome://global/content/ml/EmbeddingsGenerator.sys.mjs";
@@ -44,6 +50,24 @@ export function newConversation() {
   });
 }
 
+/**
+ * A conversation with a chat engine, ready for Chat.fetchWithHistory. Call it
+ * while a MockEngineManager is installed so the engine is a mocked one.
+ *
+ * @returns {Promise<ChatConversation>}
+ */
+export async function newChatConversation() {
+  const conversation = newConversation();
+  conversation.engine = await openAIEngine.build({
+    model: "test-model",
+    serviceType: SERVICE_TYPES.AI,
+    purpose: PURPOSES.CHAT,
+    flowId: null,
+    feature: MODEL_FEATURES.CHAT,
+  });
+  return conversation;
+}
+
 const testContext = {};
 
 function context() {
@@ -69,11 +93,40 @@ export class MockEngineManager {
   engines = new Map();
   /** @type {any[]} */
   mocks;
+  /**
+   * Aborts every chat turn started while the mocks are installed, so none can
+   * outlive them.
+   *
+   * @type {AbortController}
+   */
+  #abortController = new AbortController();
+  /**
+   * The chat turns still running.
+   *
+   * @type {Set<Promise<void>>}
+   */
+  #chatTurns = new Set();
+  #nextToolCallId = 0;
 
   /**
    * Install the mocks.
    */
   constructor() {
+    const fetchWithHistory = sinon
+      .stub(Chat, "fetchWithHistory")
+      .callsFake(options => {
+        const signal = options.signal
+          ? AbortSignal.any([options.signal, this.#abortController.signal])
+          : this.#abortController.signal;
+        const turn = fetchWithHistory.wrappedMethod.call(Chat, {
+          ...options,
+          signal,
+        });
+        const settle = () => this.#chatTurns.delete(turn);
+        turn.then(settle, settle);
+        this.#chatTurns.add(turn);
+        return turn;
+      });
     this.mocks = [
       sinon.stub(openAIEngine, "_createEngine").callsFake(options =>
         // When a new engine is requested create the mock one and track it in
@@ -84,7 +137,37 @@ export class MockEngineManager {
         )
       ),
       sinon.stub(openAIEngine, "getFxAccountToken").resolves("mock-fxa-token"),
+      fetchWithHistory,
     ];
+  }
+
+  /**
+   * Answer the pending chat request with a call to a tool, as `respondTo()`
+   * does with text.
+   *
+   * @param {object} options
+   * @param {string} options.toolName
+   * @param {object} options.toolParams - The arguments the model calls it with.
+   * @returns {Promise<string>} The tool call id, which the tool's result message
+   *   carries as `tool_call_id`.
+   */
+  async respondToWithToolCall({ toolName, toolParams }) {
+    const id = `${toolName}_${this.#nextToolCallId++}`;
+    await this.respondTo({
+      purpose: PURPOSES.CHAT,
+      response: {
+        text: "",
+        tokens: null,
+        isPrompt: false,
+        toolCalls: [
+          {
+            id,
+            function: { name: toolName, arguments: JSON.stringify(toolParams) },
+          },
+        ],
+      },
+    });
+    return id;
   }
 
   /**
@@ -159,10 +242,33 @@ export class MockEngineManager {
   }
 
   /**
-   * Reject all outstanding engine requests. This can help ensure that a test
-   * run is clean before asserting specific behavior.
+   * Reject all outstanding engine requests, and abort the chat turns still
+   * running, rejecting their requests until they finish. Await this before
+   * `cleanupMocks()`: a turn that outlived the mocks would build a real engine
+   * and reach the production endpoint.
    */
-  rejectAllRequests() {
+  async rejectAllRequests() {
+    this.#abortController.abort();
+    this.#rejectPendingRequests();
+    if (this.#chatTurns.size) {
+      let settled = false;
+      Promise.allSettled(this.#chatTurns).then(() => (settled = true));
+      // An aborted turn can still make one more request before it returns, so
+      // keep rejecting until every turn is done.
+      await TestUtils.waitForCondition(
+        () => {
+          this.#rejectPendingRequests();
+          return settled;
+        },
+        "The chat turns didn't finish after their requests were rejected",
+        100,
+        200
+      );
+    }
+    this.#abortController = new AbortController();
+  }
+
+  #rejectPendingRequests() {
     for (const [purpose, engine] of this.engines) {
       if (engine.runRequests.size) {
         dump(

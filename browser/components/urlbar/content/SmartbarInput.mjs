@@ -276,6 +276,7 @@ ${
   #popoverBlockerCount = 0;
   #popoverAnchorUpdateKey = {};
   #isAddressbar = false;
+  #navigationEnabled = false;
 
   /**
    * The container the popover anchors to, which also reserves the space the
@@ -433,6 +434,7 @@ ${
     );
     this.#isAddressbar = this.#sapName == "urlbar";
     this.#isSmartbarMode = this.#sapName == "smartbar";
+    this.#navigationEnabled = UrlbarShared.navigationEnabled(this.#sapName);
 
     this.appendChild(SmartbarInput.fragment);
 
@@ -765,11 +767,11 @@ ${
       this._initAutofillDismiss();
     }
     if (this.#isSmartbarMode) {
-      this._initPasteAndGo();
+      this.#initPasteAndGo();
       return;
     }
     this._initStripOnShare();
-    this._initPasteAndGo();
+    this.#initPasteAndGo();
     this.#initAddSearchEngines();
   }
 
@@ -5503,7 +5505,7 @@ ${
     this.value = clipboardText;
   }
 
-  _initPasteAndGo() {
+  #initPasteAndGo() {
     this.#addContextMenuItems({
       after: "edit-contextmenu-paste",
       createItems: () => {
@@ -5511,10 +5513,6 @@ ${
         let fragment = doc.createDocumentFragment();
         let pasteAndGo = doc.createXULElement("menuitem");
         pasteAndGo.id = "paste-and-go";
-        let label = Services.strings
-          .createBundle("chrome://browser/locale/browser.properties")
-          .GetStringFromName("pasteAndGo.label");
-        pasteAndGo.setAttribute("label", label);
         pasteAndGo.setAttribute("anonid", "paste-and-go");
         pasteAndGo.addEventListener("command", () => {
           this.suppressStartQuery();
@@ -5533,7 +5531,7 @@ ${
         fragment.appendChild(pasteAndGo);
         return fragment;
       },
-      onShowing: (input, [pasteAndGo]) => {
+      onShowing: async (input, [pasteAndGo]) => {
         // Close the results pane, because paste and go doesn't want a result
         // selection. This has to happen before the menu opens: ending
         // breakout-extend once it's open keeps it from showing (bug 2037468).
@@ -5556,11 +5554,29 @@ ${
           { once: true }
         );
 
-        if (this.#pasteAndGoEnabled()) {
-          pasteAndGo.removeAttribute("disabled");
-        } else {
-          pasteAndGo.setAttribute("disabled", "true");
+        let enabled = this.#pasteAndGoEnabled();
+        pasteAndGo.toggleAttribute("disabled", !enabled);
+        if (!enabled) {
+          return;
         }
+
+        let l10nId;
+        if (!this.#navigationEnabled || this.searchMode) {
+          l10nId = "urlbar-menuitem-paste-and-search";
+        } else if (!UrlbarShared.keywordEnabled(this.#sapName)) {
+          l10nId = "urlbar-menuitem-paste-and-go";
+        } else {
+          let text = await UrlbarContentUtils.getClipboardTextIfSmallerThan(
+            UrlbarShared.MAX_TEXT_LENGTH,
+            window
+          );
+          let fixup =
+            text && UrlbarContentUtils.getFixupPrimitives(text, this.isPrivate);
+          l10nId = fixup?.keywordAsSent
+            ? "urlbar-menuitem-paste-and-search"
+            : "urlbar-menuitem-paste-and-go";
+        }
+        pasteAndGo.ownerDocument.l10n.setAttributes(pasteAndGo, l10nId);
       },
     });
   }
@@ -6661,7 +6677,11 @@ ${
 
     lazy.ClipboardHelper.copyStringToClipboard(
       val,
-      Services.clipboard.kSelectionClipboard
+      Services.clipboard.kSelectionClipboard,
+      null,
+      this.isPrivate
+        ? Ci.nsIClipboardHelper.Sensitive
+        : Ci.nsIClipboardHelper.NotSensitive
     );
   }
 
@@ -6794,7 +6814,8 @@ ${
       options.searchMode = this.searchMode;
       if (
         this.searchMode.source &&
-        !UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode")
+        (!this.searchMode.engineName ||
+          !UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode"))
       ) {
         options.sources = [this.searchMode.source];
       }
@@ -7807,7 +7828,13 @@ class CopyCutController {
       urlbar.inputField.dispatchEvent(event);
     }
 
-    lazy.ClipboardHelper.copyString(val);
+    lazy.ClipboardHelper.copyString(
+      val,
+      null,
+      urlbar.isPrivate
+        ? Ci.nsIClipboardHelper.Sensitive
+        : Ci.nsIClipboardHelper.NotSensitive
+    );
   }
 
   /**

@@ -143,6 +143,8 @@ export class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
     this.droppedLinkHandler = null;
     this.mIconURL = null;
     this.lastURI = null;
+    /** @type {number} */
+    this.lastLocationChange;
 
     /**
      * @type {PopupAndRedirectBlocker}

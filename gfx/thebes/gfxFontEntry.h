@@ -10,6 +10,7 @@
 #include <limits>
 #include <utility>
 
+#include "MainThreadUtils.h"
 #include "ThebesRLBoxTypes.h"
 #include "gfxFontFeatures.h"
 #include "gfxFontUtils.h"
@@ -64,6 +65,10 @@ namespace fontlist {
 struct Face;
 struct Family;
 }  // namespace fontlist
+namespace gfx {
+class FontPalette;
+class PaletteCache;
+}  // namespace gfx
 }  // namespace mozilla
 
 typedef struct gr_face gr_face;
@@ -366,6 +371,10 @@ class gfxFontEntry {
 
   bool TryGetColorGlyphs();
 
+  already_AddRefed<mozilla::gfx::FontPalette> GetPalette(
+      nsAtom* aPaletteName,
+      mozilla::gfx::FontPaletteValueSet* aPaletteValueSet);
+
   bool HasColorBitmapTable() {
     LazyFlag flag = mHasColorBitmapTable;
     if (flag == LazyFlag::Uninitialized) {
@@ -619,8 +628,13 @@ class gfxFontEntry {
 
   mozilla::UniquePtr<gfxUserFontData> mUserFontData;
 
-  mozilla::Atomic<gfxSVGGlyphs*> mSVGGlyphs;
-  gfxSVGGlyphs* GetSVGGlyphs() const { return mSVGGlyphs; }
+  // SVG glyphs are only supported on the main thread, see TryGetSVGData.
+  mozilla::UniquePtr<gfxSVGGlyphs> mSVGGlyphs
+      MOZ_GUARDED_BY(mozilla::sMainThreadCapability);
+  gfxSVGGlyphs* GetSVGGlyphs() const {
+    mozilla::AssertIsOnMainThread();
+    return mSVGGlyphs.get();
+  }
 
   // list of gfxFonts that are using SVG glyphs
   nsTArray<const gfxFont*> mFontsUsingSVGGlyphs MOZ_GUARDED_BY(mLock);
@@ -638,6 +652,8 @@ class gfxFontEntry {
   mozilla::Atomic<hb_blob_t*> mCPAL;
   hb_blob_t* GetCOLR() const { return mCOLR; }
   hb_blob_t* GetCPAL() const { return mCPAL; }
+
+  mozilla::Atomic<mozilla::gfx::PaletteCache*> mPaletteCache;
 
   // bitvector of substitution space features per script, one each
   // for default and non-default features

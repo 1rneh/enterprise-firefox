@@ -49,6 +49,17 @@ ChromeUtils.defineLazyGetter(lazy, "ReferrerInfo", () =>
   )
 );
 
+// Badge variants for menu items. #setFeatureBadge maps each to its label's
+// l10n id; NEW additionally uses the filled `badge-new` style, BETA the
+// default outlined one.
+const BADGE_TYPE = {
+  NEW: "new",
+  BETA: "beta",
+};
+
+// Formatted badge labels, keyed by l10n id.
+const badgeL10nCache = new Map();
+
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "TEXT_RECOGNITION_ENABLED",
@@ -124,14 +135,6 @@ export class nsContextMenu {
    * @type {Promise<{sourceLanguage: string, targetLanguage: string}>}
    */
   #translationsLangPairPromise;
-
-  /**
-   * The value of the `main-context-menu-new-feature-badge` l10n string. Fetched
-   * lazily.
-   *
-   * @type {string}
-   */
-  #newFeatureBadgeL10nString;
 
   /**
    * Cancels the login lookup for this menu once the menu is gone, so that a
@@ -1424,12 +1427,16 @@ export class nsContextMenu {
 
     this.showItem("context-sep-screenshots", shouldShow);
     this.showItem("context-take-screenshot", shouldShow);
-    this.showItem(
-      "context-use-mini-window",
-      shouldShow &&
-        Services.prefs.getBoolPref("browser.mini-window.enabled", false) &&
-        !this.document.documentElement.hasAttribute("mini-window")
+
+    let miniWindowItem = this.document.getElementById(
+      "context-use-mini-window"
     );
+    let showMiniWindow =
+      shouldShow &&
+      Services.prefs.getBoolPref("browser.mini-window.enabled", false) &&
+      !this.document.documentElement.hasAttribute("mini-window");
+    this.showItem(miniWindowItem, showMiniWindow);
+    this.#setFeatureBadge(miniWindowItem, showMiniWindow, BADGE_TYPE.BETA);
   }
 
   initPasswordControlItems() {
@@ -1912,7 +1919,7 @@ export class nsContextMenu {
 
     this.actor
       .setAsDesktopBackground(this.targetIdentifier)
-      .then(({ failed, dataURL, imageName }) => {
+      .then(({ failed, dataURL }) => {
         if (failed) {
           return;
         }
@@ -1934,15 +1941,14 @@ export class nsContextMenu {
             "Shell:SetDesktopBackground"
           );
           if (dbWin) {
-            dbWin.gSetBackground.init(image, imageName);
+            dbWin.gSetBackground.init(image);
             dbWin.focus();
           } else {
             this.window.openDialog(
               kDesktopBackgroundURL,
               "",
               "centerscreen,chrome,dialog=no,dependent,resizable=no",
-              image,
-              imageName
+              image
             );
           }
         } else {
@@ -1951,8 +1957,7 @@ export class nsContextMenu {
             kDesktopBackgroundURL,
             "",
             "centerscreen,chrome,dialog,modal,dependent",
-            image,
-            imageName
+            image
           );
         }
       });
@@ -3013,7 +3018,7 @@ export class nsContextMenu {
           engine: visualSearchUrl.displayName || menuitem.engine.name,
         }
       );
-      this.#setNewFeatureBadge(menuitem, visualSearchUrl.isNew());
+      this.#setFeatureBadge(menuitem, visualSearchUrl.isNew(), BADGE_TYPE.NEW);
       lazy.BrowserSearchTelemetry.recordSapImpression(
         this.browser,
         menuitem.engine,
@@ -3061,36 +3066,54 @@ export class nsContextMenu {
 
   /**
    * Sets or removes the `badge` attribute on a menuitem. If it should be set,
-   * it will be set to the value of the `main-context-menu-new-feature-badge`
-   * l10n string. If the string has already been cached, the badge is set
-   * synchronously, so there won't be any visual pop-in. Otherwise the string is
-   * first fetched and cached, and then the badge is set asynchronously.
+   * it is set to the label for `type`. If that label has already been
+   * cached, the badge is set synchronously, so there won't be any visual
+   * pop-in. Otherwise the string is first fetched and cached, and then the
+   * badge is set asynchronously.
    *
    * This method is async but only for ease of implementation. It doesn't need
    * to be awaited unless you need to block until the badge is set.
    *
-   * @param {Element}
+   * @param {Element} menuitem
    *   The menuitem that should be badged.
+   * @param {boolean} shouldShow
+   *   Whether the badge should be shown.
+   * @param {"new" | "beta"} type
+   *   Which badge to show; picks both the label and the style.
    */
-  async #setNewFeatureBadge(menuitem, shouldShow) {
-    menuitem.classList.toggle("badge-new", shouldShow);
+  async #setFeatureBadge(menuitem, shouldShow, type) {
+    menuitem.classList.toggle(
+      "badge-new",
+      shouldShow && type === BADGE_TYPE.NEW
+    );
 
     if (!shouldShow) {
       menuitem.removeAttribute("badge");
       return;
     }
 
-    if (this.#newFeatureBadgeL10nString) {
-      menuitem.setAttribute("badge", this.#newFeatureBadgeL10nString);
+    let l10nId;
+    switch (type) {
+      case BADGE_TYPE.NEW:
+        l10nId = "main-context-menu-new-feature-badge";
+        break;
+      case BADGE_TYPE.BETA:
+        l10nId = "main-context-menu-beta-feature-badge";
+        break;
+      default:
+        throw new Error(`Unknown badge type: ${type}`);
+    }
+
+    let cached = badgeL10nCache.get(l10nId);
+    if (cached) {
+      menuitem.setAttribute("badge", cached);
       return;
     }
 
-    let value = await this.window.document.l10n.formatValue(
-      "main-context-menu-new-feature-badge"
-    );
+    let value = await this.window.document.l10n.formatValue(l10nId);
     if (value) {
-      this.#newFeatureBadgeL10nString = value;
-      this.#setNewFeatureBadge(menuitem, shouldShow);
+      badgeL10nCache.set(l10nId, value);
+      this.#setFeatureBadge(menuitem, shouldShow, type);
     }
   }
 }

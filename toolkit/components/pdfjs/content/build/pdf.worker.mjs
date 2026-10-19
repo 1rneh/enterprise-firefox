@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.152
- * pdfjsBuild = 0252c1f6c
+ * pdfjsVersion = 6.5.196
+ * pdfjsBuild = f73a6986d
  */
 
 ;// ./src/shared/util.js
@@ -9871,7 +9871,7 @@ class CCITTFaxStream extends DecodeStream {
 
 
 
-const codeLenCodeMap = new Int32Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
+const codeLenCodeMap = new Uint8Array([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
 const lengthDecode = new Int32Array([0x00003, 0x00004, 0x00005, 0x00006, 0x00007, 0x00008, 0x00009, 0x0000a, 0x1000b, 0x1000d, 0x1000f, 0x10011, 0x20013, 0x20017, 0x2001b, 0x2001f, 0x30023, 0x3002b, 0x30033, 0x3003b, 0x40043, 0x40053, 0x40063, 0x40073, 0x50083, 0x500a3, 0x500c3, 0x500e3, 0x00102, 0x00102, 0x00102]);
 const distDecode = new Int32Array([0x00001, 0x00002, 0x00003, 0x00004, 0x10005, 0x10007, 0x20009, 0x2000d, 0x30011, 0x30019, 0x40021, 0x40031, 0x50041, 0x50061, 0x60081, 0x600c1, 0x70101, 0x70181, 0x80201, 0x80301, 0x90401, 0x90601, 0xa0801, 0xa0c01, 0xb1001, 0xb1801, 0xc2001, 0xc3001, 0xd4001, 0xd6001]);
 const fixedLitCodeTab = [new Int32Array([0x70100, 0x80050, 0x80010, 0x80118, 0x70110, 0x80070, 0x80030, 0x900c0, 0x70108, 0x80060, 0x80020, 0x900a0, 0x80000, 0x80080, 0x80040, 0x900e0, 0x70104, 0x80058, 0x80018, 0x90090, 0x70114, 0x80078, 0x80038, 0x900d0, 0x7010c, 0x80068, 0x80028, 0x900b0, 0x80008, 0x80088, 0x80048, 0x900f0, 0x70102, 0x80054, 0x80014, 0x8011c, 0x70112, 0x80074, 0x80034, 0x900c8, 0x7010a, 0x80064, 0x80024, 0x900a8, 0x80004, 0x80084, 0x80044, 0x900e8, 0x70106, 0x8005c, 0x8001c, 0x90098, 0x70116, 0x8007c, 0x8003c, 0x900d8, 0x7010e, 0x8006c, 0x8002c, 0x900b8, 0x8000c, 0x8008c, 0x8004c, 0x900f8, 0x70101, 0x80052, 0x80012, 0x8011a, 0x70111, 0x80072, 0x80032, 0x900c4, 0x70109, 0x80062, 0x80022, 0x900a4, 0x80002, 0x80082, 0x80042, 0x900e4, 0x70105, 0x8005a, 0x8001a, 0x90094, 0x70115, 0x8007a, 0x8003a, 0x900d4, 0x7010d, 0x8006a, 0x8002a, 0x900b4, 0x8000a, 0x8008a, 0x8004a, 0x900f4, 0x70103, 0x80056, 0x80016, 0x8011e, 0x70113, 0x80076, 0x80036, 0x900cc, 0x7010b, 0x80066, 0x80026, 0x900ac, 0x80006, 0x80086, 0x80046, 0x900ec, 0x70107, 0x8005e, 0x8001e, 0x9009c, 0x70117, 0x8007e, 0x8003e, 0x900dc, 0x7010f, 0x8006e, 0x8002e, 0x900bc, 0x8000e, 0x8008e, 0x8004e, 0x900fc, 0x70100, 0x80051, 0x80011, 0x80119, 0x70110, 0x80071, 0x80031, 0x900c2, 0x70108, 0x80061, 0x80021, 0x900a2, 0x80001, 0x80081, 0x80041, 0x900e2, 0x70104, 0x80059, 0x80019, 0x90092, 0x70114, 0x80079, 0x80039, 0x900d2, 0x7010c, 0x80069, 0x80029, 0x900b2, 0x80009, 0x80089, 0x80049, 0x900f2, 0x70102, 0x80055, 0x80015, 0x8011d, 0x70112, 0x80075, 0x80035, 0x900ca, 0x7010a, 0x80065, 0x80025, 0x900aa, 0x80005, 0x80085, 0x80045, 0x900ea, 0x70106, 0x8005d, 0x8001d, 0x9009a, 0x70116, 0x8007d, 0x8003d, 0x900da, 0x7010e, 0x8006d, 0x8002d, 0x900ba, 0x8000d, 0x8008d, 0x8004d, 0x900fa, 0x70101, 0x80053, 0x80013, 0x8011b, 0x70111, 0x80073, 0x80033, 0x900c6, 0x70109, 0x80063, 0x80023, 0x900a6, 0x80003, 0x80083, 0x80043, 0x900e6, 0x70105, 0x8005b, 0x8001b, 0x90096, 0x70115, 0x8007b, 0x8003b, 0x900d6, 0x7010d, 0x8006b, 0x8002b, 0x900b6, 0x8000b, 0x8008b, 0x8004b, 0x900f6, 0x70103, 0x80057, 0x80017, 0x8011f, 0x70113, 0x80077, 0x80037, 0x900ce, 0x7010b, 0x80067, 0x80027, 0x900ae, 0x80007, 0x80087, 0x80047, 0x900ee, 0x70107, 0x8005f, 0x8001f, 0x9009e, 0x70117, 0x8007f, 0x8003f, 0x900de, 0x7010f, 0x8006f, 0x8002f, 0x900be, 0x8000f, 0x8008f, 0x8004f, 0x900fe, 0x70100, 0x80050, 0x80010, 0x80118, 0x70110, 0x80070, 0x80030, 0x900c1, 0x70108, 0x80060, 0x80020, 0x900a1, 0x80000, 0x80080, 0x80040, 0x900e1, 0x70104, 0x80058, 0x80018, 0x90091, 0x70114, 0x80078, 0x80038, 0x900d1, 0x7010c, 0x80068, 0x80028, 0x900b1, 0x80008, 0x80088, 0x80048, 0x900f1, 0x70102, 0x80054, 0x80014, 0x8011c, 0x70112, 0x80074, 0x80034, 0x900c9, 0x7010a, 0x80064, 0x80024, 0x900a9, 0x80004, 0x80084, 0x80044, 0x900e9, 0x70106, 0x8005c, 0x8001c, 0x90099, 0x70116, 0x8007c, 0x8003c, 0x900d9, 0x7010e, 0x8006c, 0x8002c, 0x900b9, 0x8000c, 0x8008c, 0x8004c, 0x900f9, 0x70101, 0x80052, 0x80012, 0x8011a, 0x70111, 0x80072, 0x80032, 0x900c5, 0x70109, 0x80062, 0x80022, 0x900a5, 0x80002, 0x80082, 0x80042, 0x900e5, 0x70105, 0x8005a, 0x8001a, 0x90095, 0x70115, 0x8007a, 0x8003a, 0x900d5, 0x7010d, 0x8006a, 0x8002a, 0x900b5, 0x8000a, 0x8008a, 0x8004a, 0x900f5, 0x70103, 0x80056, 0x80016, 0x8011e, 0x70113, 0x80076, 0x80036, 0x900cd, 0x7010b, 0x80066, 0x80026, 0x900ad, 0x80006, 0x80086, 0x80046, 0x900ed, 0x70107, 0x8005e, 0x8001e, 0x9009d, 0x70117, 0x8007e, 0x8003e, 0x900dd, 0x7010f, 0x8006e, 0x8002e, 0x900bd, 0x8000e, 0x8008e, 0x8004e, 0x900fd, 0x70100, 0x80051, 0x80011, 0x80119, 0x70110, 0x80071, 0x80031, 0x900c3, 0x70108, 0x80061, 0x80021, 0x900a3, 0x80001, 0x80081, 0x80041, 0x900e3, 0x70104, 0x80059, 0x80019, 0x90093, 0x70114, 0x80079, 0x80039, 0x900d3, 0x7010c, 0x80069, 0x80029, 0x900b3, 0x80009, 0x80089, 0x80049, 0x900f3, 0x70102, 0x80055, 0x80015, 0x8011d, 0x70112, 0x80075, 0x80035, 0x900cb, 0x7010a, 0x80065, 0x80025, 0x900ab, 0x80005, 0x80085, 0x80045, 0x900eb, 0x70106, 0x8005d, 0x8001d, 0x9009b, 0x70116, 0x8007d, 0x8003d, 0x900db, 0x7010e, 0x8006d, 0x8002d, 0x900bb, 0x8000d, 0x8008d, 0x8004d, 0x900fb, 0x70101, 0x80053, 0x80013, 0x8011b, 0x70111, 0x80073, 0x80033, 0x900c7, 0x70109, 0x80063, 0x80023, 0x900a7, 0x80003, 0x80083, 0x80043, 0x900e7, 0x70105, 0x8005b, 0x8001b, 0x90097, 0x70115, 0x8007b, 0x8003b, 0x900d7, 0x7010d, 0x8006b, 0x8002b, 0x900b7, 0x8000b, 0x8008b, 0x8004b, 0x900f7, 0x70103, 0x80057, 0x80017, 0x8011f, 0x70113, 0x80077, 0x80037, 0x900cf, 0x7010b, 0x80067, 0x80027, 0x900af, 0x80007, 0x80087, 0x80047, 0x900ef, 0x70107, 0x8005f, 0x8001f, 0x9009f, 0x70117, 0x8007f, 0x8003f, 0x900df, 0x7010f, 0x8006f, 0x8002f, 0x900bf, 0x8000f, 0x8008f, 0x8004f, 0x900ff]), 9];
@@ -29380,7 +29380,7 @@ function _evalUnaryConst(op, v) {
         return Number.isFinite(r) ? r : undefined;
       }
     case TOKEN.cvi:
-      return Math.trunc(v);
+      return Math.trunc(v) | 0;
     case TOKEN.cvr:
       return v;
     case TOKEN.not:
@@ -30762,7 +30762,11 @@ const wasm_compiler_OP = {
   f64_min: 0xa4,
   f64_max: 0xa5,
   f64_convert_i32_s: 0xb7,
-  f64_store: 0x39
+  f64_store: 0x39,
+  prefix_fc: 0xfc
+};
+const FC_OP = {
+  i32_trunc_sat_f64_u: 0x03
 };
 const FUNC_TYPE = 0x60;
 const F64 = 0x7c;
@@ -30902,6 +30906,18 @@ class PsWasmCompiler {
     this._code.push(wasm_compiler_OP.local_tee);
     this._emitULEB128(idx);
   }
+  _emitToInt32() {
+    const code = this._code;
+    const local = this._allocLocal();
+    code.push(wasm_compiler_OP.f64_trunc);
+    this._emitLocalTee(local);
+    this._emitLocalGet(local);
+    this._emitF64Const(2 ** -32);
+    code.push(wasm_compiler_OP.f64_mul, wasm_compiler_OP.f64_floor);
+    this._emitF64Const(2 ** 32);
+    code.push(wasm_compiler_OP.f64_mul, wasm_compiler_OP.f64_sub, wasm_compiler_OP.prefix_fc, FC_OP.i32_trunc_sat_f64_u);
+    this._releaseLocal(local);
+  }
   _compileNode(node) {
     if (node.shared) {
       const entry = this._sharedLocals.get(node);
@@ -30988,7 +31004,8 @@ class PsWasmCompiler {
         if (!this._compileNode(node.operand)) {
           return false;
         }
-        code.push(wasm_compiler_OP.i32_trunc_f64_s, wasm_compiler_OP.i32_const, 0x7f, wasm_compiler_OP.i32_xor, wasm_compiler_OP.f64_convert_i32_s);
+        this._emitToInt32();
+        code.push(wasm_compiler_OP.i32_const, 0x7f, wasm_compiler_OP.i32_xor, wasm_compiler_OP.f64_convert_i32_s);
         return true;
       }
       return false;
@@ -31020,7 +31037,8 @@ class PsWasmCompiler {
         code.push(wasm_compiler_OP.f64_trunc);
         break;
       case TOKEN.cvi:
-        code.push(wasm_compiler_OP.i32_trunc_f64_s, wasm_compiler_OP.f64_convert_i32_s);
+        this._emitToInt32();
+        code.push(wasm_compiler_OP.f64_convert_i32_s);
         break;
       case TOKEN.cvr:
         break;
@@ -31078,7 +31096,7 @@ class PsWasmCompiler {
       return false;
     }
     const code = this._code;
-    code.push(wasm_compiler_OP.i32_trunc_f64_s);
+    this._emitToInt32();
     const shift = first.value;
     if (shift > 0) {
       code.push(wasm_compiler_OP.i32_const);
@@ -31187,7 +31205,7 @@ class PsWasmCompiler {
     if (!this._compileNode(node)) {
       return false;
     }
-    this._code.push(wasm_compiler_OP.i32_trunc_f64_s);
+    this._emitToInt32();
     return true;
   }
   _compileStandardBinaryNode(op, first, second) {
@@ -54297,13 +54315,13 @@ class WidgetAnnotation extends Annotation {
       const savedDefaultAppearance = Object.assign(Object.create(null), this.data.defaultAppearanceData);
       this.data.defaultAppearanceData.fontSize = 0;
       this.data.defaultAppearanceData.fontName = fontName;
-      [defaultAppearance, fontSize, lineHeight] = this._computeFontSize(totalHeight - 2 * defaultPadding, totalWidth - 2 * defaultHPadding, value, font, lineCount);
+      [defaultAppearance, fontSize, lineHeight] = this._computeFontSize(totalHeight - 2 * defaultPadding, totalWidth - 2 * defaultHPadding, value, font, lineCount, totalWidth - defaultHPadding);
       this.data.defaultAppearanceData = savedDefaultAppearance;
     } else {
       if (!this._isOffscreenCanvasSupported) {
         warn("_getAppearance: OffscreenCanvas is not supported, annotation may not render correctly.");
       }
-      [defaultAppearance, fontSize, lineHeight] = this._computeFontSize(totalHeight - 2 * defaultPadding, totalWidth - 2 * defaultHPadding, value, font, lineCount);
+      [defaultAppearance, fontSize, lineHeight] = this._computeFontSize(totalHeight - 2 * defaultPadding, totalWidth - 2 * defaultHPadding, value, font, lineCount, totalWidth - defaultHPadding);
     }
     let descent = font.descent;
     if (isNaN(descent)) {
@@ -54358,7 +54376,7 @@ class WidgetAnnotation extends Annotation {
   _getTextWidth(text, font) {
     return Math.sumPrecise(font.charsToGlyphs(text).map(g => g.width)) / 1000;
   }
-  _computeFontSize(height, width, text, font, lineCount) {
+  _computeFontSize(height, width, text, font, lineCount, maxWidth) {
     let {
       fontSize
     } = this.data.defaultAppearanceData;
@@ -54386,7 +54404,7 @@ class WidgetAnnotation extends Annotation {
         const isTooBig = fsize => {
           let totalHeight = 0;
           for (const cache of cachedLines) {
-            const chunks = this._splitLine(null, font, fsize, width, cache);
+            const chunks = this._splitLine(null, font, fsize, width, maxWidth, cache);
             totalHeight += chunks.length * fsize;
             if (totalHeight > height) {
               return true;
@@ -54612,25 +54630,29 @@ class TextWidgetAnnotation extends WidgetAnnotation {
     };
     for (let i = 0, ii = lines.length; i < ii; i++) {
       const line = lines[i];
-      const chunks = this._splitLine(line, font, fontSize, totalWidth);
+      const chunks = this._splitLine(line, font, fontSize, totalWidth, width - hPadding);
+      const padding = chunks.length === 1 && this._getTextWidth(line, font) * fontSize > totalWidth ? hPadding / 2 : hPadding;
       for (let j = 0, jj = chunks.length; j < jj; j++) {
         const chunk = chunks[j];
         const vShift = i === 0 && j === 0 ? -vPadding - (lineHeight - descent) : -lineHeight;
-        buf.push(this._renderText(chunk, font, fontSize, width, alignment, prevInfo, hPadding, vShift));
+        buf.push(this._renderText(chunk, font, fontSize, width, alignment, prevInfo, padding, vShift));
       }
     }
     const colors = this.getBorderAndBackgroundAppearances(annotationStorage);
     const renderedText = buf.join("\n");
     return `/Tx BMC q ${colors}BT ` + defaultAppearance + ` 1 0 0 1 0 ${numberToString(height)} Tm ${renderedText}` + " ET Q EMC";
   }
-  _splitLine(line, font, fontSize, width, cache = {}) {
+  _splitLine(line, font, fontSize, width, maxWidth, cache = {}) {
     line = cache.line || line;
     const glyphs = cache.glyphs || font.charsToGlyphs(line);
     if (glyphs.length <= 1) {
       return [line];
     }
-    const positions = cache.positions || font.getCharPositions(line);
     const scale = fontSize / 1000;
+    if (Math.sumPrecise(glyphs.map(g => g.width)) * scale <= maxWidth) {
+      return [line];
+    }
+    const positions = cache.positions || font.getCharPositions(line);
     const chunks = [];
     let lastSpacePosInStringStart = -1,
       lastSpacePosInStringEnd = -1,
@@ -56715,7 +56737,8 @@ function calculateMD5(data, offset, length) {
     h2 = -1732584194,
     h3 = 271733878;
   const paddedLength = length + 72 & ~63;
-  const padded = new Uint8Array(paddedLength);
+  const padded = new Uint8Array(paddedLength),
+    view = new DataView(padded.buffer);
   let i, j;
   for (i = 0; i < length; ++i) {
     padded[i] = data[offset++];
@@ -56725,11 +56748,11 @@ function calculateMD5(data, offset, length) {
   if (i < n) {
     i = n;
   }
-  padded[i++] = length << 3 & 0xff;
-  padded[i++] = length >> 5 & 0xff;
-  padded[i++] = length >> 13 & 0xff;
-  padded[i++] = length >> 21 & 0xff;
-  padded[i++] = length >>> 29 & 0xff;
+  padded[i++] = length << 3;
+  padded[i++] = length >> 5;
+  padded[i++] = length >> 13;
+  padded[i++] = length >> 21;
+  padded[i++] = length >>> 29;
   i += 3;
   const w = new Int32Array(16);
   const {
@@ -56738,7 +56761,7 @@ function calculateMD5(data, offset, length) {
   } = PARAMS;
   for (i = 0; i < paddedLength;) {
     for (j = 0; j < 16; ++j, i += 4) {
-      w[j] = padded[i] | padded[i + 1] << 8 | padded[i + 2] << 16 | padded[i + 3] << 24;
+      w[j] = view.getInt32(i, true);
     }
     let a = h0,
       b = h1,
@@ -56773,7 +56796,7 @@ function calculateMD5(data, offset, length) {
     h2 = h2 + c | 0;
     h3 = h3 + d | 0;
   }
-  return new Uint8Array([h0 & 0xFF, h0 >> 8 & 0xFF, h0 >> 16 & 0xFF, h0 >>> 24 & 0xFF, h1 & 0xFF, h1 >> 8 & 0xFF, h1 >> 16 & 0xFF, h1 >>> 24 & 0xFF, h2 & 0xFF, h2 >> 8 & 0xFF, h2 >> 16 & 0xFF, h2 >>> 24 & 0xFF, h3 & 0xFF, h3 >> 8 & 0xFF, h3 >> 16 & 0xFF, h3 >>> 24 & 0xFF]);
+  return new Uint8Array([h0, h0 >> 8, h0 >> 16, h0 >>> 24, h1, h1 >> 8, h1 >> 16, h1 >>> 24, h2, h2 >> 8, h2 >> 16, h2 >>> 24, h3, h3 >> 8, h3 >> 16, h3 >>> 24]);
 }
 
 ;// ./src/core/dataset_reader.js
@@ -57029,15 +57052,9 @@ class Word64 {
     this.low = lowAdd | 0;
     this.high = highAdd | 0;
   }
-  copyTo(bytes, offset) {
-    bytes[offset] = this.high >>> 24 & 0xff;
-    bytes[offset + 1] = this.high >> 16 & 0xff;
-    bytes[offset + 2] = this.high >> 8 & 0xff;
-    bytes[offset + 3] = this.high & 0xff;
-    bytes[offset + 4] = this.low >>> 24 & 0xff;
-    bytes[offset + 5] = this.low >> 16 & 0xff;
-    bytes[offset + 6] = this.low >> 8 & 0xff;
-    bytes[offset + 7] = this.low & 0xff;
+  copyTo(view, offset) {
+    view.setUint32(offset, this.high);
+    view.setUint32(offset + 4, this.low);
   }
   assign(word) {
     this.high = word.high;
@@ -57129,7 +57146,8 @@ function calculateSHA512(data, offset, length, mode384 = false) {
     h7 = new Word64(0x47b5481d, 0xbefa4fa4);
   }
   const paddedLength = Math.ceil((length + 17) / 128) * 128;
-  const padded = new Uint8Array(paddedLength);
+  const padded = new Uint8Array(paddedLength),
+    view = new DataView(padded.buffer);
   let i, j;
   for (i = 0; i < length; ++i) {
     padded[i] = data[offset++];
@@ -57140,11 +57158,11 @@ function calculateSHA512(data, offset, length, mode384 = false) {
     i = n;
   }
   i += 11;
-  padded[i++] = length >>> 29 & 0xff;
-  padded[i++] = length >> 21 & 0xff;
-  padded[i++] = length >> 13 & 0xff;
-  padded[i++] = length >> 5 & 0xff;
-  padded[i++] = length << 3 & 0xff;
+  padded[i++] = length >>> 29;
+  padded[i++] = length >> 21;
+  padded[i++] = length >> 13;
+  padded[i++] = length >> 5;
+  padded[i++] = length << 3;
   const w = new Array(80);
   for (i = 0; i < 80; i++) {
     w[i] = new Word64(0, 0);
@@ -57166,10 +57184,9 @@ function calculateSHA512(data, offset, length, mode384 = false) {
     tmp2 = new Word64(0, 0);
   let tmp3;
   for (i = 0; i < paddedLength;) {
-    for (j = 0; j < 16; ++j) {
-      w[j].high = padded[i] << 24 | padded[i + 1] << 16 | padded[i + 2] << 8 | padded[i + 3];
-      w[j].low = padded[i + 4] << 24 | padded[i + 5] << 16 | padded[i + 6] << 8 | padded[i + 7];
-      i += 8;
+    for (j = 0; j < 16; ++j, i += 8) {
+      w[j].high = view.getInt32(i);
+      w[j].low = view.getInt32(i + 4);
     }
     for (j = 16; j < 80; ++j) {
       tmp3 = w[j];
@@ -57223,22 +57240,24 @@ function calculateSHA512(data, offset, length, mode384 = false) {
   let result;
   if (!mode384) {
     result = new Uint8Array(64);
-    h0.copyTo(result, 0);
-    h1.copyTo(result, 8);
-    h2.copyTo(result, 16);
-    h3.copyTo(result, 24);
-    h4.copyTo(result, 32);
-    h5.copyTo(result, 40);
-    h6.copyTo(result, 48);
-    h7.copyTo(result, 56);
+    const dv = new DataView(result.buffer);
+    h0.copyTo(dv, 0);
+    h1.copyTo(dv, 8);
+    h2.copyTo(dv, 16);
+    h3.copyTo(dv, 24);
+    h4.copyTo(dv, 32);
+    h5.copyTo(dv, 40);
+    h6.copyTo(dv, 48);
+    h7.copyTo(dv, 56);
   } else {
     result = new Uint8Array(48);
-    h0.copyTo(result, 0);
-    h1.copyTo(result, 8);
-    h2.copyTo(result, 16);
-    h3.copyTo(result, 24);
-    h4.copyTo(result, 32);
-    h5.copyTo(result, 40);
+    const dv = new DataView(result.buffer);
+    h0.copyTo(dv, 0);
+    h1.copyTo(dv, 8);
+    h2.copyTo(dv, 16);
+    h3.copyTo(dv, 24);
+    h4.copyTo(dv, 32);
+    h5.copyTo(dv, 40);
   }
   return result;
 }
@@ -57284,7 +57303,8 @@ function calculateSHA256(data, offset, length) {
     h6 = 0x1f83d9ab,
     h7 = 0x5be0cd19;
   const paddedLength = Math.ceil((length + 9) / 64) * 64;
-  const padded = new Uint8Array(paddedLength);
+  const padded = new Uint8Array(paddedLength),
+    view = new DataView(padded.buffer);
   let i, j;
   for (i = 0; i < length; ++i) {
     padded[i] = data[offset++];
@@ -57295,19 +57315,18 @@ function calculateSHA256(data, offset, length) {
     i = n;
   }
   i += 3;
-  padded[i++] = length >>> 29 & 0xff;
-  padded[i++] = length >> 21 & 0xff;
-  padded[i++] = length >> 13 & 0xff;
-  padded[i++] = length >> 5 & 0xff;
-  padded[i++] = length << 3 & 0xff;
+  padded[i++] = length >>> 29;
+  padded[i++] = length >> 21;
+  padded[i++] = length >> 13;
+  padded[i++] = length >> 5;
+  padded[i++] = length << 3;
   const w = new Uint32Array(64);
   const {
     k
   } = calculate_sha256_PARAMS;
   for (i = 0; i < paddedLength;) {
-    for (j = 0; j < 16; ++j) {
-      w[j] = padded[i] << 24 | padded[i + 1] << 16 | padded[i + 2] << 8 | padded[i + 3];
-      i += 4;
+    for (j = 0; j < 16; ++j, i += 4) {
+      w[j] = view.getInt32(i);
     }
     for (j = 16; j < 64; ++j) {
       w[j] = calculate_sha256_littleSigmaPrime(w[j - 2]) + w[j - 7] + calculate_sha256_littleSigma(w[j - 15]) + w[j - 16] | 0;
@@ -57343,7 +57362,7 @@ function calculateSHA256(data, offset, length) {
     h6 = h6 + g | 0;
     h7 = h7 + h | 0;
   }
-  return new Uint8Array([h0 >> 24 & 0xFF, h0 >> 16 & 0xFF, h0 >> 8 & 0xFF, h0 & 0xFF, h1 >> 24 & 0xFF, h1 >> 16 & 0xFF, h1 >> 8 & 0xFF, h1 & 0xFF, h2 >> 24 & 0xFF, h2 >> 16 & 0xFF, h2 >> 8 & 0xFF, h2 & 0xFF, h3 >> 24 & 0xFF, h3 >> 16 & 0xFF, h3 >> 8 & 0xFF, h3 & 0xFF, h4 >> 24 & 0xFF, h4 >> 16 & 0xFF, h4 >> 8 & 0xFF, h4 & 0xFF, h5 >> 24 & 0xFF, h5 >> 16 & 0xFF, h5 >> 8 & 0xFF, h5 & 0xFF, h6 >> 24 & 0xFF, h6 >> 16 & 0xFF, h6 >> 8 & 0xFF, h6 & 0xFF, h7 >> 24 & 0xFF, h7 >> 16 & 0xFF, h7 >> 8 & 0xFF, h7 & 0xFF]);
+  return new Uint8Array([h0 >> 24, h0 >> 16, h0 >> 8, h0, h1 >> 24, h1 >> 16, h1 >> 8, h1, h2 >> 24, h2 >> 16, h2 >> 8, h2, h3 >> 24, h3 >> 16, h3 >> 8, h3, h4 >> 24, h4 >> 16, h4 >> 8, h4, h5 >> 24, h5 >> 16, h5 >> 8, h5, h6 >> 24, h6 >> 16, h6 >> 8, h6, h7 >> 24, h7 >> 16, h7 >> 8, h7]);
 }
 
 ;// ./src/core/decrypt_stream.js
@@ -57884,8 +57903,7 @@ class CipherTransform {
     return this.#cipherCache.getOrInsertComputed(key, () => this.resolveCipher(filterName));
   }
   createStream(stream, length, cryptFilterName = null) {
-    const defaultFilterName = this.embeddedFilterName && isDict(stream.dict, "EmbeddedFile") ? this.embeddedFilterName : this.streamFilterName;
-    const Cipher = this.#getCipher(cryptFilterName || defaultFilterName);
+    const Cipher = this.#getCipher(cryptFilterName || this.#getStreamFilterName(stream.dict));
     const cipher = new Cipher();
     return new DecryptStream(stream, length, function cipherTransformDecryptStream(data, finalize) {
       return cipher.decryptBlock(data, finalize);
@@ -57899,7 +57917,16 @@ class CipherTransform {
     return bytesToString(data);
   }
   encryptString(s) {
-    const Cipher = this.#getCipher(this.stringFilterName);
+    return this.#encrypt(s, this.stringFilterName);
+  }
+  encryptStream(s, dict, cryptFilterName = null) {
+    return this.#encrypt(s, cryptFilterName || this.#getStreamFilterName(dict));
+  }
+  #getStreamFilterName(dict) {
+    return this.embeddedFilterName && isDict(dict, "EmbeddedFile") ? this.embeddedFilterName : this.streamFilterName;
+  }
+  #encrypt(s, filterName) {
+    const Cipher = this.#getCipher(filterName);
     const cipher = new Cipher();
     if (cipher instanceof AESBaseCipher) {
       const strLen = s.length;
@@ -58118,7 +58145,7 @@ class CipherTransformFactory {
     const flags = dict.get("P");
     const revision = dict.get("R");
     const encryptMetadata = (algorithm === 4 || algorithm === 5) && dict.get("EncryptMetadata") !== false;
-    this.encryptMetadata = encryptMetadata;
+    this.encryptMetadata = encryptMetadata || algorithm !== 4 && algorithm !== 5;
     const fileIdBytes = stringToBytes(fileId);
     let passwordBytes, rawPasswordBytes;
     if (password) {
@@ -59188,24 +59215,34 @@ class Page {
         }
         continue;
       }
-      if (annotation.popup?.deleted) {
-        const popupRef = Ref.fromString(annotation.popupRef);
-        if (popupRef) {
+      const {
+        popup
+      } = annotation;
+      const popupRef = popup && Ref.fromString(annotation.popupRef);
+      if (popupRef) {
+        if (popup.deleted) {
           deletedAnnotations.put(popupRef);
+        } else {
+          existingAnnotations?.put(popupRef);
+          popup.ref = popupRef;
+          promises.push(this.#fetchOldAnnotation(popup, popupRef));
         }
       }
       existingAnnotations?.put(ref);
       annotation.ref = ref;
-      promises.push(this.xref.fetchAsync(ref).then(obj => {
-        if (obj instanceof Dict) {
-          annotation.oldAnnotation = obj.clone();
-        }
-      }, () => {
-        warn(`Cannot fetch \`oldAnnotation\` for: ${ref}.`);
-      }));
+      promises.push(this.#fetchOldAnnotation(annotation, ref));
       delete annotation.id;
     }
     await Promise.all(promises);
+  }
+  #fetchOldAnnotation(annotation, ref) {
+    return this.xref.fetchAsync(ref).then(obj => {
+      if (obj instanceof Dict) {
+        annotation.oldAnnotation = obj.clone();
+      }
+    }, () => {
+      warn(`Cannot fetch \`oldAnnotation\` for: ${ref}.`);
+    });
   }
   async saveNewAnnotations(handler, task, annotations, imagePromises, changes) {
     if (this.xfaFactory) {
@@ -61330,13 +61367,37 @@ async function writeStream(stream, buffer, transform) {
   const {
     dict
   } = stream;
-  const [filter, params] = await Promise.all([dict.getAsync("Filter"), dict.getAsync("DecodeParms")]);
-  const filterZero = Array.isArray(filter) ? await dict.xref.fetchIfRefAsync(filter[0]) : filter;
+  let [filter, params] = await Promise.all([dict.getAsync("Filter"), dict.getAsync("DecodeParms")]);
+  const filters = Array.isArray(filter) ? await Promise.all(filter.map(f => dict.xref.fetchIfRefAsync(f))) : [filter];
+  let cryptFilterName = null;
+  const cryptFilterIndex = filters.findIndex(f => isName(f, "Crypt"));
+  if (cryptFilterIndex !== -1) {
+    if (transform) {
+      const cryptParams = Array.isArray(params) ? await dict.xref.fetchIfRefAsync(params[cryptFilterIndex]) : params;
+      const name = cryptParams instanceof Dict ? cryptParams.get("Name") : null;
+      cryptFilterName = name instanceof Name ? name : Name.get("Identity");
+    } else {
+      filters.splice(cryptFilterIndex, 1);
+      if (filters.length === 0) {
+        filter = params = undefined;
+        dict.delete("Filter");
+        dict.delete("DecodeParms");
+      } else {
+        filter = filter.toSpliced(cryptFilterIndex, 1);
+        dict.set("Filter", filter);
+        if (Array.isArray(params)) {
+          params = params.toSpliced(cryptFilterIndex, 1);
+          dict.set("DecodeParms", params);
+        }
+      }
+    }
+  }
+  const filterZero = filters[0];
   const isFilterZeroFlateDecode = isName(filterZero, "FlateDecode");
   const isFilterZeroImageDecode = isName(filterZero, "DCTDecode") || isName(filterZero, "JPXDecode") || isName(filterZero, "JBIG2Decode") || isName(filterZero, "CCITTFaxDecode") || isName(filterZero, "LZWDecode");
   const isFilterZeroCompressedObject = isFilterZeroFlateDecode || isFilterZeroImageDecode || isName(filterZero, "BrotliDecode");
   const MIN_LENGTH_FOR_COMPRESSING = 256;
-  if (!isFilterZeroCompressedObject && bytes.length >= MIN_LENGTH_FOR_COMPRESSING) {
+  if (!isFilterZeroCompressedObject && !cryptFilterName && bytes.length >= MIN_LENGTH_FOR_COMPRESSING) {
     try {
       const cs = new CompressionStream("deflate");
       const writer = cs.writable.getWriter();
@@ -61367,7 +61428,7 @@ async function writeStream(stream, buffer, transform) {
   }
   let string = bytesToString(bytes);
   if (transform) {
-    string = transform.encryptString(string);
+    string = transform.encryptStream(string, dict, cryptFilterName);
   }
   dict.set("Length", string.length);
   await writeDict(dict, buffer, transform);
@@ -64377,7 +64438,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.5.152";
+    const workerVersion = "6.5.196";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match the Worker version "${workerVersion}".`);
     }

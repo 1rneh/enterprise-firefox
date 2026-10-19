@@ -94,7 +94,7 @@ class Http3SessionStub final : public Http3SessionBase {
 
   nsresult ExportWebTransportKeyingMaterial(
       uint64_t aSessionId, const nsTArray<uint8_t>& aLabel,
-      const nsTArray<uint8_t>& aContext,
+      const nsTArray<uint8_t>& aContext, uint32_t aOutputLength,
       nsTArray<uint8_t>& aKeyingMaterial) override {
     return NS_OK;
   }
@@ -119,7 +119,7 @@ class Http3SessionStub final : public Http3SessionBase {
                                uint64_t aErrorCode) override {}
 
   void StreamStopSending(Http3WebTransportStream* aStream,
-                         uint8_t aErrorCode) override {}
+                         uint64_t aErrorCode) override {}
 
   void SetSendOrder(Http3StreamBase* aStream, int64_t aSendOrder) override {}
 

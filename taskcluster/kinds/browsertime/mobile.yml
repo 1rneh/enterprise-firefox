@@ -620,6 +620,24 @@ browsertime-trr-performance-m:
     tier: 3
     treeherder-symbol: Btime(trrperfm)
 
+browsertime-doh-busy-site-m:
+    raptor:
+        apps: [fenix]
+        run-visual-metrics: false
+        subtests:
+            - busydoh
+    description: Raptor (browsertime) DoH lookup timings while replaying recorded news-site request timelines, mobile
+    limit-platforms:
+        - .*shippable.*
+    max-run-time: 900
+    mozharness:
+        extra-options:
+            - --browsertime-no-ffwindowrecorder
+            - --extra-profiler-run
+    run-on-projects: []
+    tier: 3
+    treeherder-symbol: Btime(dohbusym)
+
 browsertime-hev3-connection-m:
     raptor:
         apps: [fenix, chrome-m]

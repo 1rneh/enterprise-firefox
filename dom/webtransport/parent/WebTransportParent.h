@@ -37,10 +37,11 @@ class WebTransportParent : public PWebTransportParent,
               const bool& aRequireUnreliable,
               const uint32_t& aCongestionControl,
               nsTArray<nsString>&& aProtocols,
+              nsTArray<WebTransportHeader>&& aHeaders,
               nsTArray<WebTransportHash>&& aServerCertHashes,
               Endpoint<PWebTransportParent>&& aParentEndpoint,
-              std::function<void(std::tuple<const nsresult&, const uint8_t&>)>&&
-                  aResolver);
+              std::function<void(std::tuple<const nsresult&, const uint8_t&,
+                                            const uint64_t&>)>&& aResolver);
 
   IPCResult RecvClose(const uint32_t& aCode, const nsACString& aReason,
                       CloseResolver&& aResolver);
@@ -52,7 +53,8 @@ class WebTransportParent : public PWebTransportParent,
   IPCResult RecvCreateSendGroup(uint64_t aGroupId);
 
   IPCResult RecvExportKeyingMaterial(nsTArray<uint8_t>&& aLabel,
-                                     Maybe<nsTArray<uint8_t>>&& aContext,
+                                     nsTArray<uint8_t>&& aContext,
+                                     uint32_t aOutputLength,
                                      ExportKeyingMaterialResolver&& aResolver);
 
   IPCResult RecvGetStats(GetStatsResolver&& aResolver);
@@ -75,19 +77,31 @@ class WebTransportParent : public PWebTransportParent,
   ::mozilla::ipc::IPCResult RecvGetHttpChannelID(
       GetHttpChannelIDResolver&& aResolver);
 
+  // Drops the callback-map entries of a peer-opened stream whose pipes have
+  // all finished copying.
+  void RemoveFinishedIncomingStream(uint64_t aStreamId);
+
   void ActorDestroy(ActorDestroyReason aWhy) override;
 
   class OnResetOrStopSendingCallback final {
    public:
+    // aStopSending, if given, handles STOP_SENDING, which only concerns the
+    // send half of a bidirectional stream; aCallback handles the rest.
     explicit OnResetOrStopSendingCallback(
-        std::function<void(nsresult)>&& aCallback)
-        : mCallback(std::move(aCallback)) {}
+        std::function<void(nsresult)>&& aCallback,
+        std::function<void(nsresult)>&& aStopSending = nullptr)
+        : mCallback(std::move(aCallback)),
+          mStopSending(std::move(aStopSending)) {}
     ~OnResetOrStopSendingCallback() = default;
 
     void OnResetOrStopSending(nsresult aError) { mCallback(aError); }
+    void OnStopSending(nsresult aError) {
+      (mStopSending ? mStopSending : mCallback)(aError);
+    }
 
    private:
     std::function<void(nsresult)> mCallback;
+    std::function<void(nsresult)> mStopSending;
   };
 
  protected:
@@ -102,9 +116,22 @@ class WebTransportParent : public PWebTransportParent,
   // called on the socket thread.
   void ResolvePendingGetStats(const Maybe<WebTransportStatsData>& aStats);
 
-  using ResolveType = std::tuple<const nsresult&, const uint8_t&>;
+  // Closes the session for a child that went away without Close().  Must be
+  // called on the socket thread after mWebTransport has been retargeted there.
+  void CloseSessionForDestroyedActor();
+
+  using ResolveType =
+      std::tuple<const nsresult&, const uint8_t&, const uint64_t&>;
+
+  static void CallResolver(std::function<void(ResolveType)>& aFn, nsresult aRv,
+                           uint8_t aReliability, uint64_t aMaxDatagramSize) {
+    aFn(ResolveType(aRv, aReliability, aMaxDatagramSize));
+  }
   nsCOMPtr<nsISerialEventTarget> mSocketThread;
   Atomic<bool> mSessionReady{false};
+  // Set once mWebTransport has been retargeted to the socket thread.  Socket
+  // thread only.
+  bool mRetargeted = false;
   uint64_t mSessionId{0};
 
   mozilla::Mutex mMutex{"WebTransportParent::mMutex"};
@@ -114,6 +141,7 @@ class WebTransportParent : public PWebTransportParent,
   std::function<void()> mExecuteAfterResolverCallback MOZ_GUARDED_BY(mMutex);
   OutgoingDatagramResolver mOutgoingDatagramResolver;
   GetMaxDatagramSizeResolver mMaxDatagramSizeResolver;
+  uint64_t mMaxDatagramSizeValue{0};
   // Resolvers for in-flight GetStats() requests; only one gather runs at a
   // time, so concurrent calls share it. Socket thread only; drained via
   // ResolvePendingGetStats().
@@ -128,6 +156,9 @@ class WebTransportParent : public PWebTransportParent,
   struct StreamHash {
     OnResetOrStopSendingCallback mCallback;
     nsCOMPtr<T> mStream;
+    // Bidirectional streams only: the entry is removed once both are set.
+    bool mResetReceived = false;
+    bool mStopSendingReceived = false;
   };
   nsTHashMap<NoMemMoveKey<nsUint64HashKey>,
              StreamHash<nsIWebTransportBidirectionalStream>>
@@ -135,6 +166,13 @@ class WebTransportParent : public PWebTransportParent,
   nsTHashMap<NoMemMoveKey<nsUint64HashKey>,
              StreamHash<nsIWebTransportSendStream>>
       mUniStreamCallbackMap;
+  // Incoming (receive-only) unidirectional streams: tracked separately from
+  // mUniStreamCallbackMap (which holds outgoing send streams) so
+  // RecvStopSendingStream() can find the stream a cancel() on the DOM side
+  // targets and call its own sendStopSending().
+  nsTHashMap<NoMemMoveKey<nsUint64HashKey>,
+             StreamHash<nsIWebTransportReceiveStream>>
+      mIncomingUniStreamCallbackMap;
 };
 
 }  // namespace mozilla::dom

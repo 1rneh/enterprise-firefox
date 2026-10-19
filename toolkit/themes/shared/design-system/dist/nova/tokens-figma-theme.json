@@ -559,6 +559,11 @@
     "dark": "{Theme$toolbarbutton/outline/color/active}",
     "forcedColors": "{Theme$toolbarbutton/outline/color/active}"
   },
+  "toolbarbutton/outline/color/disabled": {
+    "light": "transparent",
+    "dark": "transparent",
+    "forcedColors": "{Theme$button/border/color/disabled}"
+  },
   "toolbarbutton/outline/color/hover": {
     "light": "transparent",
     "dark": "transparent",

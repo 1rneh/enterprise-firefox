@@ -933,12 +933,14 @@ let JSWINDOWACTORS = {
     safeForUntrustedWebProcess: true,
   },
 
-  ShieldFrame: {
+  AboutStudies: {
     parent: {
-      esModuleURI: "resource://normandy-content/ShieldFrameParent.sys.mjs",
+      esModuleURI:
+        "moz-src:///browser/components/nimbus/AboutStudiesParent.sys.mjs",
     },
     child: {
-      esModuleURI: "resource://normandy-content/ShieldFrameChild.sys.mjs",
+      esModuleURI:
+        "moz-src:///browser/components/nimbus/AboutStudiesChild.sys.mjs",
       events: {
         pageshow: {},
         pagehide: {},

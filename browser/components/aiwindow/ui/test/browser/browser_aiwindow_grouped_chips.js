@@ -139,7 +139,7 @@ add_task(async function test_grouped_chips_single_chip() {
     );
     Assert.ok(!info.hasGroupedChips, "A single chip should not be grouped");
   } finally {
-    mockEngineManager.rejectAllRequests();
+    await mockEngineManager.rejectAllRequests();
     await BrowserTestUtils.closeWindow(win);
     restoreSignIn();
     mockEngineManager.cleanupMocks();
@@ -163,7 +163,7 @@ add_task(async function test_grouped_chips_two_chips() {
     );
     Assert.ok(!info.hasGroupedChips, "Two chips should not be grouped");
   } finally {
-    mockEngineManager.rejectAllRequests();
+    await mockEngineManager.rejectAllRequests();
     await BrowserTestUtils.closeWindow(win);
     restoreSignIn();
     mockEngineManager.cleanupMocks();
@@ -190,7 +190,7 @@ add_task(async function test_grouped_chips_three_chips_group() {
       "Grouped chips should not render individual ai-website-chip elements"
     );
   } finally {
-    mockEngineManager.rejectAllRequests();
+    await mockEngineManager.rejectAllRequests();
     await BrowserTestUtils.closeWindow(win);
     restoreSignIn();
     mockEngineManager.cleanupMocks();
@@ -295,7 +295,7 @@ add_task(async function test_tab_group_chip_renders_as_single_chip() {
       "The group color resolves"
     );
   } finally {
-    mockEngineManager.rejectAllRequests();
+    await mockEngineManager.rejectAllRequests();
     await BrowserTestUtils.closeWindow(win);
     restoreSignIn();
     mockEngineManager.cleanupMocks();
@@ -372,7 +372,7 @@ add_task(async function test_tab_group_and_tab_chips_group_together() {
       "The stacked icon paints the group color"
     );
   } finally {
-    mockEngineManager.rejectAllRequests();
+    await mockEngineManager.rejectAllRequests();
     await BrowserTestUtils.closeWindow(win);
     restoreSignIn();
     mockEngineManager.cleanupMocks();
@@ -423,7 +423,7 @@ add_task(async function test_tab_group_chip_click_opens_group() {
     );
     Assert.ok(!group.collapsed, "Clicking the chip expands the group");
   } finally {
-    mockEngineManager.rejectAllRequests();
+    await mockEngineManager.rejectAllRequests();
     await BrowserTestUtils.closeWindow(win);
     restoreSignIn();
     mockEngineManager.cleanupMocks();

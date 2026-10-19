@@ -3804,7 +3804,7 @@ nsresult PermissionManager::GetKeyForOrigin(const nsACString& aOrigin,
   nsCOMPtr<nsIPrincipal> dbgPrincipal;
   MOZ_ALWAYS_SUCCEEDS(GetPrincipalFromOrigin(aOrigin, aForceStripOA,
                                              getter_AddRefs(dbgPrincipal)));
-  MOZ_ASSERT(dbgPrincipal->SchemeIs("http") || dbgPrincipal->SchemeIs("https"));
+  MOZ_ASSERT(net::SchemeIsHttpOrHttps(dbgPrincipal));
   MOZ_ASSERT(dbgPrincipal->OriginAttributesRef() == attrs);
 #endif
 

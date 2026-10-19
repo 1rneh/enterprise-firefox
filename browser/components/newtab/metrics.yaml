@@ -1605,6 +1605,7 @@ newtab:
       side-by-side-content-lead, side-by-side-widgets-lead,
       side-by-side-content-lead-five, side-by-side-widgets-lead-five,
       spaces-buttons-top, spaces-buttons-bottom, spaces-thematic-v1,
+      spaces-preview-kit, spaces-preview-illustrated, spaces-preview-cards,
       auto-minimize-widgets or widgets-ad-large. The -five variants reach five
       card columns counting the widgets column, the others four. The spaces
       variants split the band into separately-navigable panels; the buttons-
@@ -1652,9 +1653,10 @@ newtab:
       space:
         description: >
           The space navigated to. One of stories, widgets or activity in the
-          spaces-buttons-top, spaces-buttons-bottom and spaces-floating-arrows
-          variants, or a thematic space id configured via Nimbus in
-          spaces-thematic-v1.
+          spaces-buttons-top, spaces-buttons-bottom, spaces-floating-arrows,
+          spaces-preview-kit, spaces-preview-illustrated and
+          spaces-preview-cards variants, or a
+          thematic space id configured via Nimbus in spaces-thematic-v1.
         type: string
       previous_space:
         description: >
@@ -1664,8 +1666,9 @@ newtab:
         description: >
           Which control was used: tab (the segmented control), keyboard (arrow
           keys on the segmented control), swipe (horizontal wheel, shift plus
-          wheel, or a touch drag) or arrow (the edge arrows in
-          spaces-floating-arrows).
+          wheel, or a touch drag), arrow (the edge arrows in
+          spaces-floating-arrows) or preview_tab (a tab, in the
+          spaces-preview variants or a thematic config with the preview on).
         type: string
     send_in_pings:
       - newtab

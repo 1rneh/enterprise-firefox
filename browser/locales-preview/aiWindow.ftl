@@ -324,11 +324,11 @@ ai-tasks-alert-history-error-prompt-load = { -smart-window-brand-name } couldn�
 
 ai-tasks-alert-history-error-unknown = Something went wrong on our side and this check didn’t run. Nothing was compared.
 
-## AI Tab - A page generated from the content of the user's tabs
+## Smart Page - A page generated from the content of the user's tabs
 
-# The feature name. It stays here rather than in brandings.ftl until the AI Tab
-# strings are exposed to localization.
--ai-tab-brand-name = AI Tab
+# The feature name. It stays here rather than in brandings.ftl until the Smart
+# Page strings are exposed to localization.
+-smart-page-brand-name = Smart Page
 
 # Title given to a generated page when the model returns no title of its own and
 # the user did not say what the page should focus on.
@@ -343,27 +343,27 @@ aitab-page-error-description = Some other supplementary string.
 
 # Page context menu entry that builds a generated page from the current page.
 main-context-menu-create-aitab =
-    .label = Create { -ai-tab-brand-name }
-    .accesskey = A
+    .label = Create { -smart-page-brand-name }
+    .accesskey = C
 
 # Tab context menu entry that builds a generated page from the tabs the menu
 # was opened on.
 tab-context-create-aitab =
-    .label = Create { -ai-tab-brand-name }
+    .label = Create { -smart-page-brand-name }
 
 # Tab group menu entry that builds a generated page from the group's tabs.
 tab-group-editor-action-create-aitab =
-    .label = Create { -ai-tab-brand-name }
+    .label = Create { -smart-page-brand-name }
 
-# Chat message that starts the conversation created by a "Create AI Tab" menu
+# Chat message that starts the conversation created by a "Create Smart Page" menu
 # entry, written in the user's voice. The URLs of the chosen tabs are appended
 # on the lines below it.
 # Variables:
 #   $tabCount (Number) - How many tabs the page is built from.
 ai-tab-create-page-prompt =
     { $tabCount ->
-        [one] Create an { -ai-tab-brand-name } from this tab:
-       *[other] Create an { -ai-tab-brand-name } from these tabs:
+        [one] Create a { -smart-page-brand-name } from this tab:
+       *[other] Create a { -smart-page-brand-name } from these tabs:
     }
 
 # A rating cell in a generated table, for example "4.5 / 5". Both numbers
@@ -465,7 +465,7 @@ ai-smart-form-fill-error-description = Something went wrong. To try again, selec
 ai-smart-form-fill-try-again =
     .label = Try again
 
-## AI Tab generated pages
+## Smart Page generated pages
 
 # Shown above the title of a generated page that was created today.
 aitab-created-today = Created today
@@ -488,7 +488,7 @@ aitab-page-delete =
     .aria-label = Delete page
     .title = Delete page
 
-aitab-page-delete-dialog-title = Delete this { -ai-tab-brand-name }?
+aitab-page-delete-dialog-title = Delete this { -smart-page-brand-name }?
 aitab-page-delete-dialog-message = This generated page will be removed. The sources it was built from aren’t affected.
 
 aitab-page-delete-dialog-cancel =
@@ -498,7 +498,17 @@ aitab-page-delete-dialog-confirm =
     .label = Delete
 
 # Credit at the bottom of a generated page.
-aitab-page-made-with = Made with <span data-l10n-name="brand">{ -smart-window-brand-name }</span>
+aitab-page-footer-brand = { -smart-window-brand-name }
+
+smartwindow-aitab-creating = Creating a page…
+# "Open here" opens aitab url in the current tab
+smartwindow-aitab-open-current =
+    .label = Open here
+# "Open in new tab" opens a new browser tab with the AITab url in it
+smartwindow-aitab-open-new =
+    .label = Open in new tab
+smartwindow-aitab-created-an-aitab = Created a { -smart-page-brand-name }
+smartwindow-aitab-empty-chat-message = Want to make changes to your { -smart-page-brand-name }? Ask in the chat to add or remove content.
 
 ## "Pick up where you left off" cards for resuming browsing or chat journeys.
 ## A "journey" is a past browsing or chat session the user was in the middle
@@ -549,12 +559,3 @@ aiwindow-resume-section-empty-no-suggestions-description = When there’s someth
 aiwindow-resume-section-empty-all-dismissed-heading = All caught up
 aiwindow-resume-section-empty-all-dismissed-description = That’s all the suggestions for now. Check back later for more.
 aiwindow-resume-section-hide = Hide for now
-
-smartwindow-aitab-creating = Creating a page…
-# "Open here" opens aitab url in the current tab
-smartwindow-aitab-open-current =
-    .label = Open here
-# "Open in new tab" opens a new browser tab with the AITab url in it
-smartwindow-aitab-open-new =
-    .label = Open in new tab
-smartwindow-aitab-created-an-aitab = Created a Smart Page

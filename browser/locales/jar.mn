@@ -18,7 +18,6 @@
   preview/smartTabGroups.ftl                       (../locales-preview/smartTabGroups.ftl)
   preview/privacyPreferences.ftl                   (../locales-preview/privacyPreferences.ftl)
   preview/remoteControl.ftl                          (../locales-preview/remoteControl.ftl)
-  preview/miniWindow.ftl                           (../locales-preview/miniWindow.ftl)
   preview/newtabPreview.ftl                        (../locales-preview/newtabPreview.ftl)
 
 @AB_CD@.jar:

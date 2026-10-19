@@ -52,6 +52,9 @@ interface nsIWebTransport : nsISupports {
                     in WebTransportSessionEventListener aListener,
                     [optional] in nsIWebTransport_HTTPVersion aVersion);
 
+  // aHeaderNames and aHeaderValues are parallel arrays of extra request
+  // headers; the caller has already applied the Fetch request-header
+  // restrictions.
   [noscript]
   void asyncConnectWithClient(in nsIURI aURI,
                     in boolean aDedicated,
@@ -62,6 +65,8 @@ interface nsIWebTransport : nsISupports {
                     in WebTransportSessionEventListener aListener,
                     in const_MaybeClientInfoRef aClientInfo,
                     in Array<AString> aProtocols,
+                    in Array<ACString> aHeaderNames,
+                    in Array<ACString> aHeaderValues,
                     in nsIWebTransport_HTTPVersion aVersion);
 
   // Asynchronously get stats. On success (NS_OK), results in exactly one
@@ -72,10 +77,14 @@ interface nsIWebTransport : nsISupports {
   // null aStats.
   void getStats();
 
+  // Largest aOutputLength exportKeyingMaterial() accepts.
+  const unsigned long MAX_KEYING_MATERIAL_LENGTH = 4096;
+
   // Export keying material using TLS exporter (RFC 5705).
   // Returns the exported keying material in the output array.
   void exportKeyingMaterial(in Array<uint8_t> aLabel,
                            in Array<uint8_t> aContext,
+                           in uint32_t aOutputLength,
                            out Array<uint8_t> aKeyingMaterial);
 
   // Close the session.
@@ -96,6 +105,11 @@ interface nsIWebTransport : nsISupports {
   // Get the negotiated protocol (subprotocol) for the session.
   // Returns empty string if no protocol was negotiated.
   ACString getNegotiatedProtocol();
+
+  // Get the HTTP response headers from the session establishment.
+  // Returns empty arrays if no headers were received.
+  [noscript] void getResponseHeaders(out Array<ACString> aNames,
+                                     out Array<ACString> aValues);
 
   // Register a send group with a caller-provided ID.
   void registerSendGroup(in uint64_t groupId);
@@ -130,8 +144,10 @@ interface WebTransportSessionEventListener : nsISupports {
   void onIncomingBidirectionalStreamAvailable(in nsIWebTransportBidirectionalStream aStream);
   void onIncomingUnidirectionalStreamAvailable(in nsIWebTransportReceiveStream aStream);
 
-  void onStopSending(in uint64_t aStreamId, in nsresult aError);
-  void onResetReceived(in uint64_t aStreamId, in nsresult aError);
+  // aErrorCode is the application error code.  A value above 0xffffffff means
+  // the peer sent no code that maps to one.
+  void onStopSending(in uint64_t aStreamId, in uint64_t aErrorCode);
+  void onResetReceived(in uint64_t aStreamId, in uint64_t aErrorCode);
 
   // When a new datagram has been received.
   void onDatagramReceived(in Array<uint8_t> aData);

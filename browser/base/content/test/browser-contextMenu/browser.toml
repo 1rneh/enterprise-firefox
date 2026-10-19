@@ -1,5 +1,6 @@
 [DEFAULT]
 head = "head.js"
+prefs = ["browser.mini-window.enabled=true"]
 support-files = [
   "subtst_contextmenu_webext.html",
   "test_contextmenu_links.html",

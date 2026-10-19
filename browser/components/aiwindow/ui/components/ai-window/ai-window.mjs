@@ -2,9 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { html } from "chrome://global/content/vendor/lit.all.mjs";
+import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 import { installClientErrorListeners } from "chrome://browser/content/aiwindow/modules/ClientErrorTelemetry.mjs";
+import { isSmartPageURL } from "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs";
 // eslint-disable-next-line import/no-unassigned-import
 import "chrome://browser/content/aiwindow/components/smartwindow-prompts.mjs";
 // eslint-disable-next-line import/no-unassigned-import
@@ -1340,6 +1341,12 @@ export class AIWindow extends MozLitElement {
     // (preventing the pending inference promise chain from keeping the
     // window alive).
     this.#starterPromptsAbortController?.abort();
+    if (this.#isSmartPageSidebar) {
+      this.#conversation.transientStarters = [];
+      this.#renderStarterPrompts([]);
+      return;
+    }
+
     const abortController = new AbortController();
     this.#starterPromptsAbortController = abortController;
 
@@ -1555,6 +1562,17 @@ export class AIWindow extends MozLitElement {
     }));
   }
 
+  get #isSmartPageSidebar() {
+    if (this.mode !== MODE.SIDEBAR) {
+      return false;
+    }
+
+    const currentURL = URL.parse(
+      this.#getCurrentTab()?.linkedBrowser.currentURI.spec ?? ""
+    );
+    return isSmartPageURL(currentURL);
+  }
+
   /**
    * Renders conversation starter prompts in the UI.
    * Sets the starters data and shows the prompts element.
@@ -1574,7 +1592,9 @@ export class AIWindow extends MozLitElement {
       return;
     }
 
-    this.#starters = this.#conversation?.messages?.length ? [] : starters;
+    const skipConvoStarters =
+      this.#conversation?.messages?.length || this.#isSmartPageSidebar;
+    this.#starters = skipConvoStarters ? [] : starters;
     this.showStarters = !!this.#starters.length;
 
     // Gate Top Sites on starter resolution so the prompts row and Top Sites
@@ -1672,6 +1692,23 @@ export class AIWindow extends MozLitElement {
   };
 
   /**
+   * Returns the shared values the resume section records with its Glean
+   * events. Resume cards only show on the fullpage new tab before a chat
+   * starts, thus location === "fullpage" and message_seq === 0.
+   * They're still read here so an unexpected value shows up as a bug.
+   *
+   * Passing a function instead of an object keeps the section from
+   * re-rendering on every ai-window render.
+   *
+   * @returns {{chat_id: string, location: string, message_seq: number}}
+   */
+  #getResumeTelemetryContext = () => ({
+    chat_id: this.conversationId,
+    location: this.mode,
+    message_seq: this.#conversation?.messageCount ?? 0,
+  });
+
+  /**
    * Hides the resume section for the rest of the browser session.
    *
    * @private
@@ -1691,7 +1728,7 @@ export class AIWindow extends MozLitElement {
   #handleResumeCardMenuItemSelected = event => {
     const { journeyId, itemId } = event.detail;
     switch (itemId) {
-      case "open-tabs":
+      case "open_tabs":
         this.#handleResumeCardOpenTabs(journeyId).catch(e =>
           lazy.log.error("[ResumeCard] Failed to open tabs:", e)
         );
@@ -1774,7 +1811,7 @@ export class AIWindow extends MozLitElement {
         "smartbar-initialized",
         () => {
           this.#resolveSmartbarReady();
-          this.#setupSmartbarFocus(smartbar);
+          smartbar.focus();
           this.#observeSmartbarHeight();
           this.#updateSmartbarModels(smartbar);
         },
@@ -1844,28 +1881,6 @@ export class AIWindow extends MozLitElement {
       },
     });
   };
-
-  #setupSmartbarFocus(smartbar) {
-    let hasAutoFocused = false;
-    let isMouseClick = false;
-
-    smartbar.addEventListener("mousedown", () => {
-      isMouseClick = true;
-      smartbar.toggleAttribute("suppress-focus-border", true);
-    });
-
-    smartbar.inputField.addEventListener("focus", () => {
-      if (!hasAutoFocused) {
-        smartbar.toggleAttribute("suppress-focus-border", true);
-        hasAutoFocused = true;
-      } else if (!isMouseClick) {
-        smartbar.removeAttribute("suppress-focus-border");
-      }
-      isMouseClick = false;
-    });
-
-    smartbar.focus();
-  }
 
   #observeSmartbarHeight() {
     const updateSmartbarHeight = () => {
@@ -3312,6 +3327,7 @@ export class AIWindow extends MozLitElement {
   #swapConversation(conversation) {
     this.#removeConversationListeners();
     this.#conversation = conversation;
+    this.requestUpdate();
     this.#attachConversationListeners();
     this.syncSmartbarMemoriesStateFromConversation();
     this.#kitMention?.reset();
@@ -3910,6 +3926,19 @@ export class AIWindow extends MozLitElement {
           `
         : ""}
       <div id="browser-container"></div>
+      ${this.#isSmartPageSidebar &&
+      !this.isGenerating &&
+      !this.#conversation?.messageCount
+        ? html`
+            <div class="smartpage-chat-message">
+              <img
+                src="chrome://browser/content/aiwindow/assets/smart-window.svg"
+                alt=""
+              />
+              <p data-l10n-id="smartwindow-aitab-empty-chat-message"></p>
+            </div>
+          `
+        : nothing}
       ${this.mode === MODE.SIDEBAR
         ? html`
             ${this.showStarters
@@ -3955,6 +3984,7 @@ export class AIWindow extends MozLitElement {
                     .cards=${this.resumeCards}
                     .emptyReason=${this.resumeCardsEmptyReason}
                     .loading=${this.resumeCardsLoading}
+                    .getTelemetryContext=${this.#getResumeTelemetryContext}
                     @smartwindow-resume-card:resume=${this
                       .#handleResumeCardResume}
                     @smartwindow-resume-card:menu-item-selected=${this

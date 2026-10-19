@@ -203,8 +203,12 @@ nsresult PrintTargetWindows::EndPage() {
     mTranslator->SaveState(pageStart);
     MemStream& recording = mRecorder->mOutputStream;
     bool firstPass = true;
-    mDocument->drawPage(size, [&](SkCanvas* aCanvas) {
+    mDocument->drawPage(size, [&](SkCanvas* aCanvas, SkIPoint aOrigin) {
       RefPtr<DrawTarget> dt = Factory::CreateDrawTargetWithSkCanvas(aCanvas);
+      if (dt && (aOrigin.x() || aOrigin.y())) {
+        dt = Factory::CreateOffsetDrawTarget(
+            dt, IntPoint(aOrigin.x(), aOrigin.y()));
+      }
       if (!dt || !recording.mValid) {
         failure = true;
         return;
@@ -219,6 +223,10 @@ nsresult PrintTargetWindows::EndPage() {
         failure = true;
       }
     });
+    // CreateDrawTargetWithSkCanvas wraps a stack pointer, make sure it doesn't
+    // persist. Each page has its own recording anyway so it's not supposed to
+    // reference DTs across pages.
+    mTranslator->ForgetDrawTargets();
     RefPtr<DrawTarget> refDT = GetReferenceDrawTarget();
     mTranslator->SetBaseDrawTarget(refDT);
     mRecorder->WipeRecording();

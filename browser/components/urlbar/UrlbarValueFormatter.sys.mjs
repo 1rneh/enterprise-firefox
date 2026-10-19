@@ -97,7 +97,7 @@ export class UrlbarValueFormatter {
   }
 
   get #window() {
-    return this.#urlbarInput.documentGlobal;
+    return /** @type {BrowserWindow} */ (this.#urlbarInput.documentGlobal);
   }
 
   get #scheme() {

@@ -1124,8 +1124,10 @@ class ContentParent final : public PContentParent,
 
   mozilla::ipc::IPCResult RecvAcquireHWInferenceProcess();
 
+#  ifdef MOZ_WEBSPEECH
   mozilla::ipc::IPCResult RecvCreateSpeechRecognition(
       Endpoint<hwinference::PSpeechRecognitionParent>&& aEndpoint);
+#  endif
 
   mozilla::ipc::IPCResult RecvReleaseHWInferenceConnection();
 #endif  // !ANDROID

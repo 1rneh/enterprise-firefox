@@ -6,6 +6,10 @@ task-defaults:
     max-run-time: 3600
     suite: talos
     use-python: system
+    use-caches:
+        by-test-platform:
+            windows.*: [checkout, pip]
+            default: [checkout, pip, uv]
     virtualization: hardware
     mozharness:
         script: talos_script.py

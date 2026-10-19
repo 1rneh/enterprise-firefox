@@ -2607,9 +2607,6 @@ void HTMLMediaElement::ShutdownDecoder() {
   NS_ASSERTION(mDecoder, "Must have decoder to shut down");
 
   mWaitingForKeyListener.DisconnectIfExists();
-  if (mMediaSource) {
-    mMediaSource->CompletePendingTransactions();
-  }
   mDecoder->Shutdown();
   DDUNLINKCHILD(mDecoder.get());
   mDecoder = nullptr;

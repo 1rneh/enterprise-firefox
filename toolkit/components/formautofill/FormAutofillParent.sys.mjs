@@ -571,6 +571,12 @@ export class FormAutofillParent extends JSWindowActorParent {
       return;
     }
 
+    // Don't check ML inference if the section is not valid to avoid loading
+    // the model when it likely won't be needed.
+    if (!FormAutofillUtils.isValidSection(fieldDetails)) {
+      return;
+    }
+
     FormAutofillParent.#mlFeature ??= new lazy.FormAutofillML();
     await FormAutofillParent.#mlFeature.detectFields(fieldDetails);
   }

@@ -44,8 +44,8 @@ class WebTransportChild : public PWebTransportChild {
 
   ::mozilla::ipc::IPCResult RecvDraining();
 
-  ::mozilla::ipc::IPCResult RecvNegotiatedProtocol(
-      const nsACString& aSubprotocol);
+  ::mozilla::ipc::IPCResult RecvNegotiatedProtocolAndHeaders(
+      const nsACString& aSubprotocol, nsTArray<WebTransportHeader>&& aHeaders);
 
   ::mozilla::ipc::IPCResult RecvOnStreamResetOrStopSending(
       const uint64_t& aStreamId, const StreamResetOrStopSendingError& aError);

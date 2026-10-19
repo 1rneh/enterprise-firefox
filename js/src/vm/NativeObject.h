@@ -1903,8 +1903,8 @@ class NativeObject : public JSObject {
    * After adding a sparse index to obj, see if it should be converted to use
    * dense elements.
    */
-  static DenseElementResult maybeDensifySparseElements(
-      JSContext* cx, Handle<NativeObject*> obj);
+  static bool maybeDensifySparseElements(JSContext* cx,
+                                         Handle<NativeObject*> obj);
   static bool densifySparseElements(JSContext* cx, Handle<NativeObject*> obj,
                                     uint32_t newInitializedLength);
 

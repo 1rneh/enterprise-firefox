@@ -115,8 +115,9 @@
  * same position when re-enabled. See resolveWidgetOrder() below.
  */
 
-// @experiment(remove) { bug 2078816 }
-import { selectFirstSlotWidget } from "./PageLayoutVariants.mjs";
+// @experiment(remove-conditional) { bug 2078816 }
+// Keep for spaces-thematic-v1.
+import { selectFirstSlotWidgetIds } from "./PageLayoutVariants.mjs";
 
 export const PREF_WIDGETS_LISTS_ENABLED = "widgets.lists.enabled";
 export const PREF_WIDGETS_TIMER_ENABLED = "widgets.focusTimer.enabled";
@@ -644,9 +645,10 @@ export function isWidgetEnabled(widget, prefs, widgetsEnabled) {
  * @returns {string}
  */
 export function resolveWidgetSize(widget, prefs) {
-  // @experiment(remove) { bug 2078816 }
+  // @experiment(remove-conditional) { bug 2078816 }
+  // Keep for spaces-thematic-v1.
   // A large widget fits a medium card.
-  if (selectFirstSlotWidget(prefs) === widget.id) {
+  if (selectFirstSlotWidgetIds(prefs).has(widget.id)) {
     return "large";
   }
   const userPref = prefs[widget.sizePref];
@@ -682,9 +684,25 @@ export function resolveWidgetHasSidebar(widget, prefs) {
 }
 
 /**
+ * Returns true if the widget renders in the inline-end sidebar rather than the
+ * content area. Weather is the only widget that can move there, and only at its
+ * small size.
+ *
+ * @param {object} widget - a WIDGET_REGISTRY entry
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {boolean}
+ */
+export function isWidgetInSidebar(widget, prefs) {
+  return (
+    widget.id === "weather" &&
+    resolveWidgetHasSidebar(widget, prefs) &&
+    resolveWidgetSize(widget, prefs) === "small"
+  );
+}
+
+/**
  * Returns true if at least one enabled widget renders in the content area rather
- * than the inline-end sidebar. Weather is the only widget that can move to the
- * sidebar, and only at its small size.
+ * than the inline-end sidebar.
  *
  * Layout code needs this rather than isWidgetsContainerVisible, which is true
  * even when the user has hidden every widget.
@@ -698,15 +716,9 @@ export function hasContentAreaWidgets(
   prefs,
   widgetsEnabled = prefs["widgets.enabled"]
 ) {
-  const weatherWidget = WIDGET_REGISTRY.find(w => w.id === "weather");
-  const weatherGoesToSidebar =
-    resolveWidgetHasSidebar(weatherWidget, prefs) &&
-    resolveWidgetSize(weatherWidget, prefs) === "small";
-
   return WIDGET_REGISTRY.some(
     w =>
-      isWidgetEnabled(w, prefs, widgetsEnabled) &&
-      !(w.id === "weather" && weatherGoesToSidebar)
+      isWidgetEnabled(w, prefs, widgetsEnabled) && !isWidgetInSidebar(w, prefs)
   );
 }
 

@@ -154,7 +154,9 @@
 #ifndef ANDROID
 #  include "mozilla/hwinference/HWInferenceParent.h"
 #  include "mozilla/hwinference/HWInferenceProcess.h"
-#  include "mozilla/hwinference/PSpeechRecognitionChild.h"
+#  ifdef MOZ_WEBSPEECH
+#    include "mozilla/hwinference/PSpeechRecognitionChild.h"
+#  endif
 #endif  // !ANDROID
 #include "mozilla/intl/L10nRegistry.h"
 #include "mozilla/intl/LocaleService.h"
@@ -173,6 +175,7 @@
 #include "mozilla/ipc/UtilityProcessManager.h"
 #include "mozilla/layers/CompositorThread.h"
 #include "mozilla/layers/ImageBridgeParent.h"
+#include "mozilla/layers/LayerTreeLog.h"
 #include "mozilla/layers/LayerTreeOwnerTracker.h"
 #include "mozilla/layers/PAPZParent.h"
 #include "mozilla/loader/ScriptCacheActors.h"
@@ -3136,6 +3139,8 @@ void ContentParent::OnCompositorUnexpectedShutdown() {
 }
 
 void ContentParent::OnCompositorDeviceReset() {
+  LAYERTREE_LOG("Device reset, reinitializing rendering for content {}",
+                ChildID());
   (void)SendReinitRenderingForDeviceReset();
 }
 
@@ -5208,6 +5213,7 @@ mozilla::ipc::IPCResult ContentParent::RecvAcquireHWInferenceProcess() {
   return IPC_OK();
 }
 
+#  ifdef MOZ_WEBSPEECH
 mozilla::ipc::IPCResult ContentParent::RecvCreateSpeechRecognition(
     Endpoint<hwinference::PSpeechRecognitionParent>&& aEndpoint) {
   if (!mHWInferenceConnections) {
@@ -5227,6 +5233,7 @@ mozilla::ipc::IPCResult ContentParent::RecvCreateSpeechRecognition(
       ->StartContentSpeechRecognition(std::move(aEndpoint), mChildID);
   return IPC_OK();
 }
+#  endif  // MOZ_WEBSPEECH
 
 mozilla::ipc::IPCResult ContentParent::RecvReleaseHWInferenceConnection() {
   if (mHWInferenceConnections == 0) {

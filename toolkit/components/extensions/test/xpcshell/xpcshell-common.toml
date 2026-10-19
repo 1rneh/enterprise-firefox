@@ -124,6 +124,14 @@ run-if = [
 
 ["test_ext_browsingData_cookies_cookieStoreId.js"]
 
+["test_ext_builtin_widget.js"]
+run-if = [
+  "appname != 'thunderbird'",
+]
+skip-if = [
+  "os == 'android'", # Widgets are not exposed to android.
+]
+
 ["test_ext_cache_api.js"]
 
 ["test_ext_captivePortal.js"]

@@ -388,6 +388,8 @@ skip-if = [
 
 ["test_peerConnection_sender_and_receiver_stats.html"]
 
+["test_peerConnection_setCodecPreferencesOfferSdp.html"]
+
 ["test_peerConnection_setLocalAnswerInHaveLocalOffer.html"]
 
 ["test_peerConnection_setLocalAnswerInStable.html"]

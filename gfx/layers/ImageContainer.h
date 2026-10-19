@@ -835,23 +835,16 @@ struct PlanarYCbCrData {
                            : gfx::IntSize(0, 0);
   }
 
-  // Returns the uncropped Y size when the picture rect is non-empty, has a
-  // non-negative origin, and both endpoints fit in int32_t.
-  Maybe<gfx::IntSize> GetCheckedYDataSize() const;
+  struct PlaneSizes {
+    gfx::IntSize mY;
+    gfx::IntSize mCbCr;
+  };
 
-  // The total uncropped size of data in the Y channel. Falls back to the raw
-  // picture rect endpoint when GetCheckedYDataSize() rejects the rect.
-  // TODO: Bug 2072459
-  gfx::IntSize YDataSize() const {
-    return GetCheckedYDataSize().valueOr(
-        gfx::IntSize(mPictureRect.XMost(), mPictureRect.YMost()));
-  }
-
-  // The total uncropped size of data in the Cb/Cr channels.
-  gfx::IntSize CbCrDataSize() const {
-    return mCbCrStride > 0 ? gfx::ChromaSize(YDataSize(), mChromaSubsampling)
-                           : gfx::IntSize(0, 0);
-  }
+  // Returns the uncropped Y and chroma sizes when the picture rect is
+  // non-empty, has a non-negative origin, and both endpoints fit in int32_t,
+  // or Nothing() otherwise. The chroma size is empty when mCbCrStride <= 0,
+  // as for monochrome data. The backing buffers are not validated.
+  Maybe<PlaneSizes> GetPlaneSizes() const;
 
   static Maybe<PlanarYCbCrData> From(const SurfaceDescriptorBuffer&);
   static Maybe<PlanarYCbCrData> From(const VideoData::YCbCrBuffer&);
@@ -883,7 +876,7 @@ std::ostream& operator<<(std::ostream& aOut, const PlanarYCbCrData& aData);
  * the mYChannel buffer looks like:
  *
  * |<----------------------- mYStride ----------------------------->|
- * |<----------------- YDataSize().width ---------->|
+ * |<----------------- Y data width ------------->|
  *  0   3   6   9   12  15  18  21                639             669
  * |----------------------------------------------------------------|
  * |Y___Y___Y___Y___Y___Y___Y___Y...                |%%%%%%%%%%%%%%%|

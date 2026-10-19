@@ -4,11 +4,15 @@
 
 #include "WebTransportDatagramDuplexStream.h"
 
+#include <algorithm>
 #include <memory>
 
+#include "js/experimental/TypedData.h"
+#include "mozilla/DebugOnly.h"
 #include "mozilla/dom/AutoEntryScript.h"
 #include "mozilla/dom/Promise-inl.h"
 #include "mozilla/dom/Promise.h"
+#include "mozilla/dom/TypedArray.h"
 #include "mozilla/dom/WebTransport.h"
 #include "mozilla/dom/WebTransportDatagramsWritable.h"
 #include "mozilla/dom/WebTransportLog.h"
@@ -31,7 +35,8 @@ WebTransportDatagramDuplexStream::WebTransportDatagramDuplexStream(
     nsIGlobalObject* aGlobal, WebTransport* aWebTransport)
     : mGlobal(aGlobal), mWebTransport(aWebTransport) {}
 
-void WebTransportDatagramDuplexStream::Init(ErrorResult& aError) {
+void WebTransportDatagramDuplexStream::Init(bool aUseByteStream,
+                                            ErrorResult& aError) {
   // https://w3c.github.io/webtransport/#webtransport-constructor
   // We are only called synchronously from JS creating a WebTransport object
   AutoEntryScript aes(mGlobal, "WebTransportDatagrams");
@@ -41,10 +46,15 @@ void WebTransportDatagramDuplexStream::Init(ErrorResult& aError) {
   nsCOMPtr<nsIGlobalObject> global(mGlobal);
   RefPtr<IncomingDatagramStreamAlgorithms> incomingAlgorithms =
       mIncomingAlgorithms;
-  // Step 18: Set up incomingDatagrams with pullAlgorithm set to
-  // pullDatagramsAlgorithm, and highWaterMark set to 0.
-  mReadable = ReadableStream::CreateNative(cx, global, *incomingAlgorithms,
-                                           Some(0.0), nullptr, aError);
+  // Step 20-21: If datagramsReadableType is "bytes", set up with byte reading
+  // support; otherwise set up normally.
+  if (aUseByteStream) {
+    mReadable = ReadableStream::CreateByteNative(
+        cx, global, *incomingAlgorithms, Some(0.0), aError);
+  } else {
+    mReadable = ReadableStream::CreateNative(cx, global, *incomingAlgorithms,
+                                             Some(0.0), nullptr, aError);
+  }
   if (aError.Failed()) {
     return;
   }
@@ -94,36 +104,16 @@ void WebTransportDatagramDuplexStream::SetOutgoingMaxAge(double aMaxAge,
   mOutgoingMaxAge = aMaxAge;
 }
 
-void WebTransportDatagramDuplexStream::SetIncomingHighWaterMark(
-    double aWaterMark, ErrorResult& aRv) {
-  // https://w3c.github.io/webtransport/#dom-webtransportdatagramduplexstream-incominghighwatermark
-  // Step 1
-  if (isnan(aWaterMark) || aWaterMark < 0.) {
-    aRv.ThrowRangeError("Invalid OutgoingMaxAge");
-    return;
-  }
-  // Step 2
-  if (aWaterMark < 1.0) {
-    aWaterMark = 1.0;
-  }
-  // Step 3
-  mIncomingHighWaterMark = aWaterMark;
+void WebTransportDatagramDuplexStream::SetIncomingMaxBufferedDatagrams(
+    uint32_t aValue) {
+  // https://w3c.github.io/webtransport/#dom-webtransportdatagramduplexstream-incomingmaxbuffereddatagrams
+  mIncomingMaxBufferedDatagrams = std::max(aValue, 1u);
 }
 
-void WebTransportDatagramDuplexStream::SetOutgoingHighWaterMark(
-    double aWaterMark, ErrorResult& aRv) {
-  // https://w3c.github.io/webtransport/#dom-webtransportdatagramduplexstream-outgoinghighwatermark
-  // Step 1
-  if (isnan(aWaterMark) || aWaterMark < 0.) {
-    aRv.ThrowRangeError("Invalid OutgoingHighWaterMark");
-    return;
-  }
-  // Step 2 of setter: If value is < 1, set value to 1.
-  if (aWaterMark < 1.0) {
-    aWaterMark = 1.0;
-  }
-  // Step 3
-  mOutgoingHighWaterMark = aWaterMark;
+void WebTransportDatagramDuplexStream::SetOutgoingMaxBufferedDatagrams(
+    uint32_t aValue) {
+  // https://w3c.github.io/webtransport/#dom-webtransportdatagramduplexstream-outgoingmaxbuffereddatagrams
+  mOutgoingMaxBufferedDatagrams = std::max(aValue, 1u);
 }
 
 already_AddRefed<WebTransportDatagramsWritable>
@@ -138,23 +128,21 @@ WebTransportDatagramDuplexStream::CreateWritable(
     return nullptr;
   }
 
-  // Step 2: If transport.[[State]] is "closed" or "failed", throw an
+  // Step 2: Let sendGroup be options["sendGroup"].
+  // Step 3: If sendGroup is not null, and sendGroup.[[Transport]] is not
+  // this.[[Transport]], throw a TypeError.
+  if (aOptions.mSendGroup &&
+      aOptions.mSendGroup->GetTransport() != mWebTransport) {
+    aRv.ThrowTypeError("sendGroup does not belong to the same WebTransport");
+    return nullptr;
+  }
+
+  // Step 4: If transport.[[State]] is "closed" or "failed", throw an
   // InvalidStateError.
   auto state = mWebTransport->mState;
   if (state == WebTransport::WebTransportState::CLOSED ||
       state == WebTransport::WebTransportState::FAILED) {
     aRv.ThrowInvalidStateError("WebTransport closed or failed");
-    return nullptr;
-  }
-
-  // Step 3: Let sendGroup be options["sendGroup"]
-
-  // Step 4: If sendGroup is not null, and sendGroup.[[Transport]] is not
-  // transport, throw an InvalidStateError.
-  if (aOptions.mSendGroup &&
-      aOptions.mSendGroup->GetTransport() != mWebTransport) {
-    aRv.ThrowInvalidStateError(
-        "sendGroup does not belong to the same WebTransport");
     return nullptr;
   }
 
@@ -166,9 +154,9 @@ WebTransportDatagramDuplexStream::CreateWritable(
   AutoEntryScript aes(mGlobal, "WebTransportCreateWritable");
   JSContext* cx = aes.cx();
   RefPtr<WebTransportDatagramsWritable> writableStream =
-      WebTransportDatagramsWritable::Create(
-          cx, mGlobal, mWebTransport, this, mOutgoingHighWaterMark,
-          aOptions.mSendGroup, sendOrder, aRv);
+      WebTransportDatagramsWritable::Create(cx, mGlobal, mWebTransport, this,
+                                            aOptions.mSendGroup, sendOrder,
+                                            aRv);
   if (aRv.Failed()) {
     return nullptr;
   }
@@ -179,6 +167,18 @@ WebTransportDatagramDuplexStream::CreateWritable(
 void WebTransportDatagramDuplexStream::NewDatagramReceived(
     nsTArray<uint8_t>&& aData, const mozilla::TimeStamp& aTimeStamp) {
   LOG(("received Datagram, size = %zu", aData.Length()));
+
+  // Drop oldest datagrams if the queue has reached the buffer limit. We still
+  // drop if equal since we're about to add one.
+  // TODO(Bug 2083166): apply backpressure instead of dropping.
+  while (mIncomingDatagramsQueue.Count() >= mIncomingMaxBufferedDatagrams) {
+    LOG(
+        ("Dropping oldest incoming datagram: queue size (%zu) >= "
+         "incomingMaxBufferedDatagrams (%u)",
+         mIncomingDatagramsQueue.Count(), mIncomingMaxBufferedDatagrams));
+    UniquePtr<DatagramEntry> entry = mIncomingDatagramsQueue.Pop();
+    mDroppedIncoming++;
+  }
   mIncomingDatagramsQueue.Push(
       std::make_unique<DatagramEntry>(std::move(aData), aTimeStamp));
   mIncomingAlgorithms->NotifyDatagramAvailable();
@@ -275,25 +275,69 @@ void IncomingDatagramStreamAlgorithms::ReturnDatagram(JSContext* aCx,
   LOG(("Returning a Datagram"));
 
   MOZ_ASSERT(!mDatagrams->mIncomingDatagramsQueue.IsEmpty());
-  // Pull Step 5: Let bytes and timestamp be the result of dequeuing queue.
+
+  // Step 5: Let incoming be the result of dequeuing queue.
   UniquePtr<DatagramEntry> entry = mDatagrams->mIncomingDatagramsQueue.Pop();
+  // Step 6: Let datagram be incoming[0].
+  size_t datagramSize = entry->mBuffer.Length();
 
-  // Pull Step 6: Let chunk be a new Uint8Array object representing bytes.
-  JSObject* outView = Uint8Array::Create(aCx, entry->mBuffer, aRv);
-  if (aRv.Failed()) {
-    return;
-  }
-  JS::Rooted<JSObject*> chunk(aCx, outView);
-
-  // Pull Step 7: Enqueue chunk to transport.[[Datagrams]].[[Readable]]
-  JS::Rooted<JS::Value> jsDatagram(aCx, JS::ObjectValue(*chunk));
-  // EnqueueNative is CAN_RUN_SCRIPT
   RefPtr<ReadableStream> stream = mDatagrams->mReadable;
-  stream->EnqueueNative(aCx, jsDatagram, aRv);
-  if (MOZ_UNLIKELY(aRv.Failed())) {
-    return;
+  // Step 7: If datagrams.[[ReadableType]] is "bytes", then:
+  if (stream->Controller()->IsByte()) {
+    // Step 7.1: If datagrams.[[Readable]]'s current BYOB request view is not
+    // null, then:
+    JS::Rooted<JSObject*> byobView(aCx);
+    stream->GetCurrentBYOBRequestView(aCx, &byobView, aRv);
+    if (aRv.Failed()) {
+      return;
+    }
+
+    if (byobView) {
+      // Step 7.1.1: Let view be datagrams.[[Readable]]'s current BYOB request
+      // view.
+      // Step 7.1.2: If view's byte length is less than the size of datagram,
+      // return a promise rejected with a RangeError.
+      if (datagramSize > JS_GetArrayBufferViewByteLength(byobView)) {
+        LOG(("BYOB buffer too small: datagram=%zu", datagramSize));
+        aRv.ThrowRangeError("Buffer too small for datagram");
+        return;
+      }
+
+      // Step 7.1.3: Let elementSize be the element size specified in the typed
+      // array constructors table for view.[[TypedArrayName]]. If view does not
+      // have a [[TypedArrayName]] internal slot (i.e. it is a DataView), let
+      // elementSize be 0.
+      // Step 7.1.4: If elementSize is not 1, return a promise rejected with a
+      // TypeError.
+      //
+      // The current BYOB request view is always a Uint8Array, so elementSize
+      // is always 1.
+      MOZ_ASSERT(JS_IsTypedArrayObject(byobView) &&
+                 JS_GetArrayBufferViewType(byobView) == JS::Scalar::Uint8);
+    }
+
+    // Step 7.2: Pull from bytes datagram into datagrams.[[Readable]].
+    //
+    // With a BYOB view we already rejected above if it is smaller than the
+    // datagram; without one the whole datagram is pulled by construction.
+    // Either way this consumes all of it.
+    DebugOnly<uint64_t> pulled =
+        stream->PullFromBytes(aCx, entry->mBuffer, aRv);
+    MOZ_ASSERT(aRv.Failed() || pulled == datagramSize);
+  } else {
+    // Step 8: Otherwise:
+    // Step 8.1: Let chunk be a new Uint8Array object representing datagram.
+    JSObject* outView = Uint8Array::Create(aCx, entry->mBuffer, aRv);
+    if (aRv.Failed()) {
+      return;
+    }
+    JS::Rooted<JSObject*> chunk(aCx, outView);
+
+    // Step 8.2: Enqueue chunk to transport.[[Datagrams]].[[Readable]].
+    JS::Rooted<JS::Value> jsDatagram(aCx, JS::ObjectValue(*chunk));
+    stream->EnqueueNative(aCx, jsDatagram, aRv);
   }
-  // (caller) Step 8: return a promise resolved with Undefined
+  // (caller) Step 9: Return a promise resolved with undefined.
 }
 
 void IncomingDatagramStreamAlgorithms::NotifyDatagramAvailable() {

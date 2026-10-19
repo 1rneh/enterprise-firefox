@@ -846,7 +846,7 @@ static Maybe<uint32_t> SelectContainerForNavigation(
 
   // Only http(s) targets carry a host to key the association on and get a fresh
   // content principal.
-  if (!aURI || (!aURI->SchemeIs("http") && !aURI->SchemeIs("https"))) {
+  if (!aURI || !net::SchemeIsHttpOrHttps(aURI)) {
     return Nothing();
   }
 

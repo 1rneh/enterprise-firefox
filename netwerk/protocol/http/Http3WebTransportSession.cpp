@@ -211,6 +211,9 @@ void Http3TunnelStreamBase::SetResponseHeaders(
   MOZ_ASSERT(mRecvState == BEFORE_HEADERS ||
              mRecvState == READING_INTERIM_HEADERS);
   mFlatResponseHeaders.AppendElements(aResponseHeaders);
+  if (!interim) {
+    mSavedFlatResponseHeaders.AppendElements(aResponseHeaders);
+  }
   mRecvState = (interim) ? READING_INTERIM_HEADERS : READING_HEADERS;
 }
 
@@ -604,13 +607,13 @@ void Http3WebTransportSession::GetMaxDatagramSize() {
 
 nsresult Http3WebTransportSession::ExportKeyingMaterial(
     const nsTArray<uint8_t>& aLabel, const nsTArray<uint8_t>& aContext,
-    nsTArray<uint8_t>& aKeyingMaterial) {
+    uint32_t aOutputLength, nsTArray<uint8_t>& aKeyingMaterial) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   if (mRecvState != ACTIVE) {
     return NS_ERROR_NOT_CONNECTED;
   }
-  return mSession->ExportWebTransportKeyingMaterial(mStreamId, aLabel, aContext,
-                                                    aKeyingMaterial);
+  return mSession->ExportWebTransportKeyingMaterial(
+      mStreamId, aLabel, aContext, aOutputLength, aKeyingMaterial);
 }
 
 void Http3WebTransportSession::GetStats() {
@@ -644,6 +647,57 @@ void Http3WebTransportSession::GetNegotiatedProtocol(nsACString& aProtocol) {
   mSession->GetWebTransportSessionProtocol(mStreamId, aProtocol);
 }
 
+void ParseFlatWebTransportResponseHeaders(const nsTArray<uint8_t>& aFlatHeaders,
+                                          nsTArray<nsCString>& aNames,
+                                          nsTArray<nsCString>& aValues) {
+  // Format: "HTTP/3 200\r\nname: value\r\n\r\n"
+  const char* data = reinterpret_cast<const char*>(aFlatHeaders.Elements());
+  uint32_t len = aFlatHeaders.Length();
+  uint32_t pos = 0;
+
+  // Skip status line
+  while (pos + 1 < len && !(data[pos] == '\r' && data[pos + 1] == '\n')) {
+    ++pos;
+  }
+  pos += 2;
+
+  // Parse header lines
+  while (pos < len) {
+    uint32_t lineStart = pos;
+    while (pos + 1 < len && !(data[pos] == '\r' && data[pos + 1] == '\n')) {
+      ++pos;
+    }
+    uint32_t lineLen = pos - lineStart;
+    pos += 2;
+
+    if (lineLen == 0) break;
+
+    const char* line = data + lineStart;
+    uint32_t sep = 0;
+    while (sep + 1 < lineLen && !(line[sep] == ':' && line[sep + 1] == ' ')) {
+      ++sep;
+    }
+    if (sep + 1 >= lineLen) continue;
+
+    nsCString name(line, sep);
+    // https://w3c.github.io/webtransport/#process-a-webtransport-fetch-response
+    // Step 6: Delete "wt-protocol" from responseHeaders before exposing them
+    // to script; it is a negotiation-only header (see .protocol instead).
+    if (name.LowerCaseEqualsLiteral("wt-protocol")) {
+      continue;
+    }
+
+    aNames.AppendElement(name);
+    aValues.AppendElement(nsCString(line + sep + 2, lineLen - sep - 2));
+  }
+}
+
+void Http3WebTransportSession::GetResponseHeaders(
+    nsTArray<nsCString>& aNames, nsTArray<nsCString>& aValues) {
+  MOZ_ASSERT(OnSocketThread(), "not on socket thread");
+  ParseFlatWebTransportResponseHeaders(mSavedFlatResponseHeaders, aNames,
+                                       aValues);
+}
 nsresult Http3WebTransportSession::RegisterSendGroup(uint64_t aGroupId) {
   MOZ_ASSERT(OnSocketThread(), "not on socket thread");
   if (mRecvState != ACTIVE) {
@@ -667,24 +721,26 @@ void Http3WebTransportSession::OnOutgoingDatagramOutCome(
 }
 
 void Http3WebTransportSession::OnStreamStopSending(uint64_t aId,
-                                                   nsresult aError) {
-  LOG(("OnStreamStopSending id:%" PRId64, aId));
+                                                   uint64_t aErrorCode) {
+  LOG(("OnStreamStopSending id:%" PRId64 " errorCode:%" PRIu64, aId,
+       aErrorCode));
   RefPtr<WebTransportSessionEventListener> listener = GetListener();
   if (!listener) {
     return;
   }
 
-  listener->OnStopSending(aId, aError);
+  listener->OnStopSending(aId, aErrorCode);
 }
 
-void Http3WebTransportSession::OnStreamReset(uint64_t aId, nsresult aError) {
-  LOG(("OnStreamReset id:%" PRId64, aId));
+void Http3WebTransportSession::OnStreamReset(uint64_t aId,
+                                             uint64_t aErrorCode) {
+  LOG(("OnStreamReset id:%" PRId64 " errorCode:%" PRIu64, aId, aErrorCode));
   RefPtr<WebTransportSessionEventListener> listener = GetListener();
   if (!listener) {
     return;
   }
 
-  listener->OnResetReceived(aId, aError);
+  listener->OnResetReceived(aId, aErrorCode);
 }
 
 }  // namespace mozilla::net

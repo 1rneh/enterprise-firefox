@@ -198,14 +198,15 @@ add_task(async function test_renders_page_config() {
       const footer = shadowRoot.querySelector(".aitab-sheet + aitab-footer");
       Assert.ok(footer, "The footer is rendered after the page content");
       await footer.wrappedJSObject.updateComplete;
-      const madeWith = footer.shadowRoot.querySelector(".aitab-made-with");
+      const brand = footer.shadowRoot.querySelector(".aitab-footer-brand");
       await ContentTaskUtils.waitForCondition(
-        () => madeWith.textContent.trim(),
+        () => brand.textContent,
         "The footer credit is localized"
       );
-      Assert.ok(
-        madeWith.querySelector(".aitab-made-with-brand"),
-        "Localizing the credit keeps the brand element that carries the logo"
+      Assert.equal(
+        brand.textContent,
+        await content.document.l10n.formatValue("aitab-page-footer-brand"),
+        "The footer credit is the Smart Window brand alone"
       );
     });
   });

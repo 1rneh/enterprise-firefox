@@ -181,6 +181,10 @@ know what you are doing.
 
 : Tracks if the user has ever opened the VPN panel.
 
+`browser.ipProtection.openedPanelSince160` (boolean, default: `false`)
+
+: Tracks if the user has opened the VPN panel since release 160.
+
 `browser.ipProtection.siteInclusionPromptShown` (boolean, default: `false`)
 
 : Tracks if the panel has shown the prompt to always turn on VPN for a site, so

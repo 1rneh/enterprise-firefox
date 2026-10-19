@@ -381,7 +381,7 @@ already_AddRefed<InternalHeaders> TypeUtils::ToInternalHeaders(
 }
 
 bool TypeUtils::URLHasValidScheme(nsIURI* aUrl) {
-  return aUrl->SchemeIs("http") || aUrl->SchemeIs("https") ||
+  return net::SchemeIsHttpOrHttps(aUrl) ||
          (StaticPrefs::extensions_backgroundServiceWorker_enabled_AtStartup() &&
           aUrl->SchemeIs("moz-extension"));
 }

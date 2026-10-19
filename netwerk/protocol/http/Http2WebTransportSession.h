@@ -88,6 +88,7 @@ class Http2WebTransportSessionImpl final : public WebTransportSessionBase,
                     uint64_t aSendGroupId, int64_t aSendOrder) override;
   nsresult ExportKeyingMaterial(const nsTArray<uint8_t>& aLabel,
                                 const nsTArray<uint8_t>& aContext,
+                                uint32_t aOutputLength,
                                 nsTArray<uint8_t>& aKeyingMaterial) override;
   void GetNegotiatedProtocol(nsACString& aProtocol) override;
   nsresult RegisterSendGroup(uint64_t aGroupId) override;

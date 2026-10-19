@@ -2190,7 +2190,7 @@ export class UrlbarInputBaseTestUtils {
   }
 
   /**
-   * Stubs `UrlbarShared._zonedDateTimeISO()`. Helpful for tests that use
+   * Stubs `UrlbarShared.zonedDateTimeISO()`. Helpful for tests that use
    * `UrlbarShared.formatDate()`.
    *
    * Browser tests should call this again with a falsey value during cleanup to
@@ -2213,7 +2213,7 @@ export class UrlbarInputBaseTestUtils {
     if (!this.#zonedDateTimeISOStub) {
       this.#zonedDateTimeISOStub = lazy.sinon.stub(
         UrlbarShared,
-        "_zonedDateTimeISO"
+        "zonedDateTimeISO"
       );
     }
 

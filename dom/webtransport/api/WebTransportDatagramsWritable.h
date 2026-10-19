@@ -29,7 +29,7 @@ class WebTransportDatagramsWritable final : public WritableStream {
 
   static already_AddRefed<WebTransportDatagramsWritable> Create(
       JSContext* aCx, nsIGlobalObject* aGlobal, WebTransport* aTransport,
-      WebTransportDatagramDuplexStream* aDatagrams, double aHighWaterMark,
+      WebTransportDatagramDuplexStream* aDatagrams,
       WebTransportSendGroup* aSendGroup, int64_t aSendOrder, ErrorResult& aRv);
 
   JSObject* WrapObject(JSContext* aCx,

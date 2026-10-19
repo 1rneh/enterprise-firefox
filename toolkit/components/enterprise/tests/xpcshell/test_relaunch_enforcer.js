@@ -4,7 +4,7 @@
 "use strict";
 
 const { RelaunchEnforcer, RelaunchPhase } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs"
 );
 
 const MINUTE = 60 * 1000;

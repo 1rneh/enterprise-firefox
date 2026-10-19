@@ -82,8 +82,9 @@ ChromeUtils.defineESModuleGetters(lazy, {
 if (AppConstants.MOZ_ENTERPRISE) {
   ChromeUtils.defineESModuleGetters(lazy, {
     EnterpriseHandler:
-      "resource:///modules/enterprise/EnterpriseHandler.sys.mjs",
-    isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+      "moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs",
+    isTesting:
+      "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
     permanentlyBlockAboutPage: "resource://gre/modules/PoliciesHelpers.sys.mjs",
   });
 }

@@ -9,7 +9,7 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   CanonicalJSON: "resource://gre/modules/CanonicalJSON.sys.mjs",
   initiateShutdown:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
   Policies: "resource:///modules/policies/Policies.sys.mjs",
   PolicyFailures: "resource://gre/modules/PoliciesHelpers.sys.mjs",
@@ -20,9 +20,10 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "resource://gre/modules/policies/macOSPoliciesParser.sys.mjs",
   clearInterval: "resource://gre/modules/Timer.sys.mjs",
   setInterval: "resource://gre/modules/Timer.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   RelaunchEnforcer:
-    "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs",
   SitePolicyUtils: "resource://gre/modules/SitePolicyUtils.sys.mjs",
 });
 

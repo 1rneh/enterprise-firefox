@@ -228,7 +228,7 @@ MOZ_SRC_FILES += [
 ]
 
 if CONFIG["MOZ_ENTERPRISE"]:
-    EXTRA_JS_MODULES.enterprise += [
+    MOZ_SRC_FILES += [
         "DiskEncryption.sys.mjs",
         "EdrDetection.sys.mjs",
         "MachineId.sys.mjs",

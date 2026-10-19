@@ -886,7 +886,7 @@ if (AppConstants.MOZ_ENTERPRISE && Services.felt?.isFeltUI()) {
     matches: [],
     onAddActor(register, _unregister) {
       const { ConsoleClient } = ChromeUtils.importESModule(
-        "resource://gre/modules/enterprise/ConsoleClient.sys.mjs"
+        "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs"
       );
       ConsoleClient.ssoCallbackUriMatchPattern.then(
         uri => {

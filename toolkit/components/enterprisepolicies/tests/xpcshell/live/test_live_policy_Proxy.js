@@ -22,7 +22,7 @@ const { HttpServer } = ChromeUtils.importESModule(
   "resource://testing-common/httpd.sys.mjs"
 );
 const { ConsoleProxyBypassFilter } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/ConsoleProxyBypassFilter.sys.mjs"
+  "moz-src:///toolkit/components/enterprise/modules/ConsoleProxyBypassFilter.sys.mjs"
 );
 
 const pps = Cc["@mozilla.org/network/protocol-proxy-service;1"].getService(

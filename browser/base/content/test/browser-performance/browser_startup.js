@@ -86,7 +86,7 @@ const startupPhases = {
         "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
         "resource://gre/modules/FxAccounts.sys.mjs",
         AppConstants.MOZ_ENTERPRISE
-          ? "resource://gre/modules/EnterpriseAccountsStorage.sys.mjs"
+          ? "moz-src:///services/fxaccounts/EnterpriseAccountsStorage.sys.mjs"
           : "resource://gre/modules/FxAccountsStorage.sys.mjs",
         "resource://gre/modules/PlacesSyncUtils.sys.mjs",
         "resource://gre/modules/PushComponents.sys.mjs",

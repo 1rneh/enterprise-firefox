@@ -209,6 +209,7 @@ export default class IPProtectionContentElement extends MozLitElement {
   handleClickSiteRulesLink(event) {
     event.preventDefault();
     const win = event.target.documentGlobal;
+    Glean.ipprotection.rulesPageOpened.record({ entrypoint: "panel" });
     win.openPreferences(SITE_RULES_SETTINGS_PANE);
     this.dispatchEvent(
       new CustomEvent("IPProtection:Close", { bubbles: true, composed: true })
@@ -449,6 +450,7 @@ export default class IPProtectionContentElement extends MozLitElement {
 
     let dataL10nId;
     let imgSrc;
+    let imgClass;
 
     // hasSiteRule can be set without a rule that classifies this site, so the
     // rule type has to be resolved before we commit to rendering anything.
@@ -456,10 +458,12 @@ export default class IPProtectionContentElement extends MozLitElement {
       dataL10nId = "site-rules-description-inclusion";
       imgSrc =
         "chrome://browser/content/ipprotection/assets/states/ipprotection-on.svg";
+      imgClass = "ipprotection-on";
     } else if (this.hasSiteExclusion) {
       dataL10nId = "site-rules-description-exclusion";
       imgSrc =
         "chrome://browser/content/ipprotection/assets/states/ipprotection-off.svg";
+      imgClass = "ipprotection-off";
     } else {
       return null;
     }
@@ -473,7 +477,7 @@ export default class IPProtectionContentElement extends MozLitElement {
         ></span>
         <span id="site-rule-description" data-l10n-id=${dataL10nId}></span>
       </div>
-      <img src=${imgSrc} alt="" />
+      <img src=${imgSrc} alt="" class=${imgClass} />
     </div>`;
   }
 

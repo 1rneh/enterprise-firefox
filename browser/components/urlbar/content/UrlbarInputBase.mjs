@@ -19,7 +19,6 @@ import { UrlbarShared } from "chrome://browser/content/urlbar/UrlbarShared.mjs";
  * @import { BrowserSearchTelemetry } from "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs"
  * @import { UrlbarLoadRequest, LoadURLParams } from "chrome://browser/content/urlbar/UrlbarShared.mjs"
  * @import { UrlbarAutofillData } from "chrome://browser/content/urlbar/UrlbarResult.mjs"
- * @import { Tabbrowser } from "moz-src:///browser/components/tabbrowser/Tabbrowser.sys.mjs"
  */
 
 /**
@@ -340,10 +339,6 @@ ${
   _untrimmedValue = "";
   _wwwIsTrimmed = false;
   _enableAutofillPlaceholder = true;
-
-  /**
-   * @typedef {ChromeWindow & {gBrowser: Tabbrowser}} BrowserWindow
-   */
 
   /**
    * The browser window or null in a child process.
@@ -722,7 +717,7 @@ ${
       return;
     }
 
-    this._initPasteAndGo();
+    this.#initPasteAndGo();
     if (this.#isAddressbar && UrlbarContentUtils.getPlatform() == "macosx") {
       // The share group handles the strip-on-share item on macOS.
       this.#initShareURL();
@@ -4561,17 +4556,13 @@ ${
     stripOnShare.removeAttribute("disabled");
   }
 
-  _initPasteAndGo() {
+  #initPasteAndGo() {
     this.addContextMenuItems({
       after: "edit-contextmenu-paste",
       createItems: () => {
         let fragment = document.createDocumentFragment();
         let pasteAndGo = document.createXULElement("menuitem");
         pasteAndGo.id = "paste-and-go";
-        let label = Services.strings
-          .createBundle("chrome://browser/locale/browser.properties")
-          .GetStringFromName("pasteAndGo.label");
-        pasteAndGo.setAttribute("label", label);
         pasteAndGo.setAttribute("anonid", "paste-and-go");
         pasteAndGo.addEventListener("command", () => {
           this._suppressStartQuery = true;
@@ -4588,7 +4579,7 @@ ${
         fragment.appendChild(pasteAndGo);
         return fragment;
       },
-      onShowing: (input, [pasteAndGo]) => {
+      onShowing: async (input, [pasteAndGo]) => {
         // Close the results pane, because paste and go doesn't want a result
         // selection. This has to happen before the menu opens: hiding the
         // popover once it's open keeps it from showing (bug 2037468).
@@ -4614,11 +4605,28 @@ ${
         let controller =
           document.commandDispatcher.getControllerForCommand("cmd_paste");
         let enabled = controller.isCommandEnabled("cmd_paste");
-        if (enabled) {
-          pasteAndGo.removeAttribute("disabled");
-        } else {
-          pasteAndGo.setAttribute("disabled", "true");
+        pasteAndGo.toggleAttribute("disabled", !enabled);
+        if (!enabled) {
+          return;
         }
+
+        let l10nId;
+        if (!this.#navigationEnabled || this.searchMode) {
+          l10nId = "urlbar-menuitem-paste-and-search";
+        } else if (!UrlbarShared.keywordEnabled(this.#sapName)) {
+          l10nId = "urlbar-menuitem-paste-and-go";
+        } else {
+          let text = await UrlbarContentUtils.getClipboardTextIfSmallerThan(
+            UrlbarShared.MAX_TEXT_LENGTH,
+            window
+          );
+          let fixup =
+            text && UrlbarContentUtils.getFixupPrimitives(text, this.isPrivate);
+          l10nId = fixup?.keywordAsSent
+            ? "urlbar-menuitem-paste-and-search"
+            : "urlbar-menuitem-paste-and-go";
+        }
+        pasteAndGo.ownerDocument.l10n.setAttributes(pasteAndGo, l10nId);
       },
     });
   }
@@ -5716,7 +5724,11 @@ ${
 
     lazy.ClipboardHelper.copyStringToClipboard(
       val,
-      Services.clipboard.kSelectionClipboard
+      Services.clipboard.kSelectionClipboard,
+      null,
+      this.isPrivate
+        ? Ci.nsIClipboardHelper.Sensitive
+        : Ci.nsIClipboardHelper.NotSensitive
     );
   }
 
@@ -5844,7 +5856,8 @@ ${
       options.searchMode = this.searchMode;
       if (
         this.searchMode.source &&
-        !UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode")
+        (!this.searchMode.engineName ||
+          !UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode"))
       ) {
         options.sources = [this.searchMode.source];
       }
@@ -6528,7 +6541,13 @@ class CopyCutController {
       urlbar.inputField.dispatchEvent(event);
     }
 
-    lazy.ClipboardHelper.copyString(val);
+    lazy.ClipboardHelper.copyString(
+      val,
+      null,
+      urlbar.isPrivate
+        ? Ci.nsIClipboardHelper.Sensitive
+        : Ci.nsIClipboardHelper.NotSensitive
+    );
   }
 
   /**

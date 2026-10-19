@@ -879,7 +879,7 @@ class PerftestAndroid(Perftest):
         tcp_port = f"tcp:{port}"
         self.device.create_socket_connection("reverse", tcp_port, tcp_port)
 
-    def set_reverse_ports(self):
+    def set_reverse_ports(self, test):
         if self.is_localhost:
             if self.playback:
                 LOG.info("making the raptor playback server ports available to device")
@@ -892,6 +892,12 @@ class PerftestAndroid(Perftest):
             if self.benchmark:
                 LOG.info("making the raptor benchmarks server port available to device")
                 self.set_reverse_port(int(self.benchmark.port))
+
+            for port in getattr(test.get("support_class"), "reverse_ports", []):
+                LOG.info(
+                    f"making the support class server port {port} available to device"
+                )
+                self.set_reverse_port(port)
         else:
             LOG.info("Reverse port forwarding is used only on local devices")
 

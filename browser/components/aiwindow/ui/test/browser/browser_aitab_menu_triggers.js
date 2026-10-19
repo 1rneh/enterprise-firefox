@@ -175,7 +175,7 @@ describe("Create AI Tab menu triggers in a Smart Window", () => {
   afterEach(async () => {
     // Unanswered requests hold suspended async chains that keep the window
     // from being GC'd.
-    gMockEngineManager.rejectAllRequests();
+    await gMockEngineManager.rejectAllRequests();
     gMockEngineManager.cleanupMocks();
     gRestoreSignIn();
     await BrowserTestUtils.closeWindow(gWin);

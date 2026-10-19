@@ -142,6 +142,8 @@ export const INITIAL_STATE = {
     inferredInterests: {},
     coarseInferredInterests: {},
     coarsePrivateInferredInterests: {},
+    locationPrivateInferredInterests: null,
+    shouldUseLocationVector: false,
     debugFeatures: null,
     inferredTelemetrySettingsOverrides: {},
   },
@@ -749,6 +751,9 @@ function InferredPersonalization(
         coarseInferredInterests: action.data.coarseInferredInterests,
         coarsePrivateInferredInterests:
           action.data.coarsePrivateInferredInterests,
+        locationPrivateInferredInterests:
+          action.data.locationPrivateInferredInterests ?? null,
+        shouldUseLocationVector: action.data.shouldUseLocationVector ?? false,
         inferredTelemetrySettingsOverrides:
           action.data.inferredTelemetrySettingsOverrides,
         lastUpdated: action.data.lastUpdated,

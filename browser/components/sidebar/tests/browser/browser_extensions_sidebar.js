@@ -67,14 +67,8 @@ add_task(async function test_extension_sidebar_actions() {
     SidebarController._box,
     "sidebar-hide"
   );
-  const headerEl = SidebarController.browser.contentDocument.getElementById(
-    "sidebar-panel-header"
-  );
-  EventUtils.synthesizeMouseAtCenter(
-    headerEl.closeButton,
-    {},
-    SidebarController.browser.contentWindow
-  );
+  const header = SidebarController.panelHeader;
+  EventUtils.synthesizeMouseAtCenter(header.closeButton, {}, window);
   await promiseClosed;
   await SidebarController.waitUntilStable();
 

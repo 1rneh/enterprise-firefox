@@ -726,6 +726,9 @@ already_AddRefed<gfxPattern> SVGRadialGradientFrame::CreateGradient(
       GetLengthValue(aGradientUnits, dom::SVGRadialGradientElement::ATTR_CY);
   float r =
       GetLengthValue(aGradientUnits, dom::SVGRadialGradientElement::ATTR_R);
+  if (r < 0) {
+    return nullptr;
+  }
   // If fx or fy are not set, use cx/cy instead
   float fx = GetLengthValue(aGradientUnits,
                             dom::SVGRadialGradientElement::ATTR_FX, cx);
@@ -733,6 +736,9 @@ already_AddRefed<gfxPattern> SVGRadialGradientFrame::CreateGradient(
                             dom::SVGRadialGradientElement::ATTR_FY, cy);
   float fr =
       GetLengthValue(aGradientUnits, dom::SVGRadialGradientElement::ATTR_FR);
+  if (fr < 0) {
+    return nullptr;
+  }
 
   return MakeAndAddRef<gfxPattern>(fx, fy, fr, cx, cy, r);
 }

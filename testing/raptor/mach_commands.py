@@ -409,9 +409,6 @@ def run_raptor(command_context, **kwargs):
                 "****************************************************************************"
             )
             return 1
-        # Disable fission until geckoview supports fission by default.
-        # Need fission on Android? Use '--setpref fission.autostart=true'
-        kwargs["fission"] = False
 
     # Remove mach global arguments from sys.argv to prevent them
     # from being consumed by raptor. Treat any item in sys.argv

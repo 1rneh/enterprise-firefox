@@ -17,4 +17,7 @@ skip-if = [
 ["browser_aitab_context_tab_limit.js"]
 ["browser_aitab_heading_font.js"]
 
+["browser_aitab_sidebar.js"]
+support-files = ["!/browser/components/aiwindow/ui/test/browser/head.js"]
+
 ["browser_aitab_telemetry.js"]

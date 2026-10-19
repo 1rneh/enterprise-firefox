@@ -258,7 +258,7 @@ export class PictureOfTheDayFeed {
   // one the parent has nobody to report to and the event is dropped.
   // `requestedDate` is the date of the picture the widget showed; "" means
   // today's. A date matching neither picture is stale, so nothing is set.
-  async setWallpaper(target = null, requestedDate = "") {
+  async setWallpaper(target = null, requestedDate = "", win = null) {
     // The CTA is only shown when wallpapers and custom wallpapers are enabled,
     // so reaching here with either disabled means something dispatched the
     // action out of band.
@@ -304,13 +304,9 @@ export class PictureOfTheDayFeed {
       const blob = await response.blob();
       let theme = "light";
       try {
-        // calculateTheme samples luminance via createImageBitmap/OffscreenCanvas,
-        // which the sys.mjs global doesn't provide - use the parent's hidden DOM
-        // window, which does. Falls back to "light" if decoding fails.
-        theme = await lazy.calculateTheme(
-          Services.appShell.hiddenDOMWindow,
-          blob
-        );
+        // sys.mjs has no createImageBitmap or OffscreenCanvas, and the hidden
+        // window is macOS only, so decode with the window that asked.
+        theme = await lazy.calculateTheme(win, blob);
       } catch (e) {
         console.error("PictureOfTheDayFeed: theme calculation failed", e);
       }
@@ -402,7 +398,8 @@ export class PictureOfTheDayFeed {
       case at.WIDGETS_PICTURE_SET_WALLPAPER:
         await this.setWallpaper(
           action.meta?.fromTarget,
-          action.data?.publishedDate
+          action.data?.publishedDate,
+          action._target?.window
         );
         break;
       case at.WALLPAPER_UPLOAD:

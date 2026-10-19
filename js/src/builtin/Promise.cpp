@@ -3040,11 +3040,9 @@ static void RequiresDeferredPromiseResolution(HandleValue value, JSContext* cx,
 
   MOZ_ASSERT(propInfo.isDataProperty());
 
-  // Given the checks here, we should _definitely_ get a data property at this
-  // point.
-  Value thenVal;
-  MOZ_ALWAYS_TRUE(GetPropertyPure(cx, &value.toObject(),
-                                  NameToId(cx->names().then), &thenVal));
+  // Read the data property's value from the holder found by the lookup above,
+  // rather than looking "then" up a second time.
+  Value thenVal = holder->getSlot(propInfo.slot());
 
   *needsDeferral = IsCallable(thenVal);
   return;

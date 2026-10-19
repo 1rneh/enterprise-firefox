@@ -278,6 +278,9 @@ ipprotection-message-bar.vpn-top-content {
   flex-direction: row;
   justify-content: space-between;
   align-items: flex-start;
+  /* Neutral background color matches VPN status card in panel */
+  /* stylelint-disable-next-line stylelint-plugin-mozilla/no-base-design-tokens */
+  background-color: light-dark(var(--color-gray-0), var(--color-black-alpha-50));
   border: var(--border-width) solid var(--border-color-deemphasized);
   border-radius: var(--border-radius-medium);
   padding: var(--space-medium);
@@ -288,10 +291,18 @@ ipprotection-message-bar.vpn-top-content {
     -moz-context-properties: fill, fill-opacity, stroke;
     fill: var(--button-icon-fill);
     stroke: var(--button-icon-stroke);
+
+    &.ipprotection-on {
+      fill: var(--icon-color-success);
+    }
   }
 }
 
 #site-rule-status-text-container {
   display: flex;
   flex-direction: column;
+}
+
+#site-rule-description {
+  font-weight: var(--font-weight-semibold);
 }

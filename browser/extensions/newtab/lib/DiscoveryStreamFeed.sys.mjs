@@ -2096,9 +2096,14 @@ export class DiscoveryStreamFeed {
 
     let inferredInterests = null;
     if (inferredPersonalization && merinoOhttpEnabled) {
-      inferredInterests =
-        this.store.getState().InferredPersonalization
-          ?.coarsePrivateInferredInterests || {};
+      const personalization = this.store.getState().InferredPersonalization;
+      const useLocationVector =
+        prefs?.trainhopConfig?.locationInitInferred?.enabled &&
+        personalization?.shouldUseLocationVector &&
+        personalization.locationPrivateInferredInterests;
+      inferredInterests = useLocationVector
+        ? personalization.locationPrivateInferredInterests
+        : personalization?.coarsePrivateInferredInterests || {};
       if (prefs[PREF_INFERRED_INTERESTS_OVERRIDE]) {
         try {
           inferredInterests = JSON.parse(

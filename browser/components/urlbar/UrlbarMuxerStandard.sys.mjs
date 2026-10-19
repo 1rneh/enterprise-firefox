@@ -818,6 +818,11 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
         // We assume that there will be at most one.
         return true;
       }
+      if (result.payload.suggestionObject?.suggestionType == "temporal") {
+        // Temporal search suggestions are shown as several rows in the zero
+        // prefix view.
+        return true;
+      }
 
       if (state.quickSuggestResult && state.quickSuggestResult != result) {
         // A Suggest result was already added.
@@ -1348,7 +1353,9 @@ class MuxerUnifiedComplete extends UrlbarMuxer {
 
     if (
       result.providerName == lazy.UrlbarProviderQuickSuggest.name &&
-      result.payload.suggestionObject?.suggestionType != "important_dates"
+      !["important_dates", "temporal"].includes(
+        result.payload.suggestionObject?.suggestionType
+      )
     ) {
       state.quickSuggestResult ??= result;
     }

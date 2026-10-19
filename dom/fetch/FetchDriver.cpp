@@ -837,14 +837,10 @@ nsresult FetchDriver::HttpFetch(
 
       // Streaming uploads (ReadableStream) require HTTP/2 or HTTP/3.
       // Since browsers only use HTTP/2 over TLS, reject non-https URLs early.
-      if (mRequest->HasStreamBody()) {
-        bool isHttps = false;
-        rv = uri->SchemeIs("https", &isHttps);
-        if (NS_SUCCEEDED(rv) && !isHttps) {
-          // Reject streaming upload on non-https (which implies HTTP/1.1)
-          FailWithNetworkError(NS_ERROR_DOM_NETWORK_ERR);
-          return NS_ERROR_DOM_NETWORK_ERR;
-        }
+      if (mRequest->HasStreamBody() && !uri->SchemeIs("https")) {
+        // Reject streaming upload on non-https (which implies HTTP/1.1)
+        FailWithNetworkError(NS_ERROR_DOM_NETWORK_ERR);
+        return NS_ERROR_DOM_NETWORK_ERR;
       }
 
       // Mark the channel as streaming BEFORE calling ExplicitSetUploadStream

@@ -328,6 +328,14 @@ nsresult JsepSessionImpl::CreateOfferMsection(const JsepOfferOptions& options,
   transceiver.mSendTrack.AddToOffer(mSsrcGenerator, msection);
   transceiver.mRecvTrack.AddToOffer(mSsrcGenerator, msection);
 
+  // The send track keeps codecs excluded by setCodecPreferences (so they can
+  // still be used if negotiated), and writes their fmtp/rtcp-fb. The recv
+  // track, which determines the m= line formats, never adds them. Drop the
+  // attributes of payload types that did not make it into the m= line.
+  if (msection->GetMediaType() != SdpMediaSection::kApplication) {
+    msection->RemoveUnlistedPayloadTypeAttributes();
+  }
+
   AddExtmap(msection);
 
   std::string mid;

@@ -155,6 +155,7 @@ add_task(async function test_site_rules_button_opens_sub_pane() {
         "Site rules button uses the site rules string"
       );
 
+      Services.fog.testResetFOG();
       let paneLoaded = waitForPaneChange("vpnSiteRules", win);
       siteRulesButton.scrollIntoView();
       EventUtils.synthesizeMouseAtCenter(siteRulesButton, {}, win);
@@ -164,6 +165,14 @@ add_task(async function test_site_rules_button_opens_sub_pane() {
       is_element_visible(
         doc.querySelector(`setting-pane[data-category="paneVpnSiteRules"]`),
         "Site rules sub-pane is shown"
+      );
+
+      let events = Glean.ipprotection.rulesPageOpened.testGetValue();
+      Assert.equal(events.length, 1, "Recorded one rules page event");
+      Assert.equal(
+        events[0].extra.entrypoint,
+        "settings",
+        "Rules page event records the settings entrypoint"
       );
     }
   );

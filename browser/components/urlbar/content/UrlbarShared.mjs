@@ -1794,7 +1794,7 @@ export const UrlbarShared = {
    *   in the previous calendar month, this value will be 1, and so on.
    */
   parseDate(date) {
-    let zonedNow = this._zonedDateTimeISO();
+    let zonedNow = this.zonedDateTimeISO();
     let zonedDate = date.toTemporalInstant().toZonedDateTimeISO(zonedNow);
     let isFuture = Temporal.ZonedDateTime.compare(zonedNow, zonedDate) < 0;
 
@@ -1833,7 +1833,7 @@ export const UrlbarShared = {
 
   // Thin wrapper around `zonedDateTimeISO` so that tests can easily set a mock
   // "now" date and time. See `UrlbarTestUtils.stubNowZonedDateTime()`.
-  _zonedDateTimeISO() {
+  zonedDateTimeISO() {
     return Temporal.Now.zonedDateTimeISO();
   },
 

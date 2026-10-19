@@ -11678,6 +11678,7 @@ pub unsafe extern "C" fn Servo_GetComputationStepsSupportedCSSFunctions(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn Servo_GetComputationSteps(
+    property: &nsACString,
     string: &nsACString,
     raw_element: &RawGeckoElement,
     pseudo_type: PseudoStyleType,
@@ -11691,62 +11692,68 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
     use style::values::generics::calc::SimplificationResult;
     use style::values::specified::calc::{CalcNode, CalcParseFlags, CalcPercentageLeaf, Leaf};
 
+    let property = unsafe { property.as_str_unchecked() };
     let string = unsafe { string.as_str_unchecked() };
+    let mut parser_context = dummy_author_style_rule_context();
+    let property_id = PropertyId::parse(&property, &parser_context).ok();
     let mut substituted = None;
     let element = GeckoElement(raw_element);
     let data = raw_data.borrow();
-    let parser_context = dummy_author_style_rule_context();
     let mut context = ContextForSubstitution::new(element, pseudo_type);
     let context = context.computed_context(&data, style);
 
-    if let Some(s) = compute_arbritrary_substitution_functions(
-        &string,
-        element,
-        style,
-        &data,
-        &parser_context,
-        &context,
-    ) {
-        // We successfully substituted, let's add the initial string to the result array
-        out.push(nsCString::from(string));
-        // …as well as the substituted string.
-        out.push(nsCString::from(&s));
-        substituted = Some(s.clone());
+    let mut parse_node = |parser_context: &ParserContext| {
+        if let Some(s) = compute_arbritrary_substitution_functions(
+            &string,
+            element,
+            style,
+            &data,
+            &parser_context,
+            &context,
+        ) {
+            // We successfully substituted, let's add the initial string to the result array
+            out.push(nsCString::from(string));
+            // …as well as the substituted string.
+            out.push(nsCString::from(&s));
+            substituted = Some(s.clone());
+        };
+
+        let substituted_str = substituted.as_deref().unwrap_or(&string);
+        let mut parser = Parser::new(substituted_str);
+
+        let flags = CalcParseFlags {
+            percentage_context: PercentageContext::allowed(),
+            in_place_operations: CalcNodeParseInPlaceOperations::No,
+            ..Default::default()
+        };
+
+        // Initial parsing
+        Some(match parser.next().ok()? {
+            Token::Function(name) => {
+                let math_func = CalcNode::math_function(&parser_context, name).ok()?;
+                CalcNode::parse(&parser_context, &mut parser, math_func, flags).ok()?
+            },
+            Token::Percentage { unit_value, .. } => CalcNode::Leaf(Leaf::Percentage(
+                CalcPercentageLeaf::new(*unit_value, Optional::None),
+            )),
+            Token::Dimension { value, unit, .. } => {
+                let length =
+                    NoCalcLength::parse_dimension_with_context(&parser_context, *value, unit)
+                        .ok()?;
+                CalcNode::Leaf(Leaf::Length(length))
+            },
+            _ => return None,
+        })
     };
 
-    let substituted_str = substituted.as_deref().unwrap_or(&string);
-    let mut parser = Parser::new(substituted_str);
-
-    let flags = CalcParseFlags {
-        percentage_context: PercentageContext::allowed(),
-        in_place_operations: CalcNodeParseInPlaceOperations::No,
-        ..Default::default()
+    let node = match property_id {
+        Some(ref id) => {
+            parser_context.with_property_declaration(PropertyIdRef::from(id), parse_node)
+        },
+        None => parse_node(&parser_context),
     };
-
-    // Initial parsing
-    let Ok(token) = parser.next() else { return };
-    let mut node = match token {
-        Token::Function(name) => {
-            let Ok(math_func) = CalcNode::math_function(&parser_context, name) else {
-                return;
-            };
-            match CalcNode::parse(&parser_context, &mut parser, math_func, flags) {
-                Ok(n) => n,
-                Err(_) => return,
-            }
-        },
-        Token::Percentage { unit_value, .. } => CalcNode::Leaf(Leaf::Percentage(
-            CalcPercentageLeaf::new(*unit_value, Optional::None),
-        )),
-        Token::Dimension { value, unit, .. } => {
-            let Ok(length) =
-                NoCalcLength::parse_dimension_with_context(&parser_context, *value, unit)
-            else {
-                return;
-            };
-            CalcNode::Leaf(Leaf::Length(length))
-        },
-        _ => return,
+    let Some(mut node) = node else {
+        return;
     };
 
     let mut value = match node.as_leaf() {
@@ -11785,6 +11792,10 @@ pub unsafe extern "C" fn Servo_GetComputationSteps(
         Leaf::TreeCountingFunction(t) => {
             let result = t.to_computed_value(&context) as f32;
             Leaf::Number(NoCalcNumber::from_computed_value(&result))
+        },
+        Leaf::RandomKey(ref key) => {
+            let base_value = *key.to_computed_value(&context) as f32;
+            Leaf::Number(NoCalcNumber::from_computed_value(&base_value))
         },
         ref l => l.clone(),
     });

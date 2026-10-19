@@ -175,8 +175,8 @@ document.addEventListener(
           });
           break;
         case "context_openTabInMiniWindow":
-          lazy.MiniWindowManager.popTab(
-            TabContextMenu.contextTab,
+          lazy.MiniWindowManager.popTabs(
+            TabContextMenu.contextTabs,
             "tab_context_menu"
           );
           break;

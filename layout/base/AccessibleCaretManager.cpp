@@ -50,6 +50,7 @@ namespace mozilla {
 using namespace dom;
 using Appearance = AccessibleCaret::Appearance;
 using PositionChangedResult = AccessibleCaret::PositionChangedResult;
+using TouchArea = AccessibleCaret::TouchArea;
 
 #define AC_PROCESS_ENUM_TO_STREAM(e) \
   case (e):                          \
@@ -517,14 +518,10 @@ nsresult AccessibleCaretManager::PressCaret(const nsPoint& aPoint,
   MOZ_ASSERT(aEventClass == eMouseEventClass || aEventClass == eTouchEventClass,
              "Unexpected event class!");
 
-  using TouchArea = AccessibleCaret::TouchArea;
-  TouchArea touchArea =
-      aEventClass == eMouseEventClass ? TouchArea::CaretImage : TouchArea::Full;
-
-  if (mCarets.GetFirst()->Contains(aPoint, touchArea)) {
+  if (mCarets.GetFirst()->Contains(aPoint, TouchArea::CaretImage)) {
     mActiveCaret = mCarets.GetFirst();
     SetSelectionDirection(eDirPrevious);
-  } else if (mCarets.GetSecond()->Contains(aPoint, touchArea)) {
+  } else if (mCarets.GetSecond()->Contains(aPoint, TouchArea::CaretImage)) {
     mActiveCaret = mCarets.GetSecond();
     SetSelectionDirection(eDirNext);
   }

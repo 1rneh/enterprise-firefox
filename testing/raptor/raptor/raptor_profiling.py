@@ -111,13 +111,14 @@ class RaptorProfiling:
 
             For benchmark/scenario tests, we return those specific types,
             but for pageloads we return cold or warm depending on the --cold
-            flag.
+            flag or the test's cold setting.
             """
             if self.test_config.get("type", "pageload") not in (
                 "benchmark",
                 "scenario",
             ):
-                return "cold" if self.raptor_config.get("cold", False) else "warm"
+                cold = self.raptor_config.get("cold") or self.test_config.get("cold")
+                return "cold" if cold else "warm"
             else:
                 return self.test_config.get("type", "benchmark")
 

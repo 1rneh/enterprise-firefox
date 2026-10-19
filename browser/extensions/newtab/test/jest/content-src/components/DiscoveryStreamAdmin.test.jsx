@@ -709,6 +709,9 @@ describe("<DiscoveryStreamAdminUI> Layouts", () => {
     "spaces-buttons-bottom",
     "spaces-buttons-top",
     "spaces-floating-arrows",
+    "spaces-preview-cards",
+    "spaces-preview-illustrated",
+    "spaces-preview-kit",
     "spaces-thematic-v1",
     // @experiment(remove) { bug 2078816 }
     "widget-first-content-slot",

@@ -639,6 +639,10 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // temporal search suggestions are turned on.
   ["suggest.temporal", true],
 
+  // If `browser.urlbar.suggest.temporal` is true, this controls whether
+  // seasonal temporal search suggestions are shown.
+  ["suggest.temporal.seasonal", true],
+
   // Whether results will include top sites and the view will open on focus.
   ["suggest.topsites", true],
 

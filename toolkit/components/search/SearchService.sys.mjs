@@ -1911,7 +1911,8 @@ export const SearchService = new (class SearchService {
     lazy.logConsole.debug("#loadEngines: start");
     this.#setDefaultFromSelector(refinedConfig);
 
-    this.#loadEnginesFromConfig(refinedConfig.engines, settings);
+    let configEngines = this.#filterDeprecatedEngines(refinedConfig.engines);
+    this.#loadEnginesFromConfig(configEngines, settings);
 
     await this.#loadStartupEngines(settings);
 
@@ -1922,7 +1923,7 @@ export const SearchService = new (class SearchService {
     // override, then we don't want to show the notification box.
     let skipDefaultChangedNotification = await this.#loadEnginesFromSettings(
       settings,
-      refinedConfig.engines
+      configEngines
     );
 
     // If #loadEnginesFromSettings changed the default engine, then we don't
@@ -2047,6 +2048,19 @@ export const SearchService = new (class SearchService {
     }
 
     return false;
+  }
+
+  /**
+   * Returns the engine configurations that are not deprecated.
+   *
+   * @param {(SearchEngineDefinition|SearchEngineDefinitionV3)[]} engineConfigs
+   *   An array of engines configurations based on the schema.
+   * @returns {(SearchEngineDefinition|SearchEngineDefinitionV3)[]}
+   */
+  #filterDeprecatedEngines(engineConfigs) {
+    return engineConfigs.filter(
+      config => !("deprecated" in config && config.deprecated)
+    );
   }
 
   /**
@@ -2262,7 +2276,9 @@ export const SearchService = new (class SearchService {
 
     let refinedConfig = await this._fetchEngineSelectorEngines();
 
-    let availableConfigEngines = [...refinedConfig.engines];
+    let availableConfigEngines = this.#filterDeprecatedEngines(
+      refinedConfig.engines
+    );
     let oldEngineList = [...this._engines.values()];
 
     for (let engine of oldEngineList) {

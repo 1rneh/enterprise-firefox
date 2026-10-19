@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+/** @typedef {import("./JourneyStore.sys.mjs").JourneyMetadata} JourneyMetadata */
+
 const RESUME_ACTIVITY_SUPPORTED_LOCALES = ["en"];
 
 // Generate extra candidates so dismissals can reveal replacements.
@@ -60,6 +62,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/ChatConversation.sys.mjs",
   SYSTEM_PROMPT_TYPE:
     "moz-src:///browser/components/aiwindow/ui/modules/ChatEnums.sys.mjs",
+  JourneyStore:
+    "moz-src:///browser/components/aiwindow/models/memories/journeys/JourneyStore.sys.mjs",
 });
 
 ChromeUtils.defineLazyGetter(lazy, "console", () =>
@@ -71,6 +75,30 @@ ChromeUtils.defineLazyGetter(lazy, "console", () =>
 
 /** Provides suggestions and conversations for resuming journeys. */
 export const JourneyManager = {
+  /**
+   * @returns {Promise<boolean>} Whether any stored journeys are not suppressed.
+   */
+  async hasEligibleJourneys() {
+    const journeys = await lazy.JourneyStore.getAll();
+    return journeys.some(journey => !this.isJourneySuppressed(journey));
+  },
+
+  /**
+   * Returns true if the journey is permanently dismissed or now is less than
+   * dismissed_until.
+   *
+   * @param {JourneyMetadata} metadata - Record to test.
+   * @param {number} [now] - Epoch milliseconds to compare against; defaults to
+   *   Date.now().
+   * @returns {boolean} Whether the journey is suppressed.
+   */
+  isJourneySuppressed(metadata, now = Date.now()) {
+    return (
+      metadata.dismissed ||
+      (metadata.dismissed_until !== null && metadata.dismissed_until > now)
+    );
+  },
+
   /**
    * Generates conversation starter prompts for suggestions to resume journeys
    * based on user memories and associated browsing history.

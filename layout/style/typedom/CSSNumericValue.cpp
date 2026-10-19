@@ -23,8 +23,33 @@
 #include "mozilla/dom/CSSNumericArray.h"
 #include "mozilla/dom/CSSNumericValueBinding.h"
 #include "mozilla/dom/CSSUnitValue.h"
+#include "nsTArray.h"
 
 namespace mozilla::dom {
+
+namespace {
+
+template <typename Operation>
+UniquePtr<StyleNumericType> ComputeNumericType(
+    Span<const RefPtr<CSSNumericValue>> aValues, Operation aOperation,
+    ErrorResult& aRv) {
+  AutoTArray<const StyleNumericType*, 8> numericTypes;
+  numericTypes.SetCapacity(aValues.Length());
+
+  for (const auto& value : aValues) {
+    numericTypes.AppendElement(&value->GetNumericType());
+  }
+
+  auto numericType = MakeUnique<StyleNumericType>();
+  if (!aOperation(&numericTypes, numericType.get())) {
+    aRv.ThrowTypeError("Incompatible types");
+    return nullptr;
+  }
+
+  return numericType;
+}
+
+}  // namespace
 
 CSSNumericValue::CSSNumericValue(nsCOMPtr<nsISupports> aParent,
                                  NumericValueType aNumericValueType)
@@ -478,6 +503,16 @@ bool CSSNumericValue::EqualNumericValues(const CSSNumericValue& aValue1,
 
   return EqualNumericValues(*value1.GetAsCSSMathInvert().Value(),
                             *value2.GetAsCSSMathInvert().Value());
+}
+
+UniquePtr<StyleNumericType> CSSNumericValue::AddTypes(
+    Span<const RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv) {
+  return ComputeNumericType(aValues, Servo_NumericType_AddTypes, aRv);
+}
+
+UniquePtr<StyleNumericType> CSSNumericValue::MultiplyTypes(
+    Span<const RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv) {
+  return ComputeNumericType(aValues, Servo_NumericType_MultiplyTypes, aRv);
 }
 
 const CSSNumericValue& CSSStyleValue::GetAsCSSNumericValue() const {

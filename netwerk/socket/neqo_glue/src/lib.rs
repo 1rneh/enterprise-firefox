@@ -2043,11 +2043,14 @@ impl WebTransportEventExternal {
         match event {
             WebTransportEvent::Negotiated(n) => Self::Negotiated(n),
             WebTransportEvent::NewSession {
-                stream_id, status, ..
+                stream_id, status, headers
             } => {
-                data.extend_from_slice(b"HTTP/3 ");
-                data.extend_from_slice(status.to_string().as_bytes());
-                data.extend_from_slice(b"\r\n\r\n");
+                if convert_h3_to_h1_headers(&headers, data) != NS_OK {
+                    data.clear();
+                    data.extend_from_slice(b"HTTP/3 ");
+                    data.extend_from_slice(status.to_string().as_bytes());
+                    data.extend_from_slice(b"\r\n\r\n");
+                }
                 Self::Session(stream_id.as_u64())
             }
             WebTransportEvent::SessionClosed {

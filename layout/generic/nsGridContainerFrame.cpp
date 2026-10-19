@@ -9275,7 +9275,7 @@ nscoord nsGridContainerFrame::ReflowChildren(GridReflowInput& aGridRI,
   nscoord bSize = aContentArea.BSize(wm);
   MOZ_ASSERT(aGridRI.mReflowInput);
   MOZ_ASSERT(aStatus.IsEmpty(), "Caller should pass a fresh reflow status!");
-  if (HidesContentForLayout()) {
+  if (HidesContentForLayout() && !GetNextContinuation()) {
     return bSize;
   }
 
@@ -9444,7 +9444,8 @@ void nsGridContainerFrame::Reflow(nsPresContext* aPresContext,
                                   nsReflowStatus& aStatus) {
   NormalizeChildLists();
 
-  if (IsHiddenByContentVisibilityOfInFlowParentForLayout()) {
+  if (IsHiddenByContentVisibilityOfInFlowParentForLayout() &&
+      !GetNextContinuation()) {
     return;
   }
 

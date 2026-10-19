@@ -898,7 +898,7 @@ export class MozTabbrowserTabs extends MozElements.TabsBase {
         );
       }
     }
-    return splitViews;
+    return /** @type {MozTabSplitViewWrapper[]} */ (splitViews);
   }
 
   /**

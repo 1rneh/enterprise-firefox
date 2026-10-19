@@ -652,7 +652,7 @@
   "button/text/color/menu/disabled": {
     "light": "{Theme$button/text/color/ghost/disabled}",
     "dark": "{Theme$button/text/color/ghost/disabled}",
-    "forcedColors": "{Theme$button/text/color/ghost/disabled}"
+    "forcedColors": "{Theme$button/text/color/disabled}"
   },
   "button/text/color/menu/hover": {
     "light": "{Theme$button/text/color/ghost/hover}",
@@ -1044,6 +1044,11 @@
     "dark": "{Theme$toolbarbutton/icon/fill}",
     "forcedColors": "{Theme$button/text/color/ghost/active}"
   },
+  "toolbarbutton/icon/fill/disabled": {
+    "light": "{Theme$toolbarbutton/icon/fill}",
+    "dark": "{Theme$toolbarbutton/icon/fill}",
+    "forcedColors": "{Theme$button/text/color/disabled}"
+  },
   "toolbarbutton/icon/fill/attention": {
     "light": "{Colors$color/blue/60}",
     "dark": "{Colors$color/cyan/30}",
@@ -1057,7 +1062,7 @@
   "toolbarbutton/opacity/disabled": {
     "light": "{Theme$button/opacity/disabled}",
     "dark": "{Theme$button/opacity/disabled}",
-    "forcedColors": 0.3
+    "forcedColors": "{Theme$button/opacity/disabled}"
   },
   "toolbarbutton/background/color": {
     "light": "transparent",
@@ -1103,6 +1108,11 @@
     "light": "{Theme$toolbarbutton/outline/color/active}",
     "dark": "{Theme$toolbarbutton/outline/color/active}",
     "forcedColors": "{HCM Theme$SelectedItem}"
+  },
+  "toolbarbutton/outline/color/disabled": {
+    "light": "{Theme$toolbarbutton/outline/color}",
+    "dark": "{Theme$toolbarbutton/outline/color}",
+    "forcedColors": "{Theme$button/border/color/disabled}"
   },
   "toolbarseparator/color": {
     "light": "{Theme$text/color/deemphasized}",

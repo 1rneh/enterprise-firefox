@@ -71,6 +71,8 @@ constexpr size_t kMaxGlyphsPerCall = 4096;
 // Text is emitted at this many GDI units per device pixel, for sub-pixel font sizes and glyph
 // positions. Same as cairo's WIN32_FONT_LOGICAL_SCALE.
 constexpr SkScalar kTextLogicalScale = 32;
+// Native strokes use pens this many GDI units wide per device pixel, for sub-pixel widths.
+constexpr SkScalar kStrokeLogicalScale = 32;
 
 LONG to_gdi(SkScalar v) { return (LONG)SkScalarRoundToInt(SkTPin(v, -kMaxCoord, kMaxCoord)); }
 
@@ -142,6 +144,30 @@ void emit_path(HDC dc, const SkPath& path) {
     }
 }
 
+DWORD to_gdi_cap(SkPaint::Cap cap) {
+    switch (cap) {
+        case SkPaint::kButt_Cap:
+            return PS_ENDCAP_FLAT;
+        case SkPaint::kRound_Cap:
+            return PS_ENDCAP_ROUND;
+        case SkPaint::kSquare_Cap:
+            return PS_ENDCAP_SQUARE;
+    }
+    return PS_ENDCAP_FLAT;
+}
+
+DWORD to_gdi_join(SkPaint::Join join) {
+    switch (join) {
+        case SkPaint::kMiter_Join:
+            return PS_JOIN_MITER;
+        case SkPaint::kRound_Join:
+            return PS_JOIN_ROUND;
+        case SkPaint::kBevel_Join:
+            return PS_JOIN_BEVEL;
+    }
+    return PS_JOIN_MITER;
+}
+
 // Returns a non-inverse path covering the same area as |path| within |bounds|.
 std::optional<SkPath> uninvert_path(const SkPath& path, const SkIRect& bounds) {
     if (!path.isInverseFillType()) {
@@ -171,34 +197,75 @@ void blit_bitmap(HDC dc, const SkBitmap& bm, const SkIRect& dst, bool smooth = t
     SetStretchBltMode(dc, oldMode);
 }
 
-// Rasterizes |draw| (in device space) for the |area| of the page on top of white, at |scale|
-// times the device resolution.
-bool rasterize(const SkIRect& area, SkScalar scale,
-               const std::function<void(SkCanvas*)>& draw, SkBitmap* bm) {
-    int64_t w = SkScalarCeilToInt(area.width() * scale);
-    int64_t h = SkScalarCeilToInt(area.height() * scale);
-    if (w <= 0 || h <= 0) {
-        return false;
-    }
-    if (w * h > kMaxRasterPixels) {
-        SkScalar shrink = SkScalarSqrt(SkScalar(kMaxRasterPixels) / SkScalar(w * h));
-        w = std::max<int64_t>(1, SkScalarFloorToInt(w * shrink));
-        h = std::max<int64_t>(1, SkScalarFloorToInt(h * shrink));
-    }
-    if (!bm->tryAllocPixels(SkImageInfo::Make(w, h, kBGRA_8888_SkColorType,
+using DrawPageFn = std::function<void(SkCanvas*, SkIPoint)>;
+
+// Draws |draw| on top of white into a new |width| x |height| bitmap, whose device origin is at
+// |origin| in the page, after applying |matrix| to the canvas.
+bool draw_on_white(int width, int height, const SkMatrix& matrix, SkIPoint origin,
+                   const DrawPageFn& draw, SkBitmap* bm) {
+    if (!bm->tryAllocPixels(SkImageInfo::Make(width, height, kBGRA_8888_SkColorType,
                                               kPremul_SkAlphaType))) {
         return false;
     }
     SkCanvas canvas(*bm);
     canvas.clear(SK_ColorWHITE);
-    canvas.scale(SkScalar(w) / area.width(), SkScalar(h) / area.height());
-    canvas.translate(-area.x(), -area.y());
-    canvas.clipRect(SkRect::Make(area));
-    draw(&canvas);
+    canvas.concat(matrix);
+    draw(&canvas, origin);
     // Make sure that nothing is left translucent (e.g. due to kClear or kSrc), since GDI ignores
     // the alpha channel.
+    canvas.restoreToCount(1);
     canvas.drawColor(SK_ColorWHITE, SkBlendMode::kDstOver);
     return true;
+}
+
+// Rasterizes |draw| for the |area| of the page on top of white, at |scale| times the device
+// resolution. |draw| gets a canvas whose device origin is at the passed point of the page.
+//
+// If |canvasMayBeScaled|, the canvas may also be transformed (relative to that origin), so that
+// |draw| is rasterized at the final resolution. Otherwise it's untransformed and at device
+// resolution, and the result is downscaled afterwards.
+bool rasterize(const SkIRect& area, SkScalar scale, bool canvasMayBeScaled,
+               const DrawPageFn& draw, SkBitmap* bm) {
+    int w = std::max(1, SkScalarCeilToInt(area.width() * scale));
+    int h = std::max(1, SkScalarCeilToInt(area.height() * scale));
+    if (scale >= 1 || canvasMayBeScaled) {
+        SkMatrix matrix = SkMatrix::Scale(SkScalar(w) / area.width(), SkScalar(h) / area.height());
+        return draw_on_white(w, h, matrix, area.topLeft(), draw, bm);
+    }
+    SkBitmap full;
+    if (!draw_on_white(area.width(), area.height(), SkMatrix::I(), area.topLeft(), draw, &full) ||
+        !bm->tryAllocPixels(full.info().makeWH(w, h))) {
+        return false;
+    }
+    sk_sp<SkImage> image = full.asImage()->withDefaultMipmaps();
+    if (!image) {
+        return false;
+    }
+    SkCanvas canvas(*bm);
+    canvas.drawImageRect(image, SkRect::MakeIWH(w, h),
+                         SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kLinear));
+    return true;
+}
+
+// Rasterizes and blits the |region| of the page, in as few strips as memory usage allows.
+void rasterize_region(HDC dc, const SkRegion& region, SkScalar scale, bool canvasMayBeScaled,
+                      const DrawPageFn& draw) {
+    if (region.isEmpty()) {
+        return;
+    }
+    const SkIRect& area = region.getBounds();
+    int stripHeight = std::max<int>(1, kMaxRasterPixels / area.width());
+    for (int y = area.fTop; y < area.fBottom; y += stripHeight) {
+        SkRegion strip(SkIRect::MakeLTRB(area.fLeft, y, area.fRight,
+                                         std::min(y + stripHeight, area.fBottom)));
+        if (!strip.op(region, SkRegion::kIntersect_Op)) {
+            continue;
+        }
+        SkBitmap bm;
+        if (rasterize(strip.getBounds(), scale, canvasMayBeScaled, draw, &bm)) {
+            blit_bitmap(dc, bm, strip.getBounds());
+        }
+    }
 }
 
 COLORREF to_colorref(SkColor4f c, bool flattenOnWhite) {
@@ -583,9 +650,14 @@ public:
             support = Support::kUnsupported;
         }
         Decision decision = this->decide(bounds, support);
-        if (decision != Decision::kSkip) {
-            this->emitGeometry(*geometry, paint, decision == Decision::kEmitFlattened, bounds);
+        if (decision == Decision::kSkip) {
+            return;
         }
+        bool flatten = decision == Decision::kEmitFlattened;
+        if (!geometry->fHairline && this->emitStroke(path, paint, flatten)) {
+            return;
+        }
+        this->emitGeometry(*geometry, paint, flatten, bounds);
     }
 
     void drawImageRect(const SkImage* image, const SkRect* src, const SkRect& dst,
@@ -878,27 +950,90 @@ private:
             return;
         }
         const SkMatrix ctm = this->globalCTM();
-        SkBitmap bm;
-        bool ok = rasterize(area, fPage->fRasterScale,
-                            [&](SkCanvas* canvas) {
-                                canvas->concat(ctm);
-                                SkPaint fill(paint);
-                                fill.setStyle(SkPaint::kFill_Style);
-                                fill.setPathEffect(nullptr);
-                                canvas->drawPaint(fill);
-                            },
-                            &bm);
-        if (!ok) {
-            return;
-        }
         SaveDC(dc);
         BeginPath(dc);
         emit_path(dc, geometry.fPath);
         EndPath(dc);
         SetPolyFillMode(dc, fill_mode(geometry.fPath));
         SelectClipPath(dc, RGN_AND);
-        blit_bitmap(dc, bm, area);
+        rasterize_region(dc, SkRegion(area), fPage->fRasterScale, /* canvasMayBeScaled */ true,
+                         [&](SkCanvas* canvas, SkIPoint origin) {
+                             canvas->translate(-origin.x(), -origin.y());
+                             canvas->concat(ctm);
+                             SkPaint fill(paint);
+                             fill.setStyle(SkPaint::kFill_Style);
+                             fill.setPathEffect(nullptr);
+                             canvas->drawPaint(fill);
+                         });
         RestoreDC(dc, -1);
+    }
+
+    // Emits a (local-space) stroked path with a GDI geometric pen, if the paint allows it, so
+    // that the output keeps the stroke semantics (e.g. minimum line widths). Returns false if
+    // nothing was emitted and the path needs to be drawn some other way.
+    bool emitStroke(const SkPath& path, const SkPaint& paint, bool flatten) {
+        if (paint.getStyle() == SkPaint::kFill_Style || paint.getStrokeWidth() <= 0 ||
+            paint.getShader() || paint.getPathEffect() || path.isInverseFillType()) {
+            return false;
+        }
+        const SkMatrix ctm = this->globalCTM();
+        if (ctm.hasPerspective()) {
+            return false;
+        }
+        // GDI converts the path to device space when the path bracket is closed, but uses the
+        // pen in the logical space that is current when stroking. Stroke in a logical space with
+        // the orientation of local space, but where a unit is roughly 1/kStrokeLogicalScale
+        // device pixels, so that the integer pen width is precise enough.
+        const SkScalar scale =
+                std::max({SkScalarAbs(ctm.getScaleX()), SkScalarAbs(ctm.getSkewX()),
+                          SkScalarAbs(ctm.getSkewY()), SkScalarAbs(ctm.getScaleY())}) *
+                kStrokeLogicalScale;
+        const SkScalar width = paint.getStrokeWidth() * scale;
+        if (!SkIsFinite(scale, width) || scale <= 0 || width > kMaxCoord) {
+            return false;
+        }
+        const SkMatrix penToDevice =
+                SkMatrix::MakeAll(ctm.getScaleX() / scale, ctm.getSkewX() / scale, 0,
+                                  ctm.getSkewY() / scale, ctm.getScaleY() / scale, 0, 0, 0, 1);
+        if (!penToDevice.invert()) {
+            return false;
+        }
+        SkPaint::Join join = paint.getStrokeJoin();
+        if (join == SkPaint::kMiter_Join && paint.getStrokeMiter() < 1) {
+            join = SkPaint::kBevel_Join;
+        }
+        const COLORREF color = to_colorref(PaintColor(paint), flatten);
+        LOGBRUSH brush = {BS_SOLID, color, 0};
+        HPEN pen = ExtCreatePen(PS_GEOMETRIC | PS_SOLID | to_gdi_cap(paint.getStrokeCap()) |
+                                        to_gdi_join(join),
+                                DWORD(std::max(1, SkScalarRoundToInt(width))), &brush, 0, nullptr);
+        if (!pen) {
+            return false;
+        }
+
+        HDC dc = fPage->fDC;
+        fPage->applyClip(this->clipInfo());
+        AutoGDIObject selectedPen(dc, pen);
+        SaveDC(dc);
+        if (join == SkPaint::kMiter_Join) {
+            SetMiterLimit(dc, paint.getStrokeMiter(), nullptr);
+        }
+        BeginPath(dc);
+        emit_path(dc, path.makeTransform(ctm));
+        EndPath(dc);
+        XFORM xform = to_xform(penToDevice);
+        const bool stroked = SetWorldTransform(dc, &xform);
+        if (stroked) {
+            if (paint.getStyle() == SkPaint::kStrokeAndFill_Style) {
+                AutoGDIObject selectedBrush(dc, CreateSolidBrush(color));
+                SetPolyFillMode(dc, fill_mode(path));
+                StrokeAndFillPath(dc);
+            } else {
+                StrokePath(dc);
+            }
+        }
+        RestoreDC(dc, -1);
+        return stroked;
     }
 
     void emitImage(const SkImage* image, const SkRect& src, const SkRect& dst,
@@ -1082,7 +1217,7 @@ class GDIDocument final : public SkGDI::Document {
 public:
     GDIDocument(HDC dc, const SkGDI::Options& options) : fDC(dc), fOptions(options) {}
 
-    void drawPage(SkISize size, const std::function<void(SkCanvas*)>& draw) override {
+    void drawPage(SkISize size, const DrawPageFn& draw) override {
         if (size.isEmpty()) {
             return;
         }
@@ -1111,38 +1246,22 @@ public:
     }
 
 private:
-    static void Playback(const std::function<void(SkCanvas*)>& draw, PageState* state) {
+    static void Playback(const DrawPageFn& draw, PageState* state) {
         SkCanvas canvas(sk_make_sp<SkGDIDevice>(state, state->fBounds.size(),
                                                 SkGDIDevice::Kind::kDirect, nullptr));
-        draw(&canvas);
+        draw(&canvas, {0, 0});
     }
 
-    // Every rasterization needs to draw the whole page, so rasterize the bounds of the fallback
-    // region in as few strips as possible, and clip the result to the region.
-    void rasterizeFallback(const std::function<void(SkCanvas*)>& draw, const SkRegion& fallback,
-                           SkScalar scale) {
+    void rasterizeFallback(const DrawPageFn& draw, const SkRegion& fallback, SkScalar scale) {
         if (fallback.isEmpty()) {
             return;
         }
         if (!fallback.isRect() && !clip_to_region(fDC, fallback)) {
             return;
         }
-        const SkIRect& area = fallback.getBounds();
-        // Split tall areas into strips to bound memory usage.
-        int64_t rowPixels = std::max<int64_t>(1, SkScalarCeilToInt(area.width() * scale));
-        int stripHeight = std::max<int>(
-                1, SkScalarFloorToInt((kMaxRasterPixels / 4 / rowPixels) / scale));
-        for (int y = area.fTop; y < area.fBottom; y += stripHeight) {
-            SkRegion strip(SkIRect::MakeLTRB(area.fLeft, y, area.fRight,
-                                             std::min(y + stripHeight, area.fBottom)));
-            if (!strip.op(fallback, SkRegion::kIntersect_Op)) {
-                continue;
-            }
-            SkBitmap bm;
-            if (rasterize(strip.getBounds(), scale, draw, &bm)) {
-                blit_bitmap(fDC, bm, strip.getBounds());
-            }
-        }
+        // Every rasterization needs to draw the whole page, so rasterize the bounds of the
+        // fallback region in as few strips as possible, clipped to the region.
+        rasterize_region(fDC, fallback, scale, /* canvasMayBeScaled */ false, draw);
     }
 
     HDC fDC;

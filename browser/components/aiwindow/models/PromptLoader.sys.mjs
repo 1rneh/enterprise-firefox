@@ -505,7 +505,7 @@ export async function buildEngineForFeature(feature, opts = {}) {
   const { baseURL, apiKey } = openAIEngine.resolveEndpointConfig(modelChoiceId);
 
   // resolve the model to use for inference, this allows specific features to default to chat model
-  let model = mainConfig.model;
+  let model = mainConfig.inference_model || mainConfig.model;
   const CHAT_MODEL_FALLBACK_FEATURES = new Set([
     MODEL_FEATURES.AGENT_MONITOR,
     MODEL_FEATURES.AITAB,
@@ -519,7 +519,7 @@ export async function buildEngineForFeature(feature, opts = {}) {
     const chatConfig = await selectFeatureConfig(MODEL_FEATURES.CHAT, {
       modelChoiceIdOverride: opts.modelChoiceIdOverride,
     });
-    model = chatConfig.model;
+    model = chatConfig.inference_model || chatConfig.model;
   }
 
   const engine = await openAIEngine.build({

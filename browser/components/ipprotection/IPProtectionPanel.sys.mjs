@@ -58,6 +58,7 @@ const BANDWIDTH_WARNING_DISMISSED_PREF =
 const BANDWIDTH_RESET_DATE_PREF = "browser.ipProtection.bandwidthResetDate";
 const EGRESS_LOCATION_PREF = "browser.ipProtection.egressLocation";
 const USER_OPENED_PREF = "browser.ipProtection.everOpenedPanel";
+const USER_OPENED_SINCE_160_PREF = "browser.ipProtection.openedPanelSince160";
 const UPGRADE_NOT_AVAILABLE_PREF = "browser.ipProtection.upgradeNotAvailable";
 const SITE_INCLUSION_PROMPT_SHOWN_PREF =
   "browser.ipProtection.siteInclusionPromptShown";
@@ -669,6 +670,13 @@ export class IPProtectionPanel {
     let hasUserEverOpenedPanel = Services.prefs.getBoolPref(USER_OPENED_PREF);
     if (!hasUserEverOpenedPanel) {
       Services.prefs.setBoolPref(USER_OPENED_PREF, true);
+    }
+
+    let openedPanelSince160 = Services.prefs.getBoolPref(
+      USER_OPENED_SINCE_160_PREF
+    );
+    if (!openedPanelSince160) {
+      Services.prefs.setBoolPref(USER_OPENED_SINCE_160_PREF, true);
     }
 
     // The function has fully completed, until now hiding() treats the panel

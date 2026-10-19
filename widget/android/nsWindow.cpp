@@ -2467,9 +2467,11 @@ void GeckoViewSupport::RequestContentMetrics(
       [result, metrics](
           const PWindowGlobalParent::GetContentMetricsPromise::ResolveValueType&
               aResolved) {
-        const auto& [size, dpr] = aResolved;
+        const auto& [size, dpr, scrollOffset] = aResolved;
 
-        metrics->Set(size.width, size.height, dpr);
+        const auto roundedSize = gfx::RoundedToInt(size);
+        metrics->Set(roundedSize.width, roundedSize.height, dpr, scrollOffset.x,
+                     scrollOffset.y);
         result->Complete(metrics);
       },
       [result](mozilla::ipc::ResponseRejectReason) {

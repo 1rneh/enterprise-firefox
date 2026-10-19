@@ -11,7 +11,7 @@ export default {
   component: "aitab-footer",
   parameters: {
     fluent: `
-aitab-page-made-with = Made with <span data-l10n-name="brand">Smart Window</span>
+aitab-page-footer-brand = Smart Window
     `,
   },
 };

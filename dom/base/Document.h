@@ -92,6 +92,7 @@
 #include "nsIURI.h"
 #include "nsIWeakReferenceUtils.h"
 #include "nsLiteralString.h"
+#include "nsNetUtil.h"
 #include "nsPIDOMWindow.h"
 #include "nsPropertyTable.h"
 #include "nsRefPtrHashtable.h"
@@ -2792,8 +2793,7 @@ class Document : public nsINode,
     // If we are a document "whose URL's scheme is not a network scheme."
     // NB: Explicitly allow file: URIs to store cookies.
 
-    return !NodePrincipal()->SchemeIs("http") &&
-           !NodePrincipal()->SchemeIs("https") &&
+    return !net::SchemeIsHttpOrHttps(NodePrincipal()) &&
            !NodePrincipal()->SchemeIs("file");
   }
 

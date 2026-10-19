@@ -43,7 +43,7 @@ WebTransportDatagramsWritable::~WebTransportDatagramsWritable() {
 already_AddRefed<WebTransportDatagramsWritable>
 WebTransportDatagramsWritable::Create(
     JSContext* aCx, nsIGlobalObject* aGlobal, WebTransport* aTransport,
-    WebTransportDatagramDuplexStream* aDatagrams, double aHighWaterMark,
+    WebTransportDatagramDuplexStream* aDatagrams,
     WebTransportSendGroup* aSendGroup, int64_t aSendOrder, ErrorResult& aRv) {
   // https://w3c.github.io/webtransport/#webtransportdatagramswritable-create
   // Step 1: Let stream be a new WebTransportDatagramsWritable with
@@ -70,8 +70,7 @@ WebTransportDatagramsWritable::Create(
   datagramsWritable->mAlgorithms = algorithms;
 
   // Set up the WritableStream with our custom algorithms
-  datagramsWritable->SetUpNative(aCx, *algorithms, Some(aHighWaterMark),
-                                 nullptr, aRv);
+  datagramsWritable->SetUpNative(aCx, *algorithms, Nothing(), nullptr, aRv);
   if (aRv.Failed()) {
     return nullptr;
   }

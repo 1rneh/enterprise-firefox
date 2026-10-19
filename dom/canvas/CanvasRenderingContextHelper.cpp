@@ -263,17 +263,18 @@ bool CanvasRenderingContextHelper::UpdateContext(
 
   CSSIntSize sz = GetWidthHeight();
 
-  mCurrentContext->SetOpaqueValueFromOpaqueAttr(GetOpaqueAttr());
+  nsCOMPtr<nsICanvasRenderingContextInternal> currentContext = mCurrentContext;
+
+  currentContext->SetOpaqueValueFromOpaqueAttr(GetOpaqueAttr());
 
   // Only set options if updated during creation.
-  nsresult rv =
-      aOptions ? mCurrentContext->SetContextOptions(*aOptions) : NS_OK;
+  nsresult rv = aOptions ? currentContext->SetContextOptions(*aOptions) : NS_OK;
   if (NS_FAILED(rv)) {
     mCurrentContext = nullptr;
     return false;
   }
 
-  rv = mCurrentContext->SetDimensions(sz.width, sz.height);
+  rv = currentContext->SetDimensions(sz.width, sz.height);
   if (NS_FAILED(rv)) {
     mCurrentContext = nullptr;
     return false;

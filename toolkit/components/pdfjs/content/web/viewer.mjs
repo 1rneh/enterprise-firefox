@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.152
- * pdfjsBuild = 0252c1f6c
+ * pdfjsVersion = 6.5.196
+ * pdfjsBuild = f73a6986d
  */
 
 ;// ./web/ui_utils.js
@@ -901,7 +901,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "2075895e-d8cb-4663-ad4a-10173966f21f";
+const INTERNAL_EVT = "2b24f527-6bd3-4bc0-b1b6-ca432917d51d";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -12726,13 +12726,14 @@ class PDFPageView extends BasePDFPageView {
       });
     } catch (ex) {
       if (ex instanceof AbortException) {
-        return;
+        return true;
       }
       console.error("#renderTextLayer:", ex);
       error = ex;
     }
     this.#dispatchLayerRendered("textlayerrendered", error);
     this.#renderStructTreeLayer();
+    return false;
   }
   async #renderStructTreeLayer() {
     const treeDom = await this.structTreeLayer?.render();
@@ -12758,8 +12759,8 @@ class PDFPageView extends BasePDFPageView {
   async #injectLinkAnnotations(textLayerPromise, annotationLayer, textLayer) {
     let error = null;
     try {
-      await textLayerPromise;
-      if (annotationLayer !== this.annotationLayer || textLayer !== this.textLayer) {
+      const textLayerAborted = await textLayerPromise;
+      if (textLayerAborted || annotationLayer !== this.annotationLayer || textLayer !== this.textLayer) {
         return;
       }
       await annotationLayer.injectLinkAnnotations(Autolinker.processLinks(this));
@@ -13374,7 +13375,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.5.152";
+    const viewerVersion = "6.5.196";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }

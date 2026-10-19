@@ -308,6 +308,7 @@
     --toolbarbutton-icon-fill-attention: var(--color-accent-primary);
     --toolbarbutton-opacity-disabled: 0.4;
     --toolbarbutton-outline-color: transparent;
+    --toolbarbutton-outline-color-disabled: transparent;
     --toolbarbutton-outline-color-selected: var(--toolbarbutton-outline-color-active);
     --toolbarbutton-outline-offset: -1px;
 
@@ -437,6 +438,7 @@
       --toolbarbutton-outline-color: var(--button-border-color);
       --toolbarbutton-outline-color-hover: var(--button-border-color-hover);
       --toolbarbutton-outline-color-active: var(--button-border-color-active);
+      --toolbarbutton-outline-color-disabled: var(--button-border-color-disabled);
 
       /** toolbox **/
 

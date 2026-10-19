@@ -885,6 +885,7 @@ export const SpecialMessageActions = {
         lazy.MigrationUtils.showMigrationWizard(window, {
           entrypoint: lazy.MigrationUtils.MIGRATION_ENTRYPOINTS.NEWTAB,
           migratorKey: action.data?.source,
+          tabModal: action.data?.tabModal,
         });
         break;
       case "OPEN_PRIVATE_BROWSER_WINDOW":

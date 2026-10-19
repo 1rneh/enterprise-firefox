@@ -165,7 +165,7 @@ add_task(async function test_buildProposals_fallsBackToOnDeviceLabel() {
     const proposalsPromise = AutoTabGroupingSuggestions.buildProposals([]);
     await mockEngine.captureRequest({ purpose: NAMING_PURPOSE });
     // Simulate a server / rate-limit error on the model call.
-    mockEngine.rejectAllRequests();
+    await mockEngine.rejectAllRequests();
     const proposals = await proposalsPromise;
     Assert.equal(
       proposals[0].label,

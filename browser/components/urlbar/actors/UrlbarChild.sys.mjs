@@ -185,6 +185,14 @@ export class UrlbarChild extends JSWindowActorChild {
           UrlbarContentUtils.getFixupPrimitives(searchString, isPrivate),
           win
         ),
+      /** @type {(threshold: number) => Promise<?string>} */
+      getClipboardTextIfSmallerThan: threshold => {
+        let promise = UrlbarContentUtils.getClipboardTextIfSmallerThan(
+          threshold,
+          this.contentWindow
+        );
+        return unprivileged ? this.#wrapPromise(promise, win) : promise;
+      },
       getDisplaySpec: UrlbarContentUtils.getDisplaySpec,
       getReaderOriginalDisplaySpec:
         UrlbarContentUtils.getReaderOriginalDisplaySpec,

@@ -63,6 +63,8 @@ support-files = [
   "moz-flipped.png",
 ]
 
+["browser_quicksuggest_temporal.js"]
+
 ["browser_quicksuggest_yelp.js"]
 
 ["browser_telemetry_environment.js"]

@@ -27,7 +27,6 @@
 #include "mozilla/dom/HTMLImageElement.h"
 #include "mozilla/dom/HTMLVideoElement.h"
 #include "mozilla/dom/ImageBitmap.h"
-#include "mozilla/dom/ImageUtils.h"
 #include "mozilla/dom/OffscreenCanvas.h"
 #include "mozilla/dom/Promise.h"
 #include "mozilla/dom/SVGImageElement.h"
@@ -1148,12 +1147,11 @@ InitializeFrameWithResourceAndSize(nsIGlobalObject* aGlobal,
   RefPtr<layers::Image> image(aImage);
   MOZ_ASSERT(image);
 
-  RefPtr<gfx::SourceSurface> surface = image->GetAsSourceSurface();
+  Maybe<VideoPixelFormat> pixelFormat = GuessVideoPixelFormat(image);
   Maybe<VideoFrame::Format> format =
-      SurfaceFormatToVideoPixelFormat(surface->GetFormat())
-          .map([](const VideoPixelFormat& aFormat) {
-            return VideoFrame::Format(aFormat);
-          });
+      pixelFormat.map([](const VideoPixelFormat& aFormat) {
+        return VideoFrame::Format(aFormat);
+      });
 
   std::pair<Maybe<gfx::IntRect>, Maybe<gfx::IntSize>> init =
       MOZ_TRY(ValidateVideoFrameInit(aInit, format, image->GetSize()));
@@ -1175,8 +1173,7 @@ InitializeFrameWithResourceAndSize(nsIGlobalObject* aGlobal,
   Maybe<uint64_t> duration = OptionalToMaybe(aInit.mDuration);
 
   VideoColorSpaceInternal colorSpace;
-  if (IsYUVFormat(
-          SurfaceFormatToVideoPixelFormat(surface->GetFormat()).ref())) {
+  if (pixelFormat && IsYUVFormat(*pixelFormat)) {
     colorSpace = FallbackColorSpaceForVideoContent();
   } else {
     colorSpace = FallbackColorSpaceForWebContent();
@@ -1643,10 +1640,7 @@ already_AddRefed<VideoFrame> VideoFrame::Constructor(
     return nullptr;
   }
 
-  const ImageUtils imageUtils(image);
-  Maybe<dom::ImageBitmapFormat> f = imageUtils.GetFormat();
-  Maybe<VideoPixelFormat> format =
-      f.isSome() ? ImageBitmapFormatToVideoPixelFormat(f.value()) : Nothing();
+  Maybe<VideoPixelFormat> format = GuessVideoPixelFormat(image);
 
   // TODO: Retrive/infer the duration, and colorspace.
   auto r = InitializeFrameFromOtherFrame(
@@ -2910,8 +2904,13 @@ bool VideoFrame::Resource::CopyPlaneInto(const Format::Plane& aPlane,
 
   if (mImage->GetFormat() == ImageFormat::PLANAR_YCBCR) {
     const auto* data = mImage->AsPlanarYCbCrImage()->GetData();
-    const gfx::IntSize ySize = data->YDataSize();
-    const gfx::IntSize cbcrSize = data->CbCrDataSize();
+    const auto sizes = data->GetPlaneSizes();
+    if (!sizes) {
+      LOGE("Failed to get plane sizes from PlanarYCbCrImage data");
+      return false;
+    }
+    const auto& ySize = sizes->mY;
+    const auto& cbcrSize = sizes->mCbCr;
     switch (aPlane) {
       case Format::Plane::Y:
         return CopyPlaneRegion(
@@ -2949,8 +2948,13 @@ bool VideoFrame::Resource::CopyPlaneInto(const Format::Plane& aPlane,
 
   if (mImage->GetFormat() == ImageFormat::NV_IMAGE) {
     const auto* data = mImage->AsNVImage()->GetData();
-    const gfx::IntSize ySize = data->YDataSize();
-    const gfx::IntSize cbcrSize = data->CbCrDataSize();
+    const auto sizes = data->GetPlaneSizes();
+    if (!sizes) {
+      LOGE("Failed to get plane sizes from NVImage data");
+      return false;
+    }
+    const auto& ySize = sizes->mY;
+    const auto& cbcrSize = sizes->mCbCr;
     switch (aPlane) {
       case Format::Plane::Y:
         return CopyPlaneRegion(

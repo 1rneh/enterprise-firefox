@@ -33,6 +33,8 @@ const lazy = XPCOMUtils.declareLazy({
   ProvidersManager:
     "moz-src:///browser/components/urlbar/UrlbarProvidersManager.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
+  SitePermissions: "resource:///modules/SitePermissions.sys.mjs",
+  URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
   UrlbarProviderOpenTabs:
     "moz-src:///browser/components/urlbar/UrlbarProviderOpenTabs.sys.mjs",
@@ -181,7 +183,7 @@ export class UrlbarParentController {
    * Parent-side providers read this (icons, speculative connect, opening help
    * links), so it can't come from the content-side child.
    *
-   * @type {ChromeWindow}
+   * @type {BrowserWindow}
    */
   get browserWindow() {
     return this.#actor?.browsingContext?.topChromeWindow;
@@ -324,7 +326,7 @@ export class UrlbarParentController {
         sapName: this.sapName,
         maxResults: 1,
         searchString,
-        userContextId: parseInt(browser.getAttribute("usercontextid") || 0),
+        userContextId: parseInt(browser.getAttribute("usercontextid") || "0"),
         tabGroup: gBrowser.getTabForBrowser(browser)?.group?.id ?? null,
         prohibitRemoteResults: true,
         providers: [
@@ -835,7 +837,7 @@ export class UrlbarParentController {
     let browser =
       this.resolveTargetBrowser(browserId) ??
       this.browserWindow.gBrowser.selectedBrowser;
-    this.browserWindow.openTrustedLinkIn(url, where, {
+    lazy.URILoadingHelper.openTrustedLinkIn(this.browserWindow, url, where, {
       inBackground,
       initiatedByURLBar: tracksBounce,
       postData,
@@ -864,7 +866,7 @@ export class UrlbarParentController {
     let searchEngine = lazy.SearchService.getEngineById(engineId);
     lazy.BrowserSearchTelemetry.recordSearchForm(searchEngine, this.sapName);
     let url = searchEngine.searchForm;
-    this.browserWindow.openTrustedLinkIn(url, where, {
+    lazy.URILoadingHelper.openTrustedLinkIn(this.browserWindow, url, where, {
       inBackground,
       targetBrowser:
         where == "current" ? this.resolveTargetBrowser(browserId) : null,
@@ -1077,7 +1079,12 @@ export class UrlbarParentController {
     }
 
     try {
-      this.browserWindow.openTrustedLinkIn(url, where, params);
+      lazy.URILoadingHelper.openTrustedLinkIn(
+        this.browserWindow,
+        url,
+        where,
+        params
+      );
     } catch (ex) {
       // This load can throw in certain cases; unless an error page was shown,
       // the input should revert to the loaded URL.
@@ -1140,7 +1147,8 @@ export class UrlbarParentController {
     let { gBrowser } = this.browserWindow;
     let prevTab = gBrowser.selectedTab;
     let activeSplitView = prevTab.splitview;
-    let switched = this.browserWindow.switchToTabHavingURI(
+    let switched = lazy.URILoadingHelper.switchToTabHavingURI(
+      this.browserWindow,
       Services.io.newURI(url),
       true,
       {
@@ -1255,9 +1263,7 @@ export class UrlbarParentController {
         browser.currentURI &&
         url === browser.currentURI.spec
       ) {
-        this.browserWindow.SitePermissions.clearTemporaryBlockPermissions(
-          browser
-        );
+        lazy.SitePermissions.clearTemporaryBlockPermissions(browser);
       }
     }
   }

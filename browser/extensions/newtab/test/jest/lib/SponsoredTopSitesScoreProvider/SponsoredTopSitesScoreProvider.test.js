@@ -4,6 +4,24 @@
 
 import { stubGlobals } from "test/jest/test-utils";
 
+// Grants requests for the same lock one at a time, in the order they were
+// made, like the Web Locks API.
+function createFakeLocks() {
+  const held = new Map();
+  return {
+    request(name, callback) {
+      const result = (held.get(name) ?? Promise.resolve()).then(() =>
+        callback()
+      );
+      held.set(
+        name,
+        result.catch(() => {})
+      );
+      return result;
+    },
+  };
+}
+
 describe("SponsoredTopSitesScoreProvider", () => {
   let _SponsoredTopSitesScoreProvider;
   let restoreChromeUtils;
@@ -78,6 +96,7 @@ describe("SponsoredTopSitesScoreProvider", () => {
         observers: placesObservers,
       },
       PlacesVisitRemoved: { REASON_DELETED: 0, REASON_EXPIRED: 1 },
+      locks: createFakeLocks(),
       NewTabUtils: {
         activityStreamProvider: { executePlacesQuery },
       },
@@ -201,7 +220,7 @@ describe("SponsoredTopSitesScoreProvider", () => {
       jest.spyOn(provider, "_refreshScores").mockRejectedValue(error);
 
       await expect(provider.getScores()).resolves.toEqual({});
-      await Promise.resolve();
+      await provider._refreshPromise;
       expect(logConsole.debug).toHaveBeenCalledWith(expect.any(String), error);
     });
   });
@@ -243,6 +262,42 @@ describe("SponsoredTopSitesScoreProvider", () => {
       finishRefresh();
       await clearing;
       expect(cacheStore.scores).toEqual({});
+    });
+
+    it("holds back a refresh started during a clear, which then writes nothing", async () => {
+      cacheStore.scores = { t1: 0.3 };
+      cacheStore.scoreHistory = [{ day: 100, scores: { t1: 0.31 } }];
+      jest
+        .spyOn(provider, "_getLastReleaseTime")
+        .mockImplementation(() => prefStore[PREF_LAST_TIME] ?? 1000);
+      const refreshScores = jest.spyOn(provider, "_refreshScores");
+      const loadConfig = jest.spyOn(provider, "_loadConfig");
+      let finishRead;
+      jest.spyOn(provider._cache, "get").mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finishRead = () => resolve({ ...cacheStore });
+          })
+      );
+
+      const clearing = provider.clearData();
+      for (let i = 0; i < 10; i++) {
+        await Promise.resolve();
+      }
+      await provider.getScores();
+      for (let i = 0; i < 10; i++) {
+        await Promise.resolve();
+      }
+      expect(refreshScores).not.toHaveBeenCalled();
+
+      finishRead();
+      await clearing;
+      await provider._refreshPromise;
+
+      expect(refreshScores).toHaveBeenCalled();
+      expect(loadConfig).not.toHaveBeenCalled();
+      expect(cacheStore.scores).toEqual({});
+      expect(cacheStore.scoreHistory).toEqual([]);
     });
 
     it("does not write anything when no scores were stored or released", async () => {

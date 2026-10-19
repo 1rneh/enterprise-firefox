@@ -2051,25 +2051,15 @@ export let BrowserUsageTelemetry = {
       extra.other_inst = (!!install_data.installPaths.size).toString();
       extra.other_msix_inst = (!!install_data.msixInstalls.size).toString();
     } else {
-      let dataPath = dataPathOverride;
-      if (!dataPath) {
-        dataPath = Services.dirsvc.get("GreD", Ci.nsIFile);
-        dataPath.append("installation_telemetry.json");
+      const data =
+        await lazy.WindowsInstallsInfo.readInstallationTelemetry(
+          dataPathOverride
+        );
+      if (!data) {
+        // Many systems will not have the data file, return silently if not found as
+        // there is nothing to record.
+        return {};
       }
-
-      let dataBytes;
-      try {
-        dataBytes = await IOUtils.read(dataPath.path);
-      } catch (ex) {
-        if (ex.name == "NotFoundError") {
-          // Many systems will not have the data file, return silently if not found as
-          // there is nothing to record.
-          return {};
-        }
-        throw ex;
-      }
-      const dataString = new TextDecoder("utf-16").decode(dataBytes);
-      const data = JSON.parse(dataString);
 
       if (lastInstallTime && data.install_timestamp == lastInstallTime) {
         // We've already seen this install

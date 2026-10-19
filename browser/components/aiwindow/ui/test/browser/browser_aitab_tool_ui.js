@@ -188,7 +188,7 @@ describe("AITab ToolUI", () => {
   });
 
   afterEach(async () => {
-    mockEngine.rejectAllRequests();
+    await mockEngine.rejectAllRequests();
     mockEngine.cleanupMocks();
     restoreSignIn();
     await BrowserTestUtils.closeWindow(win);

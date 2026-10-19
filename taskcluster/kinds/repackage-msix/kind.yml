@@ -15,7 +15,6 @@ kind-dependencies:
     # We're going to generate tasks based on this.  We `depend` on and fetch the package from this.
     - build-signing
     - toolchain
-    - enterprise-repack
 
 only-for-build-platforms:
     - win32/opt

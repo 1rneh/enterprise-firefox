@@ -259,13 +259,13 @@ class NeqoHttp3Conn final {
 
   nsresult ExportWebTransportKeyingMaterial(
       uint64_t aSessionId, const nsTArray<uint8_t>& aLabel,
-      const nsTArray<uint8_t>& aContext, nsTArray<uint8_t>& aKeyingMaterial) {
-    constexpr uint32_t kKeyingMaterialLength = 32;
-    aKeyingMaterial.SetLength(kKeyingMaterialLength);
+      const nsTArray<uint8_t>& aContext, uint32_t aOutputLength,
+      nsTArray<uint8_t>& aKeyingMaterial) {
+    aKeyingMaterial.SetLength(aOutputLength);
     return neqo_http3conn_export_keying_material(
         this, aSessionId, aLabel.Elements(), aLabel.Length(),
         aContext.Elements(), aContext.Length(), aKeyingMaterial.Elements(),
-        kKeyingMaterialLength);
+        aOutputLength);
   }
 
  private:

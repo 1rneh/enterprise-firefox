@@ -73,6 +73,8 @@ skip-if = [
 
 ["mozilla/test_style_after_finished_on_compositor.html"]
 
+["mozilla/test_timeline_range_without_typed_om.html"]
+
 ["mozilla/test_transform_limits.html"]
 
 ["mozilla/test_transition_finish_on_compositor.html"]

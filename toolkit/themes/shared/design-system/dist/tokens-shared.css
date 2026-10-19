@@ -539,6 +539,7 @@
     --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-0));
     --toolbarbutton-icon-fill-hover: var(--toolbarbutton-icon-fill);
     --toolbarbutton-icon-fill-active: var(--toolbarbutton-icon-fill);
+    --toolbarbutton-icon-fill-disabled: var(--toolbarbutton-icon-fill);
     --toolbarbutton-icon-fill-attention: light-dark(var(--color-blue-60), var(--color-cyan-30));
     --toolbarbutton-icon-fill-attention-text: light-dark(var(--color-gray-20), var(--color-gray-90));
     --toolbarbutton-opacity-disabled: var(--button-opacity-disabled);
@@ -546,6 +547,7 @@
     --toolbarbutton-outline-color: transparent;
     --toolbarbutton-outline-color-hover: transparent;
     --toolbarbutton-outline-color-active: transparent;
+    --toolbarbutton-outline-color-disabled: var(--toolbarbutton-outline-color);
     --toolbarbutton-outline-color-selected: var(--toolbarbutton-outline-color-active);
     --toolbarbutton-outline-offset: calc(-1 * var(--border-width));
     --toolbarbutton-padding-inner: 8px;
@@ -692,6 +694,7 @@
       --button-text-color-menu: MenuText;
       --button-text-color-menu-hover: -moz-menuhovertext;
       --button-text-color-menu-active: var(--button-text-color-menu-hover);
+      --button-text-color-menu-disabled: var(--button-text-color-disabled);
       --button-text-color-menu-selected: var(--button-text-color-primary-selected);
       --button-text-color-primary: ButtonFace;
       --button-text-color-primary-hover: SelectedItemText;
@@ -749,9 +752,12 @@
       --toolbarbutton-icon-fill: var(--button-text-color);
       --toolbarbutton-icon-fill-hover: var(--button-text-color-ghost-hover);
       --toolbarbutton-icon-fill-active: var(--button-text-color-ghost-active);
+      --toolbarbutton-icon-fill-disabled: var(--button-text-color-disabled);
+      --toolbarbutton-opacity-disabled: var(--button-opacity-disabled);
       --toolbarbutton-outline-color: ButtonText;
       --toolbarbutton-outline-color-hover: SelectedItem;
       --toolbarbutton-outline-color-active: ButtonText;
+      --toolbarbutton-outline-color-disabled: var(--button-border-color-disabled);
       --toolbarbutton-outline-color-selected: SelectedItem;
     }
   }
@@ -1034,6 +1040,7 @@
       --toolbarbutton-icon-fill-attention: var(--color-accent-primary);
       --toolbarbutton-opacity-disabled: 0.4;
       --toolbarbutton-outline-color: transparent;
+      --toolbarbutton-outline-color-disabled: transparent;
       --toolbarbutton-outline-color-selected: var(--toolbarbutton-outline-color-active);
       --toolbarbutton-outline-offset: -1px;
 
@@ -1158,6 +1165,7 @@
         --toolbarbutton-outline-color: var(--button-border-color);
         --toolbarbutton-outline-color-hover: var(--button-border-color-hover);
         --toolbarbutton-outline-color-active: var(--button-border-color-active);
+        --toolbarbutton-outline-color-disabled: var(--button-border-color-disabled);
 
         /** toolbox **/
         /* This gradient is only used for Nova */

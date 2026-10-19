@@ -419,6 +419,7 @@ add_task(async function test_site_rules_link_opens_settings() {
 
   Assert.ok(content.siteRulesEl, "Site rules link should be present");
 
+  Services.fog.testResetFOG();
   let panelHiddenPromise = waitForPanelEvent(document, "popuphidden");
   const openPreferencesStub = sinon.stub(window, "openPreferences");
 
@@ -440,6 +441,14 @@ add_task(async function test_site_rules_link_opens_settings() {
     gBrowser.selectedTab,
     tab,
     "Clicking the site rules link should not have navigated the current tab"
+  );
+
+  let events = Glean.ipprotection.rulesPageOpened.testGetValue();
+  Assert.equal(events.length, 1, "Should have recorded one rules page event");
+  Assert.equal(
+    events[0].extra.entrypoint,
+    "panel",
+    "Rules page event should record the panel entrypoint"
   );
 
   openPreferencesStub.restore();

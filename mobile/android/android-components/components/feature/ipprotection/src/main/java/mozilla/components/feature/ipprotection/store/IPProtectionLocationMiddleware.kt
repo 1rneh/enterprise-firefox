@@ -54,20 +54,21 @@ class IPProtectionLocationMiddleware(
             is IPProtectionAction.CheckAccount,
             is IPProtectionAction.CheckLocations,
             is IPProtectionAction.EligibilityChanged,
-            is IPProtectionAction.EngineStateChanged,
             is IPProtectionAction.PersistedLocationUnavailable,
             is IPProtectionAction.LocationSwitchFailed,
             is IPProtectionAction.LocationUpdateFailed,
             is IPProtectionAction.ProxyActivationShown,
+            is IPProtectionAction.ProxyStateChanged,
+            is IPProtectionAction.ServiceStateChanged,
             is IPProtectionAction.Toggle,
             is IPProtectionAction.ToggleFailed,
+            is IPProtectionAction.UsageChanged,
             is InternalAction.AccountManagerStateChanged,
             is InternalAction.AccountReadyForEnrollment,
             is InternalAction.AwaitingAuth,
             is InternalAction.EligibilityChanged,
             is InternalAction.FinishingAuthFlow,
-            is InternalAction.FinishingEnrollment,
-            is InternalAction.UpdateServiceState -> {
+            is InternalAction.FinishingEnrollment -> {
                 // no-op
             }
         }

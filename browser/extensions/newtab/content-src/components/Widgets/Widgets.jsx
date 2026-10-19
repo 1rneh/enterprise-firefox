@@ -41,7 +41,7 @@ import {
   isSpaceOverridden,
   isSpacesActive,
   resolveAutoMinimizeDelayMs,
-  selectFirstSlotWidget,
+  selectFirstSlotWidgetIds,
   selectWidgetsRowAd,
   SPACE_IDS,
 } from "common/PageLayoutVariants.mjs";
@@ -285,11 +285,11 @@ function Widgets({ widgetIds }) {
     }
   }
 
-  // @experiment(remove) { bug 2078816 }
-  // The first stories card slot shows this widget instead.
-  const firstSlotWidget = selectFirstSlotWidget(prefs);
-  if (firstSlotWidget) {
-    widgetEnabledMap[firstSlotWidget] = false;
+  // @experiment(remove-conditional) { bug 2078816 }
+  // Keep for spaces-thematic-v1.
+  // A first stories card slot shows these widgets instead.
+  for (const id of selectFirstSlotWidgetIds(prefs)) {
+    widgetEnabledMap[id] = false;
   }
 
   const widgetOrder = resolveWidgetOrder(prefs);

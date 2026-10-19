@@ -3,7 +3,8 @@
 
 "use strict";
 
-// The create_aitab tool, end to end with only the language model mocked.
+// The generate_page tool, end to end with only the language model mocked: the
+// chat model calls it through Chat.fetchWithHistory, as in production.
 
 const lazy = {};
 
@@ -14,11 +15,11 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///browser/components/aiwindow/ui/modules/ConversationStore.sys.mjs",
   MODEL_FEATURES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   MockEngineManager: "resource://testing-common/AIWindowTestUtils.sys.mjs",
-  newConversation: "resource://testing-common/AIWindowTestUtils.sys.mjs",
+  newChatConversation: "resource://testing-common/AIWindowTestUtils.sys.mjs",
   Sqlite: "resource://gre/modules/Sqlite.sys.mjs",
+  GENERATE_AITAB: "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
+  GET_OPEN_TABS: "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
   GetPageContent: "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
-  createAITab: "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
-  getOpenTabs: "moz-src:///browser/components/aiwindow/models/Tools.sys.mjs",
   UrlTokenizer:
     "moz-src:///browser/components/aiwindow/ui/modules/UrlTokenizer.sys.mjs",
   UserRoleOpts:
@@ -105,10 +106,10 @@ function markPrivateAndUntrusted(conversation) {
  */
 async function withAITab(task) {
   const mockEngine = new lazy.MockEngineManager();
-  const conversation = lazy.newConversation();
+  const conversation = await lazy.newChatConversation();
 
   /**
-   * Run the tool with the parameters the model would send. Returns its result
+   * Have the chat model call the tool with these parameters. Returns its result
    * plus the messages the generation model was handed, which is what shows
    * what the model was actually asked to compose from.
    *
@@ -124,19 +125,20 @@ async function withAITab(task) {
     surface = generatedSurface(title),
     chat = conversation
   ) {
-    const toolPromise = lazy.createAITab(toolParams, chat);
+    const call = callTool(mockEngine, chat, {
+      toolName: lazy.GENERATE_AITAB,
+      toolParams,
+    });
     const { request, respond } = await mockEngine.captureRequest({
       purpose: lazy.MODEL_FEATURES.AITAB,
     });
     const messages = request.args;
     respond(JSON.stringify(surface));
-    const { success, toolResult, uiData } = await toolPromise;
+    const { body } = await call;
     return {
       messages,
       sourceText: JSON.stringify(messages),
-      success,
-      toolResult,
-      uiData,
+      toolResult: body,
     };
   }
 
@@ -153,13 +155,19 @@ async function withAITab(task) {
   }
 
   /**
-   * Run the tool expecting it to refuse before any generation, so no model
-   * request is made to answer.
+   * Have the chat model call the tool expecting it to refuse before any
+   * generation, so no generation request is made to answer. Returns the tool's
+   * result.
    *
    * @param {object} toolParams
+   * @param {ChatConversation} [chat] - Defaults to the task's conversation.
    */
-  function refuse(toolParams) {
-    return lazy.createAITab(toolParams, conversation);
+  async function refuse(toolParams, chat = conversation) {
+    const { body } = await callTool(mockEngine, chat, {
+      toolName: lazy.GENERATE_AITAB,
+      toolParams,
+    });
+    return body;
   }
 
   /**
@@ -181,6 +189,7 @@ async function withAITab(task) {
       runExpectingRefusal,
     });
   } finally {
+    await mockEngine.rejectAllRequests();
     await lazy.AITabStore.destroyDatabase();
     mockEngine.cleanupMocks();
   }
@@ -242,20 +251,14 @@ add_task(async function test_blocks_url_the_model_chose() {
         "rejecting a URL it does not recognise."
     );
 
-    const { success, toolResult } = await runExpectingRefusal([ATTACKER_URL]);
+    const toolResult = await runExpectingRefusal([ATTACKER_URL]);
 
-    Assert.equal(
-      success,
-      false,
-      "The tool reports a failure, not a created page."
-    );
     Assert.ok(
       toolResult.startsWith("The page could not be created"),
       `The tool refuses: ${toolResult}`
     );
-    Assert.equal(
-      mockEngine.engines.size,
-      0,
+    Assert.ok(
+      !mockEngine.engines.has(lazy.MODEL_FEATURES.AITAB),
       "No generation engine was ever created, so the page the model asked " +
         "for was never composed from anything."
     );
@@ -301,7 +304,7 @@ add_task(async function test_allows_open_tab_when_flagged() {
 
 /**
  * The open-tabs flow as the model drives it: get_open_tabs supplies the URL,
- * then create_aitab is called with it.
+ * then generate_page is called with it.
  */
 add_task(async function test_open_tabs_flow_supplies_the_url() {
   window.document.documentElement.setAttribute("ai-window", "true");
@@ -312,8 +315,11 @@ add_task(async function test_open_tabs_flow_supplies_the_url() {
   );
 
   try {
-    await withAITab(async ({ conversation, run }) => {
-      const tabs = await lazy.getOpenTabs({}, conversation);
+    await withAITab(async ({ conversation, mockEngine, run }) => {
+      const { body: tabs } = await callTool(mockEngine, conversation, {
+        toolName: lazy.GET_OPEN_TABS,
+        toolParams: {},
+      });
       const urls = tabs.map(entry => entry.url);
       Assert.ok(
         urls.includes(SOURCE_URL),
@@ -436,7 +442,12 @@ add_task(async function test_page_reaches_the_database_file() {
  * serving the second page.
  */
 add_task(async function test_a_second_page_in_one_chat_is_its_own_page() {
-  await withAITab(async ({ run }) => {
+  await withAITab(async ({ conversation, run }) => {
+    // Reading the page for the first one marks the chat private and untrusted,
+    // after which only a page the user mentioned can be read again.
+    conversation.addUserMessage("Make pages from this", null, {
+      contextMentions: [{ url: SOURCE_URL, label: "Source" }],
+    });
     const first = await run([SOURCE_URL]);
     const second = await run([SOURCE_URL], "Cheap Hostels In Lisbon Instead");
 
@@ -479,7 +490,7 @@ add_task(async function test_a_second_page_in_one_chat_is_its_own_page() {
  */
 add_task(async function test_two_chats_can_generate_the_same_title() {
   await withAITab(async ({ run }) => {
-    const otherChat = lazy.newConversation();
+    const otherChat = await lazy.newChatConversation();
 
     const first = await run([SOURCE_URL]);
     const second = await run([SOURCE_URL], GENERATED_TITLE, otherChat);
@@ -544,16 +555,12 @@ add_task(async function test_a_page_that_cannot_be_stored_fails_the_tool() {
       .rejects(new Error("no space left on device"));
 
     try {
-      const { success, toolResult } = await run([SOURCE_URL]);
+      const { toolResult } = await run([SOURCE_URL]);
 
-      Assert.equal(
-        success,
-        false,
-        "The tool reports a failure, not a link to a page that is not there."
-      );
       Assert.ok(
         toolResult.startsWith("The page could not be created"),
-        `The tool reports the failure: ${toolResult}`
+        "The tool reports a failure, not a link to a page that is not " +
+          `there: ${toolResult}`
       );
     } finally {
       create.restore();
@@ -748,19 +755,17 @@ add_task(async function test_modification_keeps_links_from_earlier_turns() {
 /** A slug no page of this conversation's holds is the model's to correct. */
 add_task(async function test_modifying_an_unknown_slug_is_refused() {
   await withAITab(async ({ mockEngine, refuse }) => {
-    const { success, toolResult } = await refuse({
+    const toolResult = await refuse({
       modify_slug: "a_page_that_was_never_generated",
       modify_instructions: MODIFY_INSTRUCTIONS,
     });
 
-    Assert.equal(success, false, "The tool reports a failure, not a page.");
     Assert.ok(
       toolResult.startsWith("The page could not be updated"),
       `The tool refuses: ${toolResult}`
     );
-    Assert.equal(
-      mockEngine.engines.size,
-      0,
+    Assert.ok(
+      !mockEngine.engines.has(lazy.MODEL_FEATURES.AITAB),
       "No generation engine was created, so nothing was composed."
     );
   });
@@ -772,18 +777,21 @@ add_task(async function test_modifying_an_unknown_slug_is_refused() {
  * chat's page chain, stranding the URL it was asked about.
  */
 add_task(async function test_modification_is_scoped_to_one_conversation() {
-  await withAITab(async ({ run }) => {
+  await withAITab(async ({ run, refuse }) => {
     const { toolResult: created } = await run([SOURCE_URL]);
 
-    const { success, toolResult } = await lazy.createAITab(
+    const toolResult = await refuse(
       {
         modify_slug: created.aiTab.slug,
         modify_instructions: MODIFY_INSTRUCTIONS,
       },
-      lazy.newConversation()
+      await lazy.newChatConversation()
     );
 
-    Assert.equal(success, false, "Another conversation's page is not revised.");
+    Assert.ok(
+      toolResult.startsWith("The page could not be updated"),
+      `Another conversation's page is not revised: ${toolResult}`
+    );
     Assert.ok(
       toolResult.includes(created.aiTab.slug),
       `The refusal names the slug it would not touch: ${toolResult}`
@@ -805,7 +813,7 @@ add_task(async function test_a_page_the_user_referenced_can_be_revised() {
     const { toolResult: created } = await run([SOURCE_URL]);
     const { slug } = created.aiTab;
 
-    const otherChat = lazy.newConversation();
+    const otherChat = await lazy.newChatConversation();
     otherChat.addUserMessage(
       MODIFY_INSTRUCTIONS,
       null,
@@ -820,14 +828,17 @@ add_task(async function test_a_page_the_user_referenced_can_be_revised() {
       })
     );
 
-    const { success, toolResult } = await runWith(
+    const { toolResult } = await runWith(
       { modify_slug: slug, modify_instructions: MODIFY_INSTRUCTIONS },
       MODIFIED_TITLE,
       undefined,
       otherChat
     );
 
-    Assert.ok(success, `The referenced page is revised: ${toolResult.message}`);
+    Assert.ok(
+      toolResult.message?.startsWith("The page was updated"),
+      `The referenced page is revised: ${JSON.stringify(toolResult)}`
+    );
     const latest = await lazy.AITabStore.getBySlug(slug);
     Assert.equal(latest.version, 2, "The revision bumps the version.");
     Assert.equal(
@@ -850,19 +861,22 @@ add_task(async function test_a_page_the_user_referenced_can_be_revised() {
  * not pick, so a page URL that is only seen does not unlock a revision.
  */
 add_task(async function test_a_page_only_seen_in_another_chat_is_refused() {
-  await withAITab(async ({ run }) => {
+  await withAITab(async ({ run, refuse }) => {
     const { toolResult: created } = await run([SOURCE_URL]);
     const { slug } = created.aiTab;
 
-    const otherChat = lazy.newConversation();
+    const otherChat = await lazy.newChatConversation();
     otherChat.addSeenUrls([`about:smartpage?page=${slug}`]);
 
-    const { success } = await lazy.createAITab(
+    const toolResult = await refuse(
       { modify_slug: slug, modify_instructions: MODIFY_INSTRUCTIONS },
       otherChat
     );
 
-    Assert.equal(success, false, "A seen page URL is not enough to revise it.");
+    Assert.ok(
+      toolResult.startsWith("The page could not be updated"),
+      `A seen page URL is not enough to revise it: ${toolResult}`
+    );
     const page = await lazy.AITabStore.getBySlug(slug);
     Assert.equal(page.version, 1, "The page is left as it was.");
 
@@ -999,12 +1013,11 @@ add_task(async function test_modification_stops_at_the_history_ceiling() {
 
     // Awaiting this at all shows no model request was made: the ceiling is
     // checked before the call, and `refuse` answers none.
-    const { success, toolResult } = await refuse({
+    const toolResult = await refuse({
       modify_slug: created.aiTab.slug,
       modify_instructions: MODIFY_INSTRUCTIONS,
     });
 
-    Assert.equal(success, false, "The revision is reported as a failure.");
     Assert.equal(
       toolResult,
       "The page could not be updated: No more modifications are supported.",

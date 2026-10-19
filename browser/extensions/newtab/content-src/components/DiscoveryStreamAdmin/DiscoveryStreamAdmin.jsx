@@ -175,6 +175,22 @@ const PAGE_LAYOUTS_INFO = {
       "edge leading to the space beyond it instead of a segmented control. " +
       "pageLayouts.spacesOrder sets the order.",
   },
+  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_KIT]: {
+    label: "Spaces (Preview with Kit)",
+    description:
+      "Buttons at the bottom, where each tab previews its space with an " +
+      "illustration of Kit moving through it.",
+  },
+  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_ILLUSTRATED]: {
+    label: "Spaces (Preview without Kit)",
+    description: "Same as above, with the illustrations alone.",
+  },
+  [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_CARDS]: {
+    label: "Spaces (Preview with cards)",
+    description:
+      "Buttons at the bottom, where each tab previews its space's first " +
+      "medium story card, else its first widget or Recent activity card.",
+  },
   // @experiment(remove) { bug 2069496 }
   [PAGE_LAYOUT_VARIANTS.WIDGETS_AD_LARGE]: {
     label: "Widgets row ad (large)",

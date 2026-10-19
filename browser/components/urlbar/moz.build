@@ -81,6 +81,7 @@ MOZ_SRC_FILES += [
     "private/SuggestBackendMl.sys.mjs",
     "private/SuggestBackendRust.sys.mjs",
     "private/SuggestFeature.sys.mjs",
+    "private/TemporalSuggestions.sys.mjs",
     "private/WeatherSuggestions.sys.mjs",
     "private/WikipediaSuggestions.sys.mjs",
     "private/YelpRealtimeSuggestions.sys.mjs",

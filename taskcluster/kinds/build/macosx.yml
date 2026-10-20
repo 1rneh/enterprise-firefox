@@ -88,7 +88,6 @@ macosx64-enterprise/debug:
     worker:
         max-run-time: 5400
         env:
-            PERFHERDER_EXTRA_OPTIONS: enterprise
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         variant: debug-enterprise
@@ -523,7 +522,6 @@ macosx64-enterprise/opt:
         max-run-time: 7200
         env:
             MOZ_AUTOMATION_PACKAGE_TESTS: "1"
-            PERFHERDER_EXTRA_OPTIONS: enterprise
     mozconfig:
         platform: macosx64-aarch64
     run:

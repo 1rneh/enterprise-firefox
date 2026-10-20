@@ -98,7 +98,7 @@ class BrowserRelaunchDeadlineRestart(BrowserRelaunchDeadlineBase):
         return self._child_driver.execute_script(
             """
             const { RelaunchEnforcer } = ChromeUtils.importESModule(
-              "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
+              "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs"
             );
             return {
                 schedule: RelaunchEnforcer._schedule,
@@ -113,7 +113,7 @@ class BrowserRelaunchDeadlineRestart(BrowserRelaunchDeadlineBase):
         return self._child_driver.execute_script(
             """
             const { RelaunchEnforcer } = ChromeUtils.importESModule(
-              "resource://gre/modules/enterprise/RelaunchEnforcer.sys.mjs"
+              "moz-src:///toolkit/components/enterprise/modules/RelaunchEnforcer.sys.mjs"
             );
             return Date.now() - RelaunchEnforcer._graceStart;
             """

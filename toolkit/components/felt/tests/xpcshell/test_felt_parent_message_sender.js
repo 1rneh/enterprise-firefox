@@ -8,7 +8,7 @@
 // process sends them.
 
 const { Felt } = ChromeUtils.importESModule(
-  "resource://gre/modules/enterprise/Felt.sys.mjs"
+  "moz-src:///toolkit/components/felt/Felt.sys.mjs"
 );
 const { XPCShellContentUtils } = ChromeUtils.importESModule(
   "resource://testing-common/XPCShellContentUtils.sys.mjs"

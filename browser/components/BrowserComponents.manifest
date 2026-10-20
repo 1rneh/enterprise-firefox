@@ -25,9 +25,9 @@ category browser-before-ui-startup resource:///modules/AboutHomeStartupCache.sys
 category browser-before-ui-startup moz-src:///browser/components/AccountsGlue.sys.mjs AccountsGlue.init
 category browser-before-ui-startup moz-src:///browser/modules/ObserverForwarder.sys.mjs ObserverForwarder.init
 #ifdef MOZ_ENTERPRISE
-category browser-before-ui-startup resource://gre/modules/enterprise/EnterpriseEndpoints.sys.mjs EnterpriseEndpoints.init
-category browser-before-ui-startup resource://gre/modules/enterprise/EnterpriseStorageEncryption.sys.mjs EnterpriseStorageEncryption.init
-category browser-before-ui-startup resource:///modules/enterprise/EnterpriseThemeMigration.sys.mjs EnterpriseThemeMigration.migrate
+category browser-before-ui-startup moz-src:///toolkit/components/enterprise/modules/EnterpriseEndpoints.sys.mjs EnterpriseEndpoints.init
+category browser-before-ui-startup moz-src:///toolkit/components/enterprise/modules/EnterpriseStorageEncryption.sys.mjs EnterpriseStorageEncryption.init
+category browser-before-ui-startup moz-src:///browser/components/enterprise/EnterpriseThemeMigration.sys.mjs EnterpriseThemeMigration.migrate
 #endif
 #ifdef XP_WIN
 category browser-before-ui-startup moz-src:///browser/components/shell/StartupOSIntegration.sys.mjs StartupOSIntegration.applyCustomIconOnStartup
@@ -55,9 +55,9 @@ category browser-window-domcontentloaded moz-src:///browser/components/customiza
 category browser-window-domcontentloaded chrome://browser/content/browser-addons.js gUnifiedExtensions.init
 category browser-window-domcontentloaded chrome://browser/content/browser.js FirefoxViewHandler.init
 #ifdef MOZ_ENTERPRISE
-category browser-window-domcontentloaded resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.init
-category browser-window-domcontentloaded resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
-category browser-window-domcontentloaded resource:///modules/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
+category browser-window-domcontentloaded moz-src:///toolkit/components/enterprise/modules/EnterpriseBadge.sys.mjs EnterpriseBadge.init
+category browser-window-domcontentloaded moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.init
+category browser-window-domcontentloaded moz-src:///browser/components/enterprise/AccessConnectorButton.sys.mjs AccessConnectorButtonHandler.init
 #endif
 
 category browser-window-load-before-sessionstore-init chrome://browser/content/browser-captivePortal.js CaptivePortalWatcher.init
@@ -261,8 +261,8 @@ category browser-quit-application-granted moz-src:///browser/components/ipprotec
 category browser-quit-application-granted moz-src:///browser/components/sessionstore/SessionWindowUI.sys.mjs SessionWindowUI.maybeIncrementRestoreSessionSuggestionCount
 
 #ifdef MOZ_ENTERPRISE
-category browser-quit-application-granted resource://gre/modules/enterprise/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit
-category browser-quit-application-granted resource:///modules/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
+category browser-quit-application-granted moz-src:///toolkit/components/enterprise/modules/EnterpriseBadge.sys.mjs EnterpriseBadge.uninit
+category browser-quit-application-granted moz-src:///browser/components/enterprise/EnterpriseHandler.sys.mjs EnterpriseHandler.uninit
 #endif
 
 category search-service-notification moz-src:///browser/components/search/SearchUIUtils.sys.mjs SearchUIUtils.showSearchServiceNotification

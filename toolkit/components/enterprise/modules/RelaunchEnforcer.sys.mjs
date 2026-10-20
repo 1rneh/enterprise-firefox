@@ -6,9 +6,9 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   ForcedQuitHandler:
-    "resource://gre/modules/enterprise/ForcedQuitHandler.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/ForcedQuitHandler.sys.mjs",
   ScheduledTask: "resource://gre/modules/ScheduledTask.sys.mjs",
 });
 

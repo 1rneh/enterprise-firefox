@@ -6,25 +6,33 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",
-  Updates: "resource://gre/modules/enterprise/Updates.sys.mjs",
-  ClientSession: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
-  DevicePosture: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  EDR_AGENTS_PREF: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  EdrAgents: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
-  PostureMonitor: "resource://gre/modules/enterprise/DevicePosture.sys.mjs",
+  Updates: "moz-src:///toolkit/components/enterprise/modules/Updates.sys.mjs",
+  ClientSession:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
+  DevicePosture:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  EDR_AGENTS_PREF:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  EdrAgents:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
+  PostureMonitor:
+    "moz-src:///toolkit/components/enterprise/modules/DevicePosture.sys.mjs",
   CONSOLE_ADDRESS_PREF:
-    "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   isBuildAppBrowser:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
-  isTesting: "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
+  isTesting:
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   createEnterpriseLogger:
-    "resource://gre/modules/enterprise/EnterpriseCommon.sys.mjs",
+    "moz-src:///toolkit/components/enterprise/modules/EnterpriseCommon.sys.mjs",
   FeltCommon: "chrome://felt/content/FeltCommon.sys.mjs",
   resolveManagedProfile: "chrome://felt/content/FeltCommon.sys.mjs",
   FeltLocking: "chrome://felt/content/FeltLocking.sys.mjs",
-  FeltStorage: "resource://gre/modules/enterprise/FeltStorage.sys.mjs",
-  StartupPolicies: "resource://gre/modules/enterprise/StartupPolicies.sys.mjs",
+  FeltStorage: "moz-src:///toolkit/components/felt/FeltStorage.sys.mjs",
+  StartupPolicies:
+    "moz-src:///toolkit/components/enterprise/modules/StartupPolicies.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   clearTimeout: "resource://gre/modules/Timer.sys.mjs",
 });
@@ -32,11 +40,13 @@ ChromeUtils.defineESModuleGetters(lazy, {
 if (lazy.isBuildAppBrowser()) {
   ChromeUtils.defineESModuleGetters(lazy, {
     // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-    gFeltPendingURLs: "resource:///modules/FeltURLHandler.sys.mjs",
-    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-    resetFeltFirefoxWindowReady: "resource:///modules/FeltURLHandler.sys.mjs",
-    // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
-    FELT_OPEN_WINDOW_DISPOSITION: "resource:///modules/FeltURLHandler.sys.mjs",
+    gFeltPendingURLs: "moz-src:///browser/components/FeltURLHandler.sys.mjs",
+    resetFeltFirefoxWindowReady:
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "moz-src:///browser/components/FeltURLHandler.sys.mjs",
+    FELT_OPEN_WINDOW_DISPOSITION:
+      // eslint-disable-next-line mozilla/no-browser-refs-in-toolkit
+      "moz-src:///browser/components/FeltURLHandler.sys.mjs",
   });
 }
 

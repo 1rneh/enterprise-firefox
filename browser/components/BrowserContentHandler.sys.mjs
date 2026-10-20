@@ -1333,7 +1333,9 @@ var gBrowserContentHandler = new nsBrowserContentHandler();
 
 const { gFeltPendingURLs, FELT_OPEN_WINDOW_DISPOSITION, queueFeltURL } =
   AppConstants.MOZ_ENTERPRISE
-    ? ChromeUtils.importESModule("resource:///modules/FeltURLHandler.sys.mjs")
+    ? ChromeUtils.importESModule(
+        "moz-src:///browser/components/FeltURLHandler.sys.mjs"
+      )
     : {
         gFeltPendingURLs: [],
         FELT_OPEN_WINDOW_DISPOSITION: {},

@@ -24,7 +24,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AddonManagerPrivate: "resource://gre/modules/AddonManager.sys.mjs",
   BookmarksPolicies: "resource:///modules/policies/BookmarksPolicies.sys.mjs",
   ContentAnalysisPolicies:
-    "resource:///modules/policies/ContentAnalysisPolicies.sys.mjs",
+    "moz-src:///browser/components/enterprisepolicies/helpers/ContentAnalysisPolicies.sys.mjs",
   CustomizableUI:
     "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs",
   ExtensionPermissions: "resource://gre/modules/ExtensionPermissions.sys.mjs",
@@ -33,16 +33,19 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ProxyPolicies: "resource:///modules/policies/ProxyPolicies.sys.mjs",
   SearchService: "moz-src:///toolkit/components/search/SearchService.sys.mjs",
   SecurityLoggingPolicy:
-    "resource:///modules/policies/SecurityLoggingPolicy.sys.mjs",
-  AIChatbotPolicies: "resource:///modules/policies/AIChatbotPolicies.sys.mjs",
+    "moz-src:///browser/components/enterprisepolicies/helpers/SecurityLoggingPolicy.sys.mjs",
+  AIChatbotPolicies:
+    "moz-src:///browser/components/enterprisepolicies/helpers/AIChatbotPolicies.sys.mjs",
   QuickSuggest: "moz-src:///browser/components/urlbar/QuickSuggest.sys.mjs",
-  WatermarkPolicy: "resource:///modules/policies/WatermarkPolicy.sys.mjs",
+  WatermarkPolicy:
+    "moz-src:///browser/components/enterprisepolicies/helpers/WatermarkPolicy.sys.mjs",
   ContextualIdentityService:
     "moz-src:///toolkit/components/contextualidentity/ContextualIdentityService.sys.mjs",
   EphemeralContainerWatcher:
     "resource:///modules/policies/EphemeralContainerWatcher.sys.mjs",
   WebsiteFilter: "resource:///modules/policies/WebsiteFilter.sys.mjs",
-  SyncPolicy: "resource:///modules/policies/SyncPolicy.sys.mjs",
+  SyncPolicy:
+    "moz-src:///browser/components/enterprisepolicies/helpers/SyncPolicy.sys.mjs",
   LaunchOnLogin: "resource://gre/modules/LaunchOnLogin.sys.mjs",
 
   PoliciesUtils: "resource://gre/modules/PoliciesHelpers.sys.mjs",

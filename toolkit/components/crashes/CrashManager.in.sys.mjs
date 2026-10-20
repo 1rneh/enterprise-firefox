@@ -9,7 +9,8 @@ const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
   AsyncShutdown: "resource://gre/modules/AsyncShutdown.sys.mjs",
-  ConsoleClient: "resource://gre/modules/enterprise/ConsoleClient.sys.mjs",
+  ConsoleClient:
+    "moz-src:///toolkit/components/enterprise/modules/ConsoleClient.sys.mjs",
   CrashServiceUtils: "resource://gre/modules/CrashService.sys.mjs",
   Log: "resource://gre/modules/Log.sys.mjs",
   Subprocess: "resource://gre/modules/Subprocess.sys.mjs",

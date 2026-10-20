@@ -303,7 +303,7 @@ def test_install_extra_extensions_flattens_csv(ConcretePerftest):
     ])
     perftest = ConcretePerftest(**vars(args))
     perftest.profile = mock.MagicMock()
-    with mock.patch("perftest.download_file", side_effect=lambda url, **kw: url):
+    with mock.patch("condprof.util.download_file", side_effect=lambda url, **kw: url):
         perftest.install_extra_extensions()
     perftest.profile.addons.install.assert_called_once_with([
         "https://amo/a.xpi",

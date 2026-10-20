@@ -2225,6 +2225,29 @@ export class UrlbarInputBaseTestUtils {
   }
 
   /**
+   * Stubs `UrlbarShared.locale()`. Helpful for tests that check formatted dates
+   * and times, which otherwise depend on the OS regional settings.
+   *
+   * Browser tests should call this again with a falsey value during cleanup to
+   * remove the stub.
+   *
+   * @param {?string} locale
+   *   The locale to use, e.g. "en-US". A falsey value removes the stub.
+   */
+  stubLocale(locale) {
+    if (!locale) {
+      this.#localeStub?.restore();
+      this.#localeStub = null;
+      return;
+    }
+
+    if (!this.#localeStub) {
+      this.#localeStub = lazy.sinon.stub(UrlbarShared, "locale");
+    }
+    this.#localeStub.returns(locale);
+  }
+
+  /**
    * Stubs `UrlbarShared._firstDayOfWeek()`. Helpful for tests that use
    * `UrlbarShared.formatDate()`.
    *
@@ -2325,6 +2348,7 @@ export class UrlbarInputBaseTestUtils {
   }
 
   #firstDayOfWeekStub;
+  #localeStub;
   #urlbar;
   #zonedDateTimeISOStub;
 }

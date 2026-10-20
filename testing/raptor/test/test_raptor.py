@@ -15,7 +15,9 @@ raptor_dir = os.path.join(os.path.dirname(here), "raptor")
 sys.path.insert(0, raptor_dir)
 
 
-from browsertime import Browsertime, BrowsertimeAndroid, BrowsertimeDesktop
+from browsertime import Browsertime
+from browsertime.android import BrowsertimeAndroid
+from browsertime.desktop import BrowsertimeDesktop
 from perftest import Perftest, PerftestAndroid
 
 DEFAULT_TIMEOUT = 125

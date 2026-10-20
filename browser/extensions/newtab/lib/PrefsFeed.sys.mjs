@@ -58,6 +58,8 @@ const TOP_SITES_USER_VALUE_TEMP_PREF =
   "activationWindow.temp.topSitesUserValue";
 const TOP_STORIES_USER_VALUE_TEMP_PREF =
   "activationWindow.temp.topStoriesUserValue";
+const WIDGETS_ENABLED_PREF = "widgets.enabled";
+const WIDGETS_USER_VALUE_TEMP_PREF = "activationWindow.temp.widgetsUserValue";
 // Browser-wide Nova gate. Lives off the activity-stream branch, so it is read
 // and observed directly here (not via the branch observer) and broadcast to
 // content to gate the theme picker in the customize panel.
@@ -253,16 +255,25 @@ export class PrefsFeed {
    * @param {boolean | number | string} value - The new preference value
    */
   trackActivationWindowPrefChange(name, value) {
-    if (name === TOP_SITES_ENABLED_PREF) {
-      this._prefs.set(TOP_SITES_USER_VALUE_TEMP_PREF, value);
-      lazy.logConsole.debug(
-        `User set top sites to ${value} during activation window`
-      );
-    } else if (name === TOP_STORIES_ENABLED_PREF) {
-      this._prefs.set(TOP_STORIES_USER_VALUE_TEMP_PREF, value);
-      lazy.logConsole.debug(
-        `User set top stories to ${value} during activation window`
-      );
+    switch (name) {
+      case TOP_SITES_ENABLED_PREF:
+        this._prefs.set(TOP_SITES_USER_VALUE_TEMP_PREF, value);
+        lazy.logConsole.debug(
+          `User set top sites to ${value} during activation window`
+        );
+        break;
+      case TOP_STORIES_ENABLED_PREF:
+        this._prefs.set(TOP_STORIES_USER_VALUE_TEMP_PREF, value);
+        lazy.logConsole.debug(
+          `User set top stories to ${value} during activation window`
+        );
+        break;
+      case WIDGETS_ENABLED_PREF:
+        this._prefs.set(WIDGETS_USER_VALUE_TEMP_PREF, value);
+        lazy.logConsole.debug(
+          `User set widgets to ${value} during activation window`
+        );
+        break;
     }
   }
 
@@ -870,6 +881,7 @@ export class PrefsFeed {
       maxProfileAgeInHours = 48,
       disableTopSites = false,
       disableTopStories = false,
+      disableWidgets = false,
       variant = "",
       enterActivationWindowMessageID = "",
       exitActivationWindowMessageID = "",
@@ -914,6 +926,7 @@ export class PrefsFeed {
         variant,
         disableTopSites,
         disableTopStories,
+        disableWidgets,
         enterActivationWindowMessageID,
         isStartup
       );
@@ -929,6 +942,7 @@ export class PrefsFeed {
    * @param {string} variant - The activation window variant identifier
    * @param {boolean} disableTopSites - Whether to disable top sites by default
    * @param {boolean} disableTopStories - Whether to disable top stories by default
+   * @param {boolean} disableWidgets - Whether to disable widgets by default
    * @param {string} enterActivationWindowMessageID - Message ID to display when entering activation window
    * @param {boolean} [isStartup=false] - Whether this is being called during
    *   browser startup. When true, skips the idempotent check to ensure default
@@ -938,6 +952,7 @@ export class PrefsFeed {
     variant,
     disableTopSites,
     disableTopStories,
+    disableWidgets,
     enterActivationWindowMessageID,
     isStartup = false
   ) {
@@ -980,6 +995,13 @@ export class PrefsFeed {
         false,
         /* isUserChange */ false
       );
+    }
+
+    if (disableWidgets) {
+      lazy.logConsole.log("Disabling widgets by default.");
+      defaultBranch.setBoolPref(WIDGETS_ENABLED_PREF, false);
+      // This is a programmatic change, not a user action, so don't track it
+      this.onPrefChanged(WIDGETS_ENABLED_PREF, false, /* isUserChange */ false);
     }
 
     // Set the variant pref last, after default branch changes and broadcasts.
@@ -1026,6 +1048,14 @@ export class PrefsFeed {
       TOP_STORIES_ENABLED_PREF,
       PREF_DEFAULT_VALUE_TOPSTORIES_ENABLED
     );
+    const widgetsOverride =
+      this._trainhopConfig?.widgetsSettings?.enabled ??
+      this._trainhopConfig?.widgets?.enabled;
+    const widgetsDefault =
+      typeof widgetsOverride === "boolean"
+        ? widgetsOverride
+        : /** @type {boolean} */ (PREFS_CONFIG.get(WIDGETS_ENABLED_PREF).value);
+    defaultBranch.setBoolPref(WIDGETS_ENABLED_PREF, widgetsDefault);
 
     // Check temp pref status
     const hasTopSitesTempPref = this._prefs.isSet(
@@ -1034,8 +1064,9 @@ export class PrefsFeed {
     const hasTopStoriesTempPref = this._prefs.isSet(
       TOP_STORIES_USER_VALUE_TEMP_PREF
     );
+    const hasWidgetsTempPref = this._prefs.isSet(WIDGETS_USER_VALUE_TEMP_PREF);
     lazy.logConsole.debug(
-      `Temp prefs: topSites was disabled=${hasTopSitesTempPref}, topStories was disabled=${hasTopStoriesTempPref}`
+      `Temp prefs: topSites was disabled=${hasTopSitesTempPref}, topStories was disabled=${hasTopStoriesTempPref}, widgets was disabled=${hasWidgetsTempPref}`
     );
 
     // Broadcast the default changes (if user hasn't set these prefs, they'll see true)
@@ -1066,6 +1097,21 @@ export class PrefsFeed {
         "Skipping top stories broadcast - will restore user value"
       );
     }
+    if (!hasWidgetsTempPref) {
+      lazy.logConsole.debug(
+        `Broadcasting widgets default change (${widgetsDefault})`
+      );
+      // This is a programmatic change, not a user action, so don't track it
+      this.onPrefChanged(
+        WIDGETS_ENABLED_PREF,
+        widgetsDefault,
+        /* isUserChange */ false
+      );
+    } else {
+      lazy.logConsole.debug(
+        "Skipping widgets broadcast - will restore user value"
+      );
+    }
 
     // Then check if user made changes during activation window and apply them
     // Note: _prefs.set() will automatically trigger onPrefChanged() via the observer
@@ -1090,6 +1136,18 @@ export class PrefsFeed {
       this._prefs.reset(TOP_STORIES_USER_VALUE_TEMP_PREF);
       lazy.logConsole.debug(
         "Top stories user value restored and temp pref cleared"
+      );
+    }
+
+    if (hasWidgetsTempPref) {
+      const userValue = this._prefs.get(WIDGETS_USER_VALUE_TEMP_PREF);
+      lazy.logConsole.log(
+        `Restoring user's widgets preference to ${userValue}`
+      );
+      this._prefs.set(WIDGETS_ENABLED_PREF, userValue);
+      this._prefs.reset(WIDGETS_USER_VALUE_TEMP_PREF);
+      lazy.logConsole.debug(
+        "Widgets user value restored and temp pref cleared"
       );
     }
 

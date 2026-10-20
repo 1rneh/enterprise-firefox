@@ -2355,6 +2355,8 @@ data class MozAdsRequestOptions (
     var `flags`: Map<kotlin.String, kotlin.Boolean> = mapOf() 
     , 
     var `ohttp`: kotlin.Boolean = false 
+    , 
+    var `relevance`: Map<kotlin.String, kotlin.Double> = mapOf() 
     
 ){
     
@@ -2375,6 +2377,7 @@ public object FfiConverterTypeMozAdsRequestOptions: FfiConverterRustBuffer<MozAd
             FfiConverterOptionalTypeMozAdsCachePolicy.read(buf),
             FfiConverterMapStringBoolean.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterMapStringDouble.read(buf),
         )
     }
 
@@ -2382,7 +2385,8 @@ public object FfiConverterTypeMozAdsRequestOptions: FfiConverterRustBuffer<MozAd
             FfiConverterSequenceString.allocationSize(value.`blocks`) +
             FfiConverterOptionalTypeMozAdsCachePolicy.allocationSize(value.`cachePolicy`) +
             FfiConverterMapStringBoolean.allocationSize(value.`flags`) +
-            FfiConverterBoolean.allocationSize(value.`ohttp`)
+            FfiConverterBoolean.allocationSize(value.`ohttp`) +
+            FfiConverterMapStringDouble.allocationSize(value.`relevance`)
     )
 
     override fun write(value: MozAdsRequestOptions, buf: ByteBuffer) {
@@ -2390,6 +2394,7 @@ public object FfiConverterTypeMozAdsRequestOptions: FfiConverterRustBuffer<MozAd
             FfiConverterOptionalTypeMozAdsCachePolicy.write(value.`cachePolicy`, buf)
             FfiConverterMapStringBoolean.write(value.`flags`, buf)
             FfiConverterBoolean.write(value.`ohttp`, buf)
+            FfiConverterMapStringDouble.write(value.`relevance`, buf)
     }
 }
 
@@ -3403,6 +3408,45 @@ public object FfiConverterMapStringUInt: FfiConverterRustBuffer<Map<kotlin.Strin
         value.forEach { (k, v) ->
             FfiConverterString.write(k, buf)
             FfiConverterUInt.write(v, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterMapStringDouble: FfiConverterRustBuffer<Map<kotlin.String, kotlin.Double>> {
+    override fun read(buf: ByteBuffer): Map<kotlin.String, kotlin.Double> {
+        val len = buf.getInt()
+        return buildMap<kotlin.String, kotlin.Double>(len) {
+            repeat(len) {
+                val k = FfiConverterString.read(buf)
+                val v = FfiConverterDouble.read(buf)
+                this[k] = v
+            }
+        }
+    }
+
+    override fun allocationSize(value: Map<kotlin.String, kotlin.Double>): ULong {
+        val spaceForMapSize = 4UL
+        val spaceForChildren = value.map { (k, v) ->
+            FfiConverterString.allocationSize(k) +
+            FfiConverterDouble.allocationSize(v)
+        }.sum()
+        return spaceForMapSize + spaceForChildren
+    }
+
+    override fun write(value: Map<kotlin.String, kotlin.Double>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        // The parens on `(k, v)` here ensure we're calling the right method,
+        // which is important for compatibility with older android devices.
+        // Ref https://blog.danlew.net/2017/03/16/kotlin-puzzler-whose-line-is-it-anyways/
+        value.forEach { (k, v) ->
+            FfiConverterString.write(k, buf)
+            FfiConverterDouble.write(v, buf)
         }
     }
 }

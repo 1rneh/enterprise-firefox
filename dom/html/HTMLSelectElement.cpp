@@ -141,7 +141,7 @@ void HTMLSelectElement::SetupShadowTree() {
   {
     RefPtr slot = doc->CreateHTMLElement(nsGkAtoms::slot);
     slot->SetAttr(kNameSpaceID_None, nsGkAtoms::name,
-                  u"internal-select-button"_ns, false);
+                  u"internal-select-button"_ns, false, IsKnownNewAttr::Yes);
     sr->AppendChildTo(slot, false, IgnoreErrors());
   }
 
@@ -166,7 +166,8 @@ void HTMLSelectElement::SetupShadowTree() {
   picker->SetAttr(nsGkAtoms::name, u"select"_ns, IgnoreErrors());
   {
     nsAutoString popoverstate;
-    picker->SetAttr(kNameSpaceID_None, nsGkAtoms::popover, popoverstate, false);
+    picker->SetAttr(kNameSpaceID_None, nsGkAtoms::popover, popoverstate, false,
+                    IsKnownNewAttr::Yes);
     // SetAttr queues AfterSetPopoverAttr asynchronously, but
     // ShowPopoverInternal needs PopoverAttributeState set immediately.
     picker->EnsurePopoverData().SetPopoverAttributeState(

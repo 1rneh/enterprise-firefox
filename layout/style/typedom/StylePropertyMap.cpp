@@ -220,8 +220,8 @@ void StylePropertyMapReadOnly::Declarations::Set(
 void StylePropertyMapReadOnly::Declarations::Clear(ErrorResult& aRv) {
   switch (mKind) {
     case Kind::Inline:
-      mStyledElement->SetAttr(kNameSpaceID_None, nsGkAtoms::style, u""_ns,
-                              true);
+      mStyledElement->SetAttr(kNameSpaceID_None, nsGkAtoms::style, u""_ns, true,
+                              IsKnownNewAttr::No);
       return;
 
     case Kind::Computed:

@@ -1380,7 +1380,8 @@ void Element::RemoveFromIdTable() {
 }
 
 void Element::SetSlot(const nsAString& aName, ErrorResult& aError) {
-  aError = SetAttr(kNameSpaceID_None, nsGkAtoms::slot, aName, true);
+  aError = SetAttr(kNameSpaceID_None, nsGkAtoms::slot, aName, true,
+                   IsKnownNewAttr::No);
 }
 
 void Element::GetSlot(nsAString& aName) { GetAttr(nsGkAtoms::slot, aName); }
@@ -1812,7 +1813,7 @@ bool Element::ToggleAttribute(const nsAString& aName,
       return false;
     }
     aError = SetAttr(kNameSpaceID_None, nameAtom, u""_ns, aTriggeringPrincipal,
-                     true);
+                     true, IsKnownNewAttr::No);
     return true;
   }
   if (aForce.WasPassed() && aForce.Value()) {
@@ -2058,7 +2059,6 @@ void Element::SetAttributeDevtoolsNS(const nsAString& aNamespaceURI,
 void Element::RemoveAttributeNS(const nsAString& aNamespaceURI,
                                 const nsAString& aLocalName,
                                 ErrorResult& aError) {
-  RefPtr<nsAtom> name = NS_AtomizeMainThread(aLocalName);
   int32_t nsid = nsNameSpaceManager::GetInstance()->GetNameSpaceID(
       aNamespaceURI, nsContentUtils::IsChromeDoc(OwnerDoc()));
 
@@ -2069,6 +2069,7 @@ void Element::RemoveAttributeNS(const nsAString& aNamespaceURI,
     return;
   }
 
+  RefPtr<nsAtom> name = NS_AtomizeMainThread(aLocalName);
   aError = UnsetAttr(nsid, name, true);
 }
 
@@ -2843,21 +2844,23 @@ bool Element::HasVisibleScrollbars() {
 // Propagates this element's bloom filter up the tree by OR-ing it with
 // all ancestor element bloom filters, stopping early if no new bits are added.
 void Element::PropagateBloomFilterToParents() {
-  Element* toUpdate = this;
   Element* parent = GetParentElement();
+  if (!parent) {
+    return;
+  }
+  uint64_t childBloom = mAttrs.GetSubtreeBloomFilter();
 
-  while (parent) {
-    uint64_t childBloom = toUpdate->mAttrs.GetSubtreeBloomFilter();
+  do {
     uint64_t parentBloom = parent->mAttrs.GetSubtreeBloomFilter();
 
     // Check if parent already contains all child bits
     if ((parentBloom & childBloom) == childBloom) {
       break;
     }
-    parent->mAttrs.SetSubtreeBloomFilter(parentBloom | childBloom);
-    toUpdate = parent;
-    parent = toUpdate->GetParentElement();
-  }
+    childBloom |= parentBloom;
+    parent->mAttrs.SetSubtreeBloomFilter(childBloom);
+    parent = parent->GetParentElement();
+  } while (parent);
 }
 
 // Hashes all class names in a class attribute value for the bloom filter.
@@ -3691,9 +3694,12 @@ bool Element::MaybeCheckSameAttrVal(int32_t aNamespaceID, const nsAtom* aName,
   if (aNotify) {
     BorrowedAttrInfo info(GetAttrInfo(aNamespaceID, aName));
     if (info.mValue) {
-      // Check whether the old value is the same as the new one.  Note that we
-      // only need to actually _get_ the old value if the element is a custom
-      // element (because it may have an attribute changed callback).
+      bool valueMatches = aValue.EqualsAsStrings(*info.mValue);
+      if (valueMatches && aPrefix == info.mName->GetPrefix()) {
+        return true;
+      }
+      // Only custom elements need an old-value snapshot for attribute
+      // callbacks.
       if (GetCustomElementData()) {
         // Need to store the old value.
         //
@@ -3703,10 +3709,6 @@ bool Element::MaybeCheckSameAttrVal(int32_t aNamespaceID, const nsAtom* aName,
         // should serialize the attribute value now to keep a snapshot.
         aOldValue.SetToSerialized(*info.mValue);
         *aOldValueSet = true;
-      }
-      bool valueMatches = aValue.EqualsAsStrings(*info.mValue);
-      if (valueMatches && aPrefix == info.mName->GetPrefix()) {
-        return true;
       }
       modification = true;
     }
@@ -3779,11 +3781,19 @@ nsresult Element::SetAndSwapAttr(nsAtom* aLocalName, nsAttrValue& aValue,
                                  bool* aHadValue, IsKnownNewAttr aIsKnownNew) {
   MOZ_TRY(mAttrs.SetAndSwapAttr(aLocalName, aValue, aHadValue, aIsKnownNew));
 
+  if (*aHadValue && aLocalName != nsGkAtoms::_class) {
+    return NS_OK;
+  }
+  const uint64_t oldBloom = mAttrs.GetSubtreeBloomFilter();
   if (aLocalName == nsGkAtoms::_class) {
     UpdateSubtreeBloomFilterForClass(GetClasses());
   }
-  UpdateSubtreeBloomFilterForAttribute(aLocalName);
-  PropagateBloomFilterToParents();
+  if (!*aHadValue) {
+    UpdateSubtreeBloomFilterForAttribute(aLocalName);
+  }
+  if (oldBloom != mAttrs.GetSubtreeBloomFilter()) {
+    PropagateBloomFilterToParents();
+  }
 
   return NS_OK;
 }
@@ -3791,25 +3801,17 @@ nsresult Element::SetAndSwapAttr(nsAtom* aLocalName, nsAttrValue& aValue,
 nsresult Element::SetAndSwapAttr(mozilla::dom::NodeInfo* aName,
                                  nsAttrValue& aValue, bool* aHadValue,
                                  IsKnownNewAttr aIsKnownNew) {
-  MOZ_TRY(mAttrs.SetAndSwapAttr(aName, aValue, aHadValue, aIsKnownNew));
-
   // Only update bloom filter for null-namespace attributes, since the
   // querySelector bloom filter optimization only applies to those.
   if (aName->NamespaceEquals(kNameSpaceID_None)) {
-    nsAtom* localName = aName->NameAtom();
-    if (localName == nsGkAtoms::_class) {
-      UpdateSubtreeBloomFilterForClass(GetClasses());
-    }
-    UpdateSubtreeBloomFilterForAttribute(localName);
-    PropagateBloomFilterToParents();
+    return SetAndSwapAttr(aName->NameAtom(), aValue, aHadValue, aIsKnownNew);
   }
-
-  return NS_OK;
+  return mAttrs.SetAndSwapAttr(aName, aValue, aHadValue, aIsKnownNew);
 }
 
 nsresult Element::SetAttr(int32_t aNamespaceID, nsAtom* aName, nsAtom* aPrefix,
                           nsAtom* aValue, nsIPrincipal* aSubjectPrincipal,
-                          bool aNotify) {
+                          bool aNotify, IsKnownNewAttr aIsKnownNew) {
   // Keep this in sync with SetParsedAttr below and SetSingleClassFromParser
   // above.
   const nsDependentAtomString valueString(aValue);
@@ -3823,7 +3825,7 @@ nsresult Element::SetAttr(int32_t aNamespaceID, nsAtom* aName, nsAtom* aPrefix,
           attrValue.SetTo(aValue);
         }
       },
-      IsKnownNewAttr::No);
+      aIsKnownNew);
 }
 
 template <typename ParseFunc>
@@ -4123,8 +4125,9 @@ nsresult Element::SetAttrAndNotify(
 
   // Copy aParsedValue for later use since it will be lost when we call
   // SetAndSwapAttr below
+  const bool callAfterSetAttr = aCallAfterSetAttr && aName->IsStatic();
   nsAttrValue valueForAfterSetAttr;
-  if (aCallAfterSetAttr || GetCustomElementData()) {
+  if (callAfterSetAttr || GetCustomElementData()) {
     valueForAfterSetAttr.SetTo(aParsedValue);
   }
 
@@ -4203,7 +4206,7 @@ nsresult Element::SetAttrAndNotify(
     }
   }
 
-  if (aCallAfterSetAttr && aName->IsStatic()) {
+  if (callAfterSetAttr) {
     AfterSetAttr(aNamespaceID, aName, &valueForAfterSetAttr, oldValue,
                  aSubjectPrincipal, aNotify);
 
@@ -5940,7 +5943,7 @@ void Element::ClearEditContext() {
 
 nsresult Element::SetBoolAttr(nsAtom* aAttr, bool aValue) {
   if (aValue) {
-    return SetAttr(kNameSpaceID_None, aAttr, u""_ns, true);
+    return SetAttr(kNameSpaceID_None, aAttr, u""_ns, true, IsKnownNewAttr::No);
   }
 
   return UnsetAttr(kNameSpaceID_None, aAttr, true);
@@ -6079,15 +6082,7 @@ Element* Element::GetPseudoElement(const PseudoStyleRequest& aRequest) const {
 }
 
 ReferrerPolicy Element::GetReferrerPolicyAsEnum() const {
-  // Currently, referrerpolicy attribute is supported on HTML elements (a, area,
-  // img, iframe, script, link) as well as SVG and MathML <a> elements.
-  // TODO: Restrict to elements specified above for HTML.
-  if (IsHTMLElement() || IsSVGElement(nsGkAtoms::a) ||
-      (IsMathMLElement(nsGkAtoms::a) &&
-       StaticPrefs::mathml_a_element_enabled())) {
-    return ReferrerPolicyFromAttr(GetParsedAttr(nsGkAtoms::referrerpolicy));
-  }
-  return ReferrerPolicy::_empty;
+  return ReferrerPolicyFromAttr(GetParsedAttr(nsGkAtoms::referrerpolicy));
 }
 
 ReferrerPolicy Element::ReferrerPolicyFromAttr(

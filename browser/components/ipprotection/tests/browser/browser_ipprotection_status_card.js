@@ -277,6 +277,53 @@ add_task(async function test_status_card_excluded() {
 });
 
 /**
+ * Tests that an excluded site shows the connected state when site inclusions
+ * are enabled.
+ */
+add_task(async function test_status_card_excluded_site_inclusions_enabled() {
+  let sandbox = sinon.createSandbox();
+  sandbox
+    .stub(IPPSiteRuleManager, "getRule")
+    .returns(IPPPrincipalRules.EXCLUDED);
+
+  await setupStatusCardTest();
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.ipProtection.features.siteInclusions", true]],
+  });
+
+  let content = await openPanel({
+    location: mockLocation,
+    isProtectionEnabled: true,
+    bandwidthUsage: mockBandwidthUsage,
+  });
+
+  let statusBoxEl = content.statusCardEl.statusBoxEl;
+  Assert.ok(statusBoxEl, "Status box should be present");
+  await checkStatusBoxAriaLabel(statusBoxEl);
+
+  Assert.equal(
+    statusBoxEl.type,
+    "connected",
+    "Status box should have connected type"
+  );
+  Assert.equal(
+    statusBoxEl.headerL10nId,
+    "ipprotection-connection-status-connected-1",
+    "Status box should show the connected header"
+  );
+  Assert.equal(
+    content.statusCardEl.actionButtonEl.dataset.l10nId,
+    "ipprotection-button-turn-vpn-off-1",
+    "Button should use the regular turn off label"
+  );
+
+  await closePanel();
+  await SpecialPowers.popPrefEnv();
+  await cleanupStatusCardTest();
+  sandbox.restore();
+});
+
+/**
  * Tests the connecting state UI.
  */
 add_task(async function test_status_card_connecting() {

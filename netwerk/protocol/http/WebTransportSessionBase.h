@@ -8,6 +8,7 @@
 #include <functional>
 
 #include "mozilla/Mutex.h"
+#include "mozilla/TimeStamp.h"
 #include "mozilla/dom/PWebTransport.h"
 #include "nsISupportsImpl.h"
 #include "nsIWebTransport.h"
@@ -62,8 +63,13 @@ class WebTransportSessionBase {
                                         nsTArray<uint8_t>& aKeyingMaterial) = 0;
   virtual void GetNegotiatedProtocol(nsACString& aProtocol) = 0;
   virtual void GetStats() = 0;
+  // aTimestamp is when the datagram was written, for outgoingMaxAge.
   virtual void SendDatagram(nsTArray<uint8_t>&& aData, uint64_t aTrackingId,
-                            uint64_t aSendGroupId, int64_t aSendOrder) = 0;
+                            uint64_t aSendGroupId, int64_t aSendOrder,
+                            TimeStamp aTimestamp) = 0;
+  virtual void SetDatagramMaxBufferedDatagrams(
+      uint32_t aMaxBufferedDatagrams) = 0;
+  virtual void SetDatagramMaxAge(double aMaxAge) = 0;
   virtual nsresult RegisterSendGroup(uint64_t aGroupId) = 0;
   virtual void CreateOutgoingBidirectionalStream(
       std::function<void(Result<RefPtr<WebTransportStreamBase>, nsresult>&&)>&&

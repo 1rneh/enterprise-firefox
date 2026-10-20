@@ -23,7 +23,6 @@
 @AB_CD@.jar:
 % locale browser @AB_CD@ %locale/browser/
     locale/browser/browser.properties              (%chrome/browser/browser.properties)
-    locale/browser/customizableui/customizableWidgets.properties (%chrome/browser/customizableui/customizableWidgets.properties)
     locale/browser/uiDensity.properties            (%chrome/browser/uiDensity.properties)
     locale/browser/search.properties               (%chrome/browser/search.properties)
     locale/browser/sitePermissions.properties      (%chrome/browser/sitePermissions.properties)

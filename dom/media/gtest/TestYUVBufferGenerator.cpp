@@ -8,6 +8,7 @@
 #include "YUVBufferGenerator.h"
 #include "gtest/gtest.h"
 #include "mozilla/EnumeratedRange.h"
+#include "mozilla/Maybe.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/gfx/Types.h"
 
@@ -144,6 +145,9 @@ TEST(YUVBufferGenerator, OwnsOddCroppedImageData)
   ASSERT_TRUE(nv21);
   EXPECT_EQ(nv12->GetOrigin(), IntPoint());
   EXPECT_EQ(nv21->GetOrigin(), IntPoint());
+  EXPECT_EQ(i420->GetAddressableSize(), mozilla::Some(yDataSize));
+  EXPECT_EQ(nv12->GetAddressableSize(), mozilla::Some(yDataSize));
+  EXPECT_EQ(nv21->GetAddressableSize(), mozilla::Some(yDataSize));
 
   EXPECT_EQ(i420->GetPictureRect(), pictureRect);
   EXPECT_EQ(i420->GetSize(), pictureRect.Size());

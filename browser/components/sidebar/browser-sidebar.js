@@ -837,18 +837,6 @@ var SidebarController = {
     if (!isValidSidebar) {
       state.command = "";
     }
-    // reset any previously remembered launcher-visibility state
-    delete this._launcherStateAtOpen;
-
-    const hasOpenPanel =
-      state.panelOpen &&
-      state.command &&
-      this.sidebars.has(state.command) &&
-      this.currentID !== state.command;
-    if (hasOpenPanel) {
-      // There's a panel to show, so ignore the contradictory hidden property.
-      delete state.hidden;
-    }
     await this.waitUntilStable(); // Finish currently scheduled tasks.
     await this._state.loadCurrentState(state);
     await this.waitUntilStable(); // Finish newly scheduled tasks.
@@ -1103,7 +1091,8 @@ var SidebarController = {
   /**
    * Show/hide new sidebar based on sidebar.revamp pref
    */
-  async toggleRevampSidebar() {
+  async toggleRevampSidebar(newValue) {
+    SidebarController._state.revampEnabled = newValue;
     await this.promiseInitialized;
     let wasOpen = this.isOpen;
     if (wasOpen) {
@@ -1121,7 +1110,8 @@ var SidebarController = {
       this.sidebars.set(extension.commandID, extension.sidebar);
     }
     if (!this.sidebarRevampEnabled) {
-      this._state.launcherVisible = false;
+      // The legacy sidebar has no launcher.
+      this._state.applyLauncherVisibility();
       document.getElementById("sidebar-header").hidden = false;
 
       // Ensure CPM isn't shown.
@@ -1184,7 +1174,7 @@ var SidebarController = {
    */
   async startDelayedLoad() {
     if (this.inSingleTabWindow) {
-      this._state.launcherVisible = false;
+      this._state.applyLauncherVisibility();
       this._initDeferred.resolve();
       return;
     }
@@ -1337,10 +1327,6 @@ var SidebarController = {
     return this._state?.launcherVisible;
   },
 
-  get launcherEverVisible() {
-    return this._state?.launcherEverVisible;
-  },
-
   get title() {
     return this._title.value;
   },
@@ -1454,13 +1440,9 @@ var SidebarController = {
 
     const initialExpandedValue = this._state.launcherExpanded;
 
-    // What toggle means depends on the sidebar.visibility pref. Expanding the
-    // launcher only makes sense with vertical tabs; with horizontal tabs the
-    // launcher has no expanded (labelled) state, so the toolbar button instead
-    // shows/hides the collapsed launcher.
-    const expandOnToggle =
-      this.sidebarVerticalTabsEnabled &&
-      ["always-show", "expand-on-hover"].includes(this.sidebarRevampVisibility);
+    // What toggle means depends on the sidebar.visibility pref: where the
+    // launcher always shows there is nothing to toggle but its expanded state.
+    const expandOnToggle = this._state.toolbarButtonTogglesExpanded;
 
     // when the launcher is toggled open by the user, we disable expand-on-hover interactions.
     if (this.sidebarRevampVisibility === "expand-on-hover") {
@@ -1470,7 +1452,7 @@ var SidebarController = {
     const update = () => {
       if (expandOnToggle) {
         // just expand/collapse the launcher
-        this._state.updateVisibility(true, !initialExpandedValue);
+        this._state.launcherExpanded = !initialExpandedValue;
         this.updateToolbarButton();
         return;
       }
@@ -1494,15 +1476,17 @@ var SidebarController = {
 
       const shouldShowLauncher = !this._state.launcherVisible;
       // show/hide the launcher
-      this._state.updateVisibility(shouldShowLauncher);
-      // if we're showing and there was panel open, open it again
-      if (shouldShowLauncher && this._state.command) {
+      this._state.userLauncherVisible = shouldShowLauncher;
+      if (this._state.launcherExpandable) {
+        this._state.launcherExpanded = shouldShowLauncher;
+      }
+      this.updateToolbarButton();
+      if (shouldShowLauncher && !this.isOpen && this._state.command) {
+        // Nothing is open, so bring back the panel the launcher last had. A
+        // panel that is already open is left alone: revealing the launcher only
+        // changes the launcher.
         this.show(this._state.command);
       } else if (!shouldShowLauncher) {
-        // hide will only update the toolbar button state if the panel was open
-        if (!this.isOpen) {
-          this.updateToolbarButton();
-        }
         // hide the open panel. It will re-open next time as we don't change the command value
         this.hide({ dismissPanel: false });
       }
@@ -2153,11 +2137,6 @@ var SidebarController = {
     if (!this._canShow(commandID)) {
       return false;
     }
-    // capture the launcher state so we can revert to it when the panel closes
-    if (this._launcherStateAtOpen === undefined) {
-      this._launcherStateAtOpen = this._state.launcherVisible;
-    }
-
     return this._show(commandID).then(() => {
       this._loadSidebarExtension(commandID);
 
@@ -2327,20 +2306,6 @@ var SidebarController = {
       // automatically re-open next time the sidebar is shown
       this._state.command = "";
       this.lastOpenedId = null;
-      if (this._launcherStateAtOpen !== undefined) {
-        // Restore the launcher to its pre-open visibility in the modes where the
-        // launcher can be toggled hidden: vertical "hide-sidebar" and horizontal
-        // "hide-on-close". Otherwise a launcher the user had hidden would remain
-        // visible after closing a panel.
-        if (
-          ["hide-sidebar", "hide-on-close"].includes(
-            this.sidebarRevampVisibility
-          )
-        ) {
-          this._state.launcherVisible = this._launcherStateAtOpen;
-        }
-        delete this._launcherStateAtOpen;
-      }
     }
 
     if (this.sidebarRevampEnabled) {
@@ -2914,8 +2879,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false,
   (_aPreference, _previousValue, newValue) => {
     if (!SidebarController.uninitializing) {
-      SidebarController.toggleRevampSidebar();
-      SidebarController._state.revampEnabled = newValue;
+      SidebarController.toggleRevampSidebar(newValue);
     }
   }
 );
@@ -2975,28 +2939,7 @@ XPCOMUtils.defineLazyPreferenceGetter(
       SidebarController.toggleExpandOnHover(newValue === "expand-on-hover");
       SidebarController.recordVisibilitySetting(newValue);
       if (SidebarController._state) {
-        // we need to use the pref rather than SidebarController's getter here
-        // as the getter might not have the new value yet
-        const isVerticalTabs = Services.prefs.getBoolPref(
-          "sidebar.verticalTabs"
-        );
-        SidebarController._state.revampVisibility = newValue;
-
-        // launcher is always initially expanded with vertical tabs unless we're doing expand-on-hover
-        let forceExpand = false;
-        if (
-          isVerticalTabs &&
-          ["always-show", "hide-sidebar"].includes(newValue)
-        ) {
-          forceExpand = true;
-        }
-
-        // Vertical "hide-sidebar" and horizontal "hide-launcher" hide the
-        // launcher initially; any other visibility shows it.
-        let showLauncher = !["hide-sidebar", "hide-launcher"].includes(
-          newValue
-        );
-        SidebarController._state.updateVisibility(showLauncher, forceExpand);
+        SidebarController._state.enterVisibilityMode(newValue);
         SidebarController.updatePinnedTabsHeightAfterReflow();
       }
       SidebarController.updateToolbarButton();
@@ -3022,40 +2965,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
       }
       SidebarController._state.updatePinnedTabsHeight();
       SidebarController._state.updateToolsHeight();
-      if (SidebarController._state) {
-        // The launcher's expanded state depends on the tab orientation: it is
-        // initially expanded with vertical tabs (unless expand-on-hover) and
-        // has no expanded state with horizontal tabs. Drive it here since the
-        // visibility pref may not change on an orientation switch (e.g. it
-        // stays "always-show"), so the visibility observer wouldn't fire.
-        let visibility = Services.prefs.getStringPref(
-          "sidebar.visibility",
-          "always-show"
-        );
-        // SidebarManager normalizes the visibility pref to a value valid for the
-        // new orientation, but that observer may run after this one. Mirror that
-        // normalization here so the launcher's initial visible/expanded state is
-        // correct regardless of observer ordering.
-        const verticalValues = [
-          "always-show",
-          "expand-on-hover",
-          "hide-sidebar",
-        ];
-        if (newValue && !verticalValues.includes(visibility)) {
-          visibility = "always-show";
-        } else if (!newValue && verticalValues.includes(visibility)) {
-          visibility = "hide-on-close";
-        }
-        const forceExpand =
-          newValue && ["always-show", "hide-sidebar"].includes(visibility);
-        SidebarController._state.updateVisibility(
-          !["hide-sidebar", "hide-launcher"].includes(visibility),
-          newValue ? forceExpand : false
-        );
-      }
-      // The button's checked state and tooltip differ between orientations, so
-      // refresh it here (the visibility observer may not fire if the visibility
-      // pref is unchanged by the orientation switch).
       SidebarController.updateToolbarButton();
     }
   }

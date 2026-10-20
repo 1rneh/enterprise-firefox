@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.196
- * pdfjsBuild = f73a6986d
+ * pdfjsVersion = 6.5.254
+ * pdfjsBuild = 28e406a46
  */
 
 ;// ./src/shared/util.js
@@ -2045,7 +2045,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "2b24f527-6bd3-4bc0-b1b6-ca432917d51d";
+const INTERNAL_EVT = "61b9e95f-0305-4fde-8776-94de7e46c0a1";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -7581,6 +7581,9 @@ class MessageHandler {
     this.#messageAC?.abort();
     this.#messageAC = null;
   }
+  get destroyed() {
+    return !this.#messageAC;
+  }
 }
 
 ;// ./src/display/canvas_dependency_tracker.js
@@ -12833,8 +12836,18 @@ class FontFaceObject {
 ;// ./src/display/worker_options.js
 class GlobalWorkerOptions {
   static #port = null;
+  static #rendererPorts = [];
   static #rendererSrc = "";
   static #src = "";
+  static get rendererPorts() {
+    return this.#rendererPorts;
+  }
+  static set rendererPorts(val) {
+    if (!Array.isArray(val) || !val.every(port => typeof Worker !== "undefined" && port instanceof Worker)) {
+      throw new Error("Invalid `rendererPorts` type.");
+    }
+    this.#rendererPorts = val;
+  }
   static get rendererSrc() {
     return this.#rendererSrc;
   }
@@ -14204,6 +14217,7 @@ class PDFDataTransportStreamRangeReader extends BasePDFStreamRangeReader {
 
 
 
+const PORT_CONNECTION_TIMEOUT = 5000;
 function closeFrame({
   bitmap,
   annotationBitmaps
@@ -14396,13 +14410,17 @@ class RendererWorker {
   #operatorLists = new WeakMap();
   #pendingMessages = [];
   #pendingRequests = new Set();
+  #port = null;
   #renderTaskId = 0;
   #renderTasks = new Map();
   #terminateEarly = null;
   #webWorker = null;
   #workerAC = null;
+  static #connectionId = 0;
+  static #usedPorts = new WeakSet();
   destroyed = false;
   constructor({
+    port = null,
     verbosity = getVerbosityLevel(),
     enableHWA = false,
     enableWebGPU = false
@@ -14410,16 +14428,23 @@ class RendererWorker {
     this.verbosity = verbosity;
     this.#enableHWA = enableHWA;
     this.#enableWebGPU = enableWebGPU;
-    this.#initialize();
+    if (port) {
+      this.#initializeFromPort(port);
+    } else {
+      this.#initialize();
+    }
   }
   static get isAvailable() {
-    return !!GlobalWorkerOptions.rendererSrc && typeof Worker !== "undefined" && FeatureTest.isOffscreenCanvasSupported && !!globalThis.document?.fonts;
+    return (!!GlobalWorkerOptions.rendererSrc || GlobalWorkerOptions.rendererPorts.length > 0) && typeof Worker !== "undefined" && FeatureTest.isOffscreenCanvasSupported && !!globalThis.document?.fonts;
   }
   get promise() {
     return this.#capability.promise;
   }
   get messageHandler() {
     return this.#messageHandler;
+  }
+  get port() {
+    return this.#port;
   }
   #resolve() {
     this.#messageHandler.on("RenderFrame", frame => {
@@ -14446,58 +14471,97 @@ class RendererWorker {
     this.#pendingMessages = null;
     this.#capability.reject(reason);
   }
+  #initializeFromPort(port) {
+    RendererWorker.#usedPorts.add(port);
+    this.#port = port;
+    const id = RendererWorker.#connectionId++;
+    const sourceName = `main${id}`;
+    const targetName = `renderer${id}`;
+    const handler = new MessageHandler("main", "renderer", port);
+    handler.send("Connect", {
+      sourceName: targetName,
+      targetName: sourceName
+    });
+    handler.destroy();
+    this.#waitForReady(port, new MessageHandler(sourceName, targetName, port), true);
+  }
   #initialize() {
     try {
-      const worker = new Worker(getWorkerSrc(GlobalWorkerOptions.rendererSrc), {
+      const {
+        rendererSrc
+      } = GlobalWorkerOptions;
+      if (!rendererSrc) {
+        throw new Error('No "GlobalWorkerOptions.rendererSrc" specified.');
+      }
+      const worker = new Worker(getWorkerSrc(rendererSrc), {
         type: "module"
       });
-      const messageHandler = new MessageHandler("main", "renderer", worker);
-      const terminateEarly = reason => {
-        this.#terminateEarly = null;
-        ac.abort();
-        messageHandler.destroy();
-        worker.terminate();
-        this.#reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
-      };
-      this.#terminateEarly = terminateEarly;
-      const ac = new AbortController();
-      const onError = (event, reason) => {
-        if (!this.#webWorker) {
-          terminateEarly(reason);
-          return;
-        }
-        event.preventDefault();
-        warn(`Renderer worker failed: "${reason}". ` + "Falling back to main-thread rendering.");
-        this.destroy();
-      };
-      worker.addEventListener("error", event => onError(event, event.error?.message ?? event.message), {
-        signal: ac.signal
-      });
-      worker.addEventListener("messageerror", event => onError(event, "Cannot deserialize a message."), {
-        signal: ac.signal
-      });
-      messageHandler.on("ready", data => {
-        if (!(data?.testObj instanceof Uint8Array)) {
-          terminateEarly("TypedArray transfer test failed.");
-          return;
-        }
-        const apiVersion = "6.5.196";
-        if (apiVersion !== data.workerVersion) {
-          terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
-          return;
-        }
-        this.#terminateEarly = null;
-        this.#messageHandler = messageHandler;
-        this.#webWorker = worker;
-        this.#workerAC = ac;
-        this.#resolve();
-      });
+      this.#waitForReady(worker, new MessageHandler("main", "renderer", worker), false);
     } catch (reason) {
       this.#reject(reason);
     }
   }
+  #waitForReady(worker, messageHandler, isPort) {
+    let timeoutId = null;
+    const terminateEarly = reason => {
+      this.#terminateEarly = null;
+      clearTimeout(timeoutId);
+      ac.abort();
+      messageHandler.destroy();
+      if (isPort) {
+        this.#port = null;
+      } else {
+        worker.terminate();
+      }
+      this.#reject(new Error(`Renderer worker failed to initialize: "${reason?.message ?? reason}".`));
+    };
+    this.#terminateEarly = terminateEarly;
+    const ac = new AbortController();
+    const onError = (event, reason) => {
+      if (!this.#messageHandler) {
+        terminateEarly(reason);
+        return;
+      }
+      event.preventDefault();
+      warn(`Renderer worker failed: "${reason}". ` + "Falling back to main-thread rendering.");
+      this.destroy();
+    };
+    worker.addEventListener("error", event => onError(event, event.error?.message ?? event.message), {
+      signal: ac.signal
+    });
+    worker.addEventListener("messageerror", event => onError(event, "Cannot deserialize a message."), {
+      signal: ac.signal
+    });
+    if (isPort) {
+      timeoutId = setTimeout(() => terminateEarly("Connection timed out."), PORT_CONNECTION_TIMEOUT);
+    }
+    messageHandler.on("ready", data => {
+      if (!(data?.testObj instanceof Uint8Array)) {
+        terminateEarly("TypedArray transfer test failed.");
+        return;
+      }
+      const apiVersion = "6.5.254";
+      if (apiVersion !== data.workerVersion) {
+        terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
+        return;
+      }
+      this.#terminateEarly = null;
+      clearTimeout(timeoutId);
+      this.#messageHandler = messageHandler;
+      if (!isPort) {
+        this.#webWorker = worker;
+      }
+      this.#workerAC = ac;
+      this.#resolve();
+    });
+  }
   destroy() {
     this.destroyed = true;
+    if (this.#port) {
+      this.#messageHandler?.send("Disconnect", null);
+      RendererWorker.#usedPorts.delete(this.#port);
+      this.#port = null;
+    }
     this.#terminateEarly?.("Worker was destroyed.");
     this.#workerAC?.abort();
     this.#workerAC = null;
@@ -14509,6 +14573,19 @@ class RendererWorker {
       reject(new Error("Renderer worker was destroyed."));
     }
     this.#pendingRequests.clear();
+  }
+  static create({
+    ports = [],
+    ...params
+  } = {}) {
+    const port = ports.find(p => !this.#usedPorts.has(p)) ?? null;
+    if (!port && ports.length > 0) {
+      warn("RendererWorker.create - no unused `rendererPorts` available, " + "falling back to `rendererSrc`.");
+    }
+    return new RendererWorker({
+      ...params,
+      port
+    });
   }
   sendWithPromise(action, data) {
     const handler = this.#messageHandler;
@@ -15055,10 +15132,11 @@ function getDocument(src = {}) {
     task._worker = worker;
   }
   if (!disableWorkerRendering) {
-    const rendererWorker = new RendererWorker({
+    const rendererWorker = RendererWorker.create({
       verbosity,
       enableHWA,
-      enableWebGPU
+      enableWebGPU,
+      ports: GlobalWorkerOptions.rendererPorts
     });
     rendererWorker.promise.catch(reason => {
       if (!rendererWorker.destroyed) {
@@ -15070,7 +15148,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.5.196",
+    apiVersion: "6.5.254",
     data,
     password,
     disableAutoFetch,
@@ -15167,12 +15245,13 @@ class PDFDocumentLoadingTask {
         delete this._worker._pendingDestroy;
       }
       throw ex;
+    } finally {
+      this._rendererWorker?.destroy();
+      this._rendererWorker = null;
     }
     this._transport = null;
     this._worker?.destroy();
     this._worker = null;
-    this._rendererWorker?.destroy();
-    this._rendererWorker = null;
   }
   async getData() {
     return this._transport.getData();
@@ -16739,8 +16818,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.5.196";
-const build = "f73a6986d";
+const version = "6.5.254";
+const build = "28e406a46";
 
 ;// ./src/display/editor/color_picker.js
 

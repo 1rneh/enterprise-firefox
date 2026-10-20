@@ -283,7 +283,6 @@ def test_testsummary_strips_noise_fields():
         "source",
         "extra",
         "tests",
-        "stack",
         "js_source",
         "minidump_path",
         "crashing_thread_stack",
@@ -295,6 +294,7 @@ def test_testsummary_strips_noise_fields():
     assert result["test"] == "xpcom/tests/unit/test_bug476919.js"
     assert result["status"] == "FAIL"
     assert result["expected"] == "PASS"
+    assert result["stack"] == "stack/trace\nlines"
 
 
 def test_testsummary_log_error_keeps_only_level_and_message():
@@ -376,7 +376,7 @@ def test_testsummary_lsan_summary_keeps_the_counts():
     }
 
 
-def test_testsummary_lsan_leak_strips_the_stack():
+def test_testsummary_lsan_leak_keeps_the_stack():
     fmt = TestSummaryFormatter()
     frames = [
         "Ensure",
@@ -384,6 +384,7 @@ def test_testsummary_lsan_leak_strips_the_stack():
         "mozilla::dom::FileSystemManager::BeginRequest",
         "mozilla::dom::fs::FileSystemRequestHandler::GetRootHandle",
     ]
+    stack = [{"function": "Ensure", "file": "MozPromise.h", "line": 1550}]
     scope = "browser/components/aiwindow/ui/test/browser/browser_smartwindow.toml"
     record = {
         "action": "lsan_leak",
@@ -395,7 +396,7 @@ def test_testsummary_lsan_leak_strips_the_stack():
         "kind": "Direct",
         "bytes": 168,
         "objects": 1,
-        "stack": [{"function": "Ensure", "file": "MozPromise.h", "line": 1550}],
+        "stack": stack,
         "scope": scope,
     }
     out = fmt(record)
@@ -407,6 +408,7 @@ def test_testsummary_lsan_leak_strips_the_stack():
         "kind": "Direct",
         "bytes": 168,
         "objects": 1,
+        "stack": stack,
         "scope": scope,
     }
 
@@ -448,6 +450,37 @@ def test_testsummary_ubsan_error_keeps_stack():
     assert result["column"] == 33
     assert "thread" not in result
     assert "pid" not in result
+
+
+def test_testsummary_log_error_keeps_stack():
+    fmt = TestSummaryFormatter()
+    message = (
+        "Unexpected exception NS_ERROR_FAILURE: Component returned failure code:"
+        " 0x80004005 (NS_ERROR_FAILURE) [nsIGIOService.createHandlerAppFromAppId]"
+    )
+    stack = (
+        "promiseStartLegacyDownload@head.js:282:8\n"
+        "test_launch_id@common_test_Download.js:2629:26\n"
+        "@-e:1:1\n"
+    )
+    record = {
+        "action": "log",
+        "time": 1791156063780,
+        "thread": None,
+        "pid": None,
+        "source": "xpcshell/head.js",
+        "level": "ERROR",
+        "message": message,
+        "exc_info": False,
+        "extra": {"source_file": "head.js", "stack": stack},
+        "stack": stack,
+        "test": "toolkit/components/downloads/test/unit/test_DownloadLegacy.js",
+    }
+    result = json.loads(fmt(record))
+    assert result["stack"] == stack
+    assert result["message"] == message
+    for stripped in ("thread", "pid", "source", "extra"):
+        assert stripped not in result
 
 
 def test_testsummary_emits_test_start_and_end_separately():

@@ -1029,10 +1029,10 @@ child:
                                    MediaControlAction aAction);
 
     /**
-     * Dispatch an audio-focus interrupt (suspend or resume) to a browsing
-     * context tree so its audible sources react to a focus change. This is
-     * distinct from a media-control key: it is not user-initiated and reaches
-     * uncontrollable sources as well.
+     * Dispatch an audio-focus interrupt to a browsing context tree so its
+     * audible sources react to a focus change. This is distinct from a
+     * media-control key: it is not user-initiated and reaches uncontrollable
+     * sources as well.
      */
     async UpdateMediaSessionInterrupt(MaybeDiscardedBrowsingContext aContext,
                                       AudioFocusInterruptAction aAction);

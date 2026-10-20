@@ -50,6 +50,7 @@ import mozilla.components.feature.prompts.PromptFeature
 import mozilla.components.feature.prompts.file.AndroidPhotoPicker
 import mozilla.components.feature.session.PictureInPictureFeature
 import mozilla.components.feature.session.SessionFeature
+import mozilla.components.feature.sitepermissions.OnDiskSitePermissionsStorage
 import mozilla.components.feature.sitepermissions.SitePermissionsFeature
 import mozilla.components.feature.tabs.WindowFeature
 import mozilla.components.feature.toolbar.ToolbarFeature
@@ -500,6 +501,11 @@ class BrowserFragment : BaseFragment(), UserInteractionHandler, AccessibilityMan
             feature =
                 SitePermissionsFeature(
                     context = requireContext(),
+                    storage =
+                        OnDiskSitePermissionsStorage(
+                            requireContext(),
+                            coroutineScope = requireComponents.applicationScope,
+                        ),
                     fragmentManager = parentFragmentManager,
                     promptsStyling =
                         SitePermissionsFeature.PromptsStyling(
@@ -517,6 +523,7 @@ class BrowserFragment : BaseFragment(), UserInteractionHandler, AccessibilityMan
                         SitePermissionOptionsStorage(requireContext()).getSitePermissionsSettingsRules(),
                     sessionId = tabId,
                     store = requireComponents.store,
+                    coroutineScope = requireComponents.applicationScope,
                     shouldShowDoNotAskAgainCheckBox = false,
                 ),
             owner = this,

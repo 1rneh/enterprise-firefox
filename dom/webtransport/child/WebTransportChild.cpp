@@ -69,6 +69,15 @@ void WebTransportChild::CloseAll() {
   return IPC_OK();
 }
 
+::mozilla::ipc::IPCResult WebTransportChild::RecvDatagramReady(
+    const uint64_t& aDatagramId) {
+  if (mTransport) {
+    RefPtr<WebTransport> self(mTransport);
+    self->OnDatagramReady(aDatagramId);
+  }
+  return IPC_OK();
+}
+
 ::mozilla::ipc::IPCResult WebTransportChild::RecvDraining() {
   if (mTransport) {
     RefPtr<WebTransport> self(mTransport);

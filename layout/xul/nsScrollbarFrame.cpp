@@ -408,8 +408,9 @@ static already_AddRefed<Element> MakeScrollbarButton(
   RefPtr<Element> e;
   NS_TrustedNewXULElement(getter_AddRefs(e), do_AddRef(aNodeInfo));
   e->SetAttr(kNameSpaceID_None, nsGkAtoms::sbattr,
-             kSbattrValues[aDown][aBottom], false);
-  e->SetAttr(kNameSpaceID_None, nsGkAtoms::type, kTypeValues[aDown], false);
+             kSbattrValues[aDown][aBottom], false, dom::IsKnownNewAttr::Yes);
+  e->SetAttr(kNameSpaceID_None, nsGkAtoms::type, kTypeValues[aDown], false,
+             dom::IsKnownNewAttr::Yes);
   return e.forget();
 }
 

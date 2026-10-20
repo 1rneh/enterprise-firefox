@@ -24,6 +24,7 @@ function createFakeLocks() {
 
 describe("SponsoredTopSitesScoreProvider", () => {
   let _SponsoredTopSitesScoreProvider;
+  let hasScoringFlag;
   let restoreChromeUtils;
   let restoreGlobals;
   let rsFactory;
@@ -51,7 +52,7 @@ describe("SponsoredTopSitesScoreProvider", () => {
         defineLazyGetter: () => {},
       },
     });
-    ({ _SponsoredTopSitesScoreProvider } =
+    ({ _SponsoredTopSitesScoreProvider, hasScoringFlag } =
       await import("lib/SponsoredTopSitesScoreProvider/SponsoredTopSitesScoreProvider.mjs"));
   });
 
@@ -472,6 +473,22 @@ describe("SponsoredTopSitesScoreProvider", () => {
         ["history-cleared", "page-removed"],
         listener
       );
+    });
+  });
+
+  describe("hasScoringFlag", () => {
+    it("is true when a scoring flag is enabled", () => {
+      expect(hasScoringFlag({ [RECORD_ID]: true })).toBe(true);
+      expect(hasScoringFlag({ [`${RECORD_ID}_1`]: true, other: false })).toBe(
+        true
+      );
+    });
+
+    it("is false when no scoring flag is enabled", () => {
+      expect(hasScoringFlag({ [RECORD_ID]: false, other: true })).toBe(false);
+      expect(hasScoringFlag({})).toBe(false);
+      expect(hasScoringFlag(undefined)).toBe(false);
+      expect(hasScoringFlag(null)).toBe(false);
     });
   });
 

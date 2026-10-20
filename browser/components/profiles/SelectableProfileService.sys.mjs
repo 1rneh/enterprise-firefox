@@ -348,6 +348,7 @@ class SelectableProfileServiceClass extends EventEmitter {
   #isEnabled = false;
   // This is a rough number of the current profiles. It is not always correct.
   #cachedProfileCount = null;
+  #shutdownBlocker = null;
 
   // The preferences that must be permanently stored in the database and kept
   // consistent amongst profiles.
@@ -588,6 +589,12 @@ class SelectableProfileServiceClass extends EventEmitter {
       return;
     }
 
+    this.#shutdownBlocker = () => this.uninit();
+    ProfilesDatastoreService.shutdown.addBlocker(
+      "SelectableProfileService: waiting for pending operations",
+      this.#shutdownBlocker
+    );
+
     const resetProfilePath = Services.env.get("SELECTABLE_PROFILE_RESET_PATH");
     if (resetProfilePath) {
       await this.#updateProfilePath(
@@ -643,6 +650,8 @@ class SelectableProfileServiceClass extends EventEmitter {
         Services.prefs.setBoolPref(PROFILES_CREATED_PREF_NAME, false);
 
         this.#connection = null;
+        ProfilesDatastoreService.shutdown.removeBlocker(this.#shutdownBlocker);
+        this.#shutdownBlocker = null;
         this.updateEnabledState();
 
         Glean.profiles.active.set(false);
@@ -725,6 +734,15 @@ class SelectableProfileServiceClass extends EventEmitter {
   }
 
   async uninit() {
+    if (this.#initPromise) {
+      await this.#initPromise.catch(() => {});
+    }
+
+    if (this.#shutdownBlocker) {
+      ProfilesDatastoreService.shutdown.removeBlocker(this.#shutdownBlocker);
+      this.#shutdownBlocker = null;
+    }
+
     if (!this.#initialized) {
       return;
     }

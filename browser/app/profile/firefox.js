@@ -1239,7 +1239,11 @@ pref("browser.tabs.hoverPreview.showThumbnails", true);
 
 pref("browser.tabs.groups.enabled", true);
 pref("browser.tabs.groups.hoverPreview.enabled", true);
+#ifdef NIGHTLY_BUILD
+pref("browser.tabs.groups.alternateMenu", true);
+#else
 pref("browser.tabs.groups.alternateMenu", false);
+#endif
 // Bug 2052293: temporarily disabled while tab groups move away from the list all tabs menu.
 pref("browser.tabs.groups.onboardingCallouts.enabled", false);
 // Number of times the "Tab group saved" confirmation hint has been shown
@@ -3371,6 +3375,10 @@ pref("browser.toolbars.share-button.enabled", true);
 
 // Visibility of the share button in the url bar.
 pref("browser.urlbar.share-button.enabled", false);
+
+// Toggles the availability of the Tab Groups toolbar button.
+// Requires a restart to reflect state changes.
+pref("browser.toolbars.tab-groups.enabled", false);
 
 pref("security.certerrors.felt-privacy-v1", true);
 

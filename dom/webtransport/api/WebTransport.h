@@ -92,6 +92,8 @@ class WebTransport final : public nsISupports, public nsWrapperCache {
   void NewDatagramReceived(nsTArray<uint8_t>&& aData,
                            const mozilla::TimeStamp& aTimeStamp);
 
+  void OnDatagramReady(uint64_t aDatagramId);
+
   void RemoteClosed(bool aCleanly, const uint32_t& aCode,
                     const nsACString& aReason,
                     const Maybe<WebTransportStatsData>& aStats);

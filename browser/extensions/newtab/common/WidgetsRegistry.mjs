@@ -179,6 +179,10 @@ export const PREF_WIDGETS_TRAVEL_ENABLED = "widgets.travel.enabled";
 export const PREF_TRAVEL_SIZE = "widgets.travel.size";
 export const PREF_WIDGETS_SYSTEM_TRAVEL_ENABLED =
   "widgets.system.travel.enabled";
+export const PREF_WIDGETS_SOLITAIRE_ENABLED = "widgets.solitaire.enabled";
+export const PREF_SOLITAIRE_SIZE = "widgets.solitaire.size";
+export const PREF_WIDGETS_SYSTEM_SOLITAIRE_ENABLED =
+  "widgets.system.solitaire.enabled";
 
 /**
  * @typedef {object} WidgetRegistryEntry
@@ -425,6 +429,25 @@ export const WIDGET_REGISTRY = [
     widgetsSettingsVisibleKey: "travelVisible",
     widgetsSettingsEnabledKey: "travelEnabled",
     trainhopNamespace: "widgetTravel",
+  },
+  {
+    id: "solitaire",
+    telemetryName: "solitaire",
+    customizeL10nId: "newtab-custom-widget-solitaire-toggle",
+    customizeEventSource: "WIDGET_SOLITAIRE",
+    order: 11,
+    enabledPref: PREF_WIDGETS_SOLITAIRE_ENABLED,
+    sizePref: PREF_SOLITAIRE_SIZE,
+    defaultSize: "medium",
+    validSizes: ["medium", "large"],
+    hasSidebar: false,
+    systemEnabledPref: PREF_WIDGETS_SYSTEM_SOLITAIRE_ENABLED,
+    trainhopEnabledKey: "solitaireEnabled",
+    trainhopSizeKey: "solitaireSize",
+    trainhopSidebarKey: null,
+    widgetsSettingsVisibleKey: "solitaireVisible",
+    widgetsSettingsEnabledKey: "solitaireEnabled",
+    trainhopNamespace: "widgetSolitaire",
   },
 ];
 

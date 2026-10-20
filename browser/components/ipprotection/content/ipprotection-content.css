@@ -291,10 +291,15 @@ ipprotection-message-bar.vpn-top-content {
     -moz-context-properties: fill, fill-opacity, stroke;
     fill: var(--button-icon-fill);
     stroke: var(--button-icon-stroke);
+  }
 
-    &.ipprotection-on {
-      fill: var(--icon-color-success);
-    }
+  #ipprotection-on {
+    fill: var(--icon-color-success);
+  }
+
+  #ipprotection-excluded {
+    fill: transparent;
+    stroke: var(--button-icon-fill);
   }
 }
 

@@ -14,8 +14,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
     "moz-src:///toolkit/components/ipprotection/IPPSiteRuleManager.sys.mjs",
   IPPMode:
     "moz-src:///toolkit/components/ipprotection/IPPChannelFilter.sys.mjs",
-  IPProtectionServerlist:
-    "moz-src:///toolkit/components/ipprotection/IPProtectionServerlist.sys.mjs",
   IPPProxyManager:
     "moz-src:///toolkit/components/ipprotection/IPPProxyManager.sys.mjs",
   IPPProxyStates:
@@ -123,9 +121,6 @@ export class IPPAutoActivationSingleton {
    * @returns {import("./IPPChannelFilter.sys.mjs").IPPProxyMode | null}
    */
   desiredMode() {
-    if (!lazy.IPProtectionServerlist.hasList) {
-      return null;
-    }
     if (this.#fullProtectionOwed) {
       return lazy.IPPMode.MODE_FULL;
     }
@@ -203,10 +198,7 @@ export class IPPAutoActivationSingleton {
     this.#stopObservingRestore();
 
     // Only worth holding traffic if the carried-over state says it could work.
-    if (
-      lazy.IPProtectionService.state !== lazy.IPProtectionStates.READY ||
-      !lazy.IPProtectionServerlist.hasList
-    ) {
+    if (lazy.IPProtectionService.state !== lazy.IPProtectionStates.READY) {
       return;
     }
 

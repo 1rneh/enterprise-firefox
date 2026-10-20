@@ -174,6 +174,10 @@ void WebTransport::NewDatagramReceived(nsTArray<uint8_t>&& aData,
   mDatagrams->NewDatagramReceived(std::move(aData), aTimeStamp);
 }
 
+void WebTransport::OnDatagramReady(uint64_t aDatagramId) {
+  mDatagrams->OnDatagramReady(aDatagramId);
+}
+
 // WebIDL Boilerplate
 
 nsIGlobalObject* WebTransport::GetParentObject() const { return mGlobal; }
@@ -1540,6 +1544,17 @@ void WebTransport::Cleanup(WebTransportError* aError,
   // Let go of the algorithms
   mIncomingBidirectionalAlgorithm = nullptr;
   mIncomingUnidirectionalAlgorithm = nullptr;
+
+  // Empty each outgoing datagram writable's [[OutgoingDatagramsQueue]], then
+  // close (clean close) or error (failure) each writable itself, like the
+  // send/receive streams above.
+  // TODO: Cleanup() also resolves each writable's withheld write promise,
+  // which the current spec doesn't do; see
+  // https://github.com/w3c/webtransport/pull/790.
+  if (RefPtr<WebTransportDatagramDuplexStream> datagrams = mDatagrams) {
+    datagrams->Cleanup();
+    datagrams->CloseOrErrorWritables(cx, !!aCloseInfo, errorValue);
+  }
 
   // We no longer block BFCache
   NotifyToWindow(false);

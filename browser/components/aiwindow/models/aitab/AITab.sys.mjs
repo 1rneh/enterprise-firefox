@@ -12,6 +12,7 @@ import {
   UrlTokenizer,
 } from "moz-src:///browser/components/aiwindow/ui/modules/UrlTokenizer.sys.mjs";
 import { componentTypeName } from "chrome://browser/content/aiwindow/modules/AITabUtils.mjs";
+import { sanitizeUntrustedContent } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
 
 import {
   getSmartPageName,
@@ -332,9 +333,10 @@ const HISTORY_LIMIT_ERROR = "No more modifications are supported";
 
 /**
  * The result of a generation attempt: metadata plus the validated surface, or
- * a description of what went wrong.
+ * a description of what went wrong and its canonical error code (the one
+ * reported to telemetry).
  *
- * @typedef {{metadata: AITabMetadata, surface: A2UISurface} | {error: string}} AITabResult
+ * @typedef {{metadata: AITabMetadata, surface: A2UISurface} | {error: string, code: string}} AITabResult
  */
 
 /**
@@ -937,7 +939,7 @@ export class AITab {
       Glean.smartWindow.aitabCreateComplete.record(completeExtra);
     }
 
-    return result.error ? { error: result.error } : result;
+    return result.error ? { error: result.error, code: result.code } : result;
   }
 
   /**
@@ -1727,6 +1729,15 @@ export class AITab {
           code: "invalid_json",
         };
       }
+
+      if (parsed.error && typeof parsed.error == "string") {
+        lazy.console.warn("Model returned response error", parsed.error);
+        return {
+          error: sanitizeUntrustedContent(parsed.error),
+          code: "content_related",
+        };
+      }
+
       const surface = AITab.expandSurfaceUrlTokens(parsed, urlTokenizer);
 
       const result = AITab.buildSurface(surface, env);

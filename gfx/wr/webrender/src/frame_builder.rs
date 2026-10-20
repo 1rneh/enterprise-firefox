@@ -27,7 +27,7 @@ use crate::prim_store::{PictureIndex, PrimitiveScratchBuffer};
 use crate::prim_store::{DeferredResolve, PrimitiveInstance};
 use crate::prim_store::storage;
 use crate::profiler::{self, TransactionProfile};
-use crate::render_backend::{DataStores, ScratchBuffer};
+use crate::render_backend::{DataStores, DlStores, ScratchBuffer};
 use crate::renderer::{GpuBufferBuilder, GpuBufferBuilderF, GpuBufferBuilderI, GpuBufferF, GpuBufferI};
 use crate::renderer::{GpuBufferEdges, PathEdgeBufferBuilder};
 use crate::render_target::{PictureCacheTarget, PictureCacheTargetKind};
@@ -44,7 +44,7 @@ use crate::transform::{TransformPalette, TransformData};
 use std::sync::Arc;
 use std::{f32, mem};
 use crate::util::{MaxRect, VecHelper, Preallocator};
-use crate::visibility::{new_clip_root_stack, update_prim_visibility, FrameVisibilityState, FrameVisibilityContext};
+use crate::visibility::{build_backdrop_capture_regions, new_clip_root_stack, update_prim_visibility, FrameVisibilityState, FrameVisibilityContext};
 use crate::internal_types::{FrameVec, FrameMemory};
 
 #[derive(Clone, Copy, Debug)]
@@ -279,6 +279,7 @@ impl FrameBuilder {
         scene_properties: &SceneProperties,
         transform_palette: &mut TransformPalette,
         data_stores: &DataStores,
+        dl_stores: &DlStores,
         scratch: &mut ScratchBuffer,
         debug_flags: DebugFlags,
         debug_override: &SceneDebugOverride,
@@ -365,6 +366,17 @@ impl FrameBuilder {
             &frame_context,
         );
 
+        build_backdrop_capture_regions(
+            &scene.backdrop_chains,
+            &scene.prim_store.pictures,
+            &scene.picture_graph,
+            &scene.surfaces,
+            &scene.prim_instances,
+            tile_caches,
+            &frame_context,
+            &mut scratch.primitive.frame.backdrop_captures,
+        );
+
         // In order to handle picture snapshots consistently we need
         // the visibility and prepare passes to visit them first before
         // traversing the scene. This ensures that out-of-view snapshots
@@ -399,6 +411,7 @@ impl FrameBuilder {
                     resource_cache,
                     frame_gpu_data,
                     data_stores,
+                    dl_stores,
                     clip_tree: &scene.clip_tree,
                     composite_state,
                     rg_builder,
@@ -458,6 +471,7 @@ impl FrameBuilder {
                             resource_cache,
                             frame_gpu_data,
                             data_stores,
+                            dl_stores,
                             clip_tree: &scene.clip_tree,
                             composite_state,
                             rg_builder,
@@ -572,7 +586,6 @@ impl FrameBuilder {
 
             frame_state.surface_builder.push_surface(
                 snapshot_surface,
-                false,
                 DeviceRect::max_rect(),
                 None,
                 frame_state.surfaces,
@@ -590,6 +603,7 @@ impl FrameBuilder {
                 &frame_context,
                 &mut frame_state,
                 data_stores,
+                dl_stores,
                 &mut scratch.primitive,
                 tile_caches,
                 &mut scene.prim_instances
@@ -627,6 +641,7 @@ impl FrameBuilder {
                 &frame_context,
                 &mut frame_state,
                 data_stores,
+                dl_stores,
                 &mut scratch.primitive,
                 tile_caches,
                 &mut scene.prim_instances
@@ -663,6 +678,7 @@ impl FrameBuilder {
         device_origin: DeviceIntPoint,
         scene_properties: &SceneProperties,
         data_stores: &DataStores,
+        dl_stores: &DlStores,
         scratch: &mut ScratchBuffer,
         debug_flags: DebugFlags,
         debug_override: &SceneDebugOverride,
@@ -722,6 +738,7 @@ impl FrameBuilder {
             scene_properties,
             &mut transform_palette,
             data_stores,
+            dl_stores,
             scratch,
             debug_flags,
             debug_override,
@@ -771,6 +788,7 @@ impl FrameBuilder {
                     batch_lookback_count: scene.config.batch_lookback_count,
                     spatial_tree,
                     data_stores,
+                    dl_stores,
                     scratch: &mut scratch.primitive,
                     screen_device_rect,
                     tile_caches,
@@ -806,6 +824,7 @@ impl FrameBuilder {
                     batch_lookback_count: scene.config.batch_lookback_count,
                     spatial_tree,
                     data_stores,
+                    dl_stores,
                     scratch: &mut scratch.primitive,
                     screen_device_rect,
                     tile_caches,
@@ -1276,31 +1295,6 @@ pub fn build_render_pass(
                             clear_color: pic_task.clear_color,
                             kind: PictureCacheTargetKind::Draw {
                                 alpha_batch_container,
-                            },
-                            dirty_rect,
-                            valid_rect,
-                        };
-
-                        pass.picture_cache.push(target);
-                    }
-                    RenderTaskKind::TileComposite(ref tile_task) => {
-                        let mut dirty_rect = tile_task.scissor_rect;
-                        let mut valid_rect = tile_task.valid_rect;
-                        // If we have a surface size, clip the dirty and vaild rects
-                        // to that size. This ensures that native compositors will
-                        // pass sanity checks (Bug 1971296).
-                        if let ResolvedSurfaceTexture::Native { size, .. } = surface {
-                            let surface_size_rect = <DeviceIntRect>::from_size(*size);
-                            dirty_rect = dirty_rect.intersection(&surface_size_rect).unwrap_or_default();
-                            valid_rect = valid_rect.intersection(&surface_size_rect).unwrap_or_default();
-                        }
-
-                        let target = PictureCacheTarget {
-                            surface: surface.clone(),
-                            clear_color: Some(tile_task.clear_color),
-                            kind: PictureCacheTargetKind::Blit {
-                                task_id: tile_task.task_id.expect("bug: no source task_id set"),
-                                sub_rect_offset: tile_task.sub_rect_offset,
                             },
                             dirty_rect,
                             valid_rect,

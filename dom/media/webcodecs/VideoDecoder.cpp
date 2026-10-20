@@ -493,7 +493,7 @@ static Result<gfx::IntSize, nsresult> AdjustDisplaySize(
 }
 
 // https://w3c.github.io/webcodecs/#create-a-videoframe
-static RefPtr<VideoFrame> CreateVideoFrame(
+static Result<RefPtr<VideoFrame>, MediaResult> CreateVideoFrame(
     nsIGlobalObject* aGlobalObject, const VideoData* aData, int64_t aTimestamp,
     uint64_t aDuration, const Maybe<uint32_t> aDisplayAspectWidth,
     const Maybe<uint32_t> aDisplayAspectHeight,
@@ -515,10 +515,9 @@ static RefPtr<VideoFrame> CreateVideoFrame(
     }
   }
 
-  return MakeRefPtr<VideoFrame>(aGlobalObject, aData->mImage, format,
-                                aData->mImage->GetSize(),
-                                aData->mImage->GetPictureRect(), displaySize,
-                                Some(aDuration), aTimestamp, aColorSpace);
+  return VideoFrame::CreateFromImage(
+      aGlobalObject, aData->mImage, format, aData->mImage->GetPictureRect(),
+      displaySize, Some(aDuration), aTimestamp, aColorSpace);
 }
 
 /* static */
@@ -888,10 +887,16 @@ nsTArray<RefPtr<VideoFrame>> VideoDecoder::DecodedDataToOutputType(
     LOGV("Resolved decoded frame color space from {}: {}",
          useConfigColorSpace ? "decoder configuration" : "decoded image",
          colorSpace.ToString().get());
-    frames.AppendElement(CreateVideoFrame(
+    auto frame = CreateVideoFrame(
         aGlobalObject, d.get(), d->mTime.ToMicroseconds(),
         static_cast<uint64_t>(d->mDuration.ToMicroseconds()),
-        aConfig.mDisplayAspectWidth, aConfig.mDisplayAspectHeight, colorSpace));
+        aConfig.mDisplayAspectWidth, aConfig.mDisplayAspectHeight, colorSpace);
+    if (frame.isErr()) {
+      LOGW("Failed to create VideoFrame for {}: {}. Skipped",
+           d->ToString().get(), frame.inspectErr().Description().get());
+      continue;
+    }
+    frames.AppendElement(frame.unwrap());
   }
   return frames;
 }

@@ -348,8 +348,29 @@ menuseparator + #sidebar-extensions-separator {
   view-transition-name: tabbrowser-tabbox;
 }
 
-:root[sidebar-expand-on-hover]:active-view-transition-type(expand)::view-transition-old(sidebar-launcher) {
+/* Expand on hover only shows the expanded launcher's snapshot, as the collapsed
+ * one is transparent and would leave its icons floating over the content area.
+ * It stays pinned to the window edge while the group clips it to the animating
+ * width, so its icons line up with the collapsed launcher's throughout. */
+:root[sidebar-expand-on-hover]:active-view-transition-type(expand)::view-transition-old(sidebar-launcher),
+:root[sidebar-expand-on-hover]:active-view-transition-type(collapse)::view-transition-new(sidebar-launcher) {
   display: none;
+}
+
+:root[sidebar-expand-on-hover]:active-view-transition-type(expand, collapse) {
+  &::view-transition-group(sidebar-launcher) {
+    overflow: clip;
+  }
+
+  &:not([sidebar-positionend])::view-transition-old(sidebar-launcher),
+  &:not([sidebar-positionend])::view-transition-new(sidebar-launcher) {
+    inset-inline: 0 auto;
+  }
+
+  &[sidebar-positionend]::view-transition-old(sidebar-launcher),
+  &[sidebar-positionend]::view-transition-new(sidebar-launcher) {
+    inset-inline: auto 0;
+  }
 }
 
 /* When the launcher doesn't change, such as when a panel opens or closes, its

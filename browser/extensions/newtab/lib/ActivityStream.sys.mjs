@@ -1895,10 +1895,26 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "widgets.solitaire.enabled",
+    {
+      title: "Enables the solitaire widget",
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
+      getValue: () => !marketGateEnabled(),
+    },
+  ],
+  [
     "widgets.travel.interaction",
     {
       title:
         "Boolean flag for determining if a user has interacted with the travel widget",
+      value: false,
+    },
+  ],
+  [
+    "widgets.solitaire.interaction",
+    {
+      title:
+        "Boolean flag for determining if a user has interacted with the solitaire widget",
       value: false,
     },
   ],
@@ -1945,6 +1961,14 @@ export const PREFS_CONFIG = new Map([
     "widgets.system.travel.enabled",
     {
       title: "Enables the travel widget experiment in Nimbus",
+      // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
+      value: false,
+    },
+  ],
+  [
+    "widgets.system.solitaire.enabled",
+    {
+      title: "Enables the solitaire widget experiment in Nimbus",
       // Off everywhere. To release organically: add locale-config to firefox.js, switch to marketGate.
       value: false,
     },
@@ -2087,6 +2111,13 @@ export const PREFS_CONFIG = new Map([
     "widgets.travel.size",
     {
       title: "Size of the travel widget (medium or large)",
+      value: "",
+    },
+  ],
+  [
+    "widgets.solitaire.size",
+    {
+      title: "Size of the solitaire widget (medium or large)",
       value: "",
     },
   ],

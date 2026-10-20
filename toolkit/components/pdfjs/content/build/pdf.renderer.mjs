@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.196
- * pdfjsBuild = f73a6986d
+ * pdfjsVersion = 6.5.254
+ * pdfjsBuild = 28e406a46
  */
 
 ;// ./src/shared/util.js
@@ -6180,6 +6180,9 @@ class MessageHandler {
     this.#messageAC?.abort();
     this.#messageAC = null;
   }
+  get destroyed() {
+    return !this.#messageAC;
+  }
 }
 
 ;// ./src/shared/obj_bin_transform_utils.js
@@ -7097,6 +7100,7 @@ const PARTIAL_FRAME_TIME = 500;
 class RendererMessageHandler {
   static #canvasFactory;
   static #commonObjs = new PDFObjects();
+  static #connection = null;
   static #enableHWA = false;
   static #enableWebGPU = false;
   static #filterFactory;
@@ -7456,7 +7460,47 @@ class RendererMessageHandler {
   static #initializeFromPort(port) {
     const handler = new MessageHandler("renderer", "main", port);
     this.#setup(handler);
-    const workerVersion = "6.5.196";
+    handler.on("Connect", ({
+      sourceName,
+      targetName
+    }) => {
+      this.#disconnect();
+      const connection = new MessageHandler(sourceName, targetName, port);
+      this.#connection = connection;
+      this.#setup(connection);
+      connection.on("Disconnect", () => {
+        this.#disconnect();
+      });
+      this.#sendReady(connection);
+    });
+    this.#sendReady(handler);
+  }
+  static #disconnect() {
+    if (!this.#connection) {
+      return;
+    }
+    for (const renderTaskId of this.#renderTaskStates.keys()) {
+      this.#cleanupRenderTask(renderTaskId);
+    }
+    for (const objs of this.#objsMap.values()) {
+      objs.clear();
+    }
+    this.#objsMap.clear();
+    this.#operatorLists.clear();
+    this.#commonObjs.clear();
+    this.#fontLoader.clear();
+    this.#commonObjs = new PDFObjects();
+    this.#fontLoader = new FontLoader({
+      ownerDocument: globalThis
+    });
+    this.#canvasFactory = null;
+    this.#filterFactory?.destroy();
+    this.#filterFactory = null;
+    this.#connection.destroy();
+    this.#connection = null;
+  }
+  static #sendReady(handler) {
+    const workerVersion = "6.5.254";
     const testObj = new Uint8Array();
     handler.send("ready", {
       testObj,

@@ -18,6 +18,7 @@
     "ignoreLinkRegexps",
     "nonAdsLinkQueryParamNames",
     "nonAdsLinkRegexps",
+    "ignoredQueryParamNames",
     "shoppingTab",
     "domainExtraction",
     "accountCookies",

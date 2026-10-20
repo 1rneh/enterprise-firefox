@@ -136,6 +136,14 @@ support-files = [
 
 ["browser_outline_refocus.js"]
 
+["browser_page_load_event_prefetch.js"]
+# All channels: the test enables the prefs it needs.
+support-files = [
+  "file_pageload_prefetch_plain.html",
+  "file_pageload_prefetch_source.html",
+  "file_pageload_prefetch_target.sjs",
+]
+
 ["browser_page_load_event_telemetry.js"]
 skip-if = [
   "!nightly_build", # Page load events are only consistently sent in nightly.

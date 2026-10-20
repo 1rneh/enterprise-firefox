@@ -4,6 +4,8 @@
 
 #include "WebTransportParent.h"
 
+#include <cmath>
+
 #include "Http3WebTransportSession.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/StaticPrefs_network.h"
@@ -675,6 +677,7 @@ WebTransportParent::OnSessionReady(uint64_t aSessionId) {
 
   mSessionReady = true;
   mSessionId = aSessionId;
+  mSessionReadyTime = TimeStamp::Now();
 
   // Retarget to socket thread. After this, WebTransportParent and
   // |mWebTransport| should be only accessed on the socket thread.
@@ -1103,36 +1106,78 @@ WebTransportParent::OnIncomingBidirectionalStreamAvailable(
   return IPC_OK();
 }
 
-// The promise sent in this request will be resolved
-// in OnOutgoingDatagramOutCome which is called synchronously from
-// WebTransportSessionProxy::SendDatagram
+// The promise is now resolved via DatagramReady event from neqo
 ::mozilla::ipc::IPCResult WebTransportParent::RecvOutgoingDatagram(
-    nsTArray<uint8_t>&& aData, const TimeStamp& aExpirationTime,
-    const uint64_t& aSendGroupId, const int64_t& aSendOrder,
-    OutgoingDatagramResolver&& aResolver) {
-  LOG(("WebTransportParent sending datagram, sendGroup=%" PRIu64
-       ", sendOrder=%" PRId64,
-       aSendGroupId, aSendOrder));
+    const uint64_t& aDatagramId, nsTArray<uint8_t>&& aData,
+    const TimeStamp& aTimestamp, const uint64_t& aSendGroupId,
+    const int64_t& aSendOrder, OutgoingDatagramResolver&& aResolver) {
+  LOG(("WebTransportParent sending datagram id=%" PRIu64 ", length=%zu",
+       aDatagramId, aData.Length()));
   MOZ_ASSERT(mSocketThread->IsOnCurrentThread());
   MOZ_ASSERT(mWebTransport);
 
-  (void)aExpirationTime;
+  // Resolve IPC immediately - actual outcome notification happens via
+  // DatagramReady
+  aResolver(NS_OK);
 
-  MOZ_ASSERT(!mOutgoingDatagramResolver);
-  mOutgoingDatagramResolver = std::move(aResolver);
-  // XXX we need to forward the timestamps to the necko stack
-  // timestamp should be checked in the necko for expiry
-  // See Bug 1818300
-  // currently this calls OnOutgoingDatagramOutCome synchronously
-  // Neqo won't call us back if the id == 0!
-  // We don't use the ID for anything currently; rework of the stack
-  // to implement proper HighWatermark buffering will require
-  // changes here anyways.
-  static uint64_t sDatagramId = 1;
-  LOG_VERBOSE(("Sending datagram %" PRIu64 ", length %zu", sDatagramId,
-               aData.Length()));
-  (void)mWebTransport->SendDatagram(aData, sDatagramId++, aSendGroupId,
-                                    aSendOrder);
+  double ageMs = (TimeStamp::Now() - aTimestamp).ToMilliseconds();
+  LOG(("Forwarding datagram id=%" PRIu64
+       " to neqo queue (timestamp=%f ms), sendGroup=%" PRIu64
+       ", sendOrder=%" PRId64,
+       aDatagramId, ageMs, aSendGroupId, aSendOrder));
+
+  // neqo measures outgoingMaxAge from aTimestamp too, but a datagram already
+  // past it need not be queued at all.
+  if (ageMs > mDatagramMaxAge) {
+    LOG(("Dropping datagram id=%" PRIu64 ": age %f ms exceeds outgoingMaxAge "
+         "%f ms before reaching neqo",
+         aDatagramId, ageMs, mDatagramMaxAge));
+    if (CanSend()) {
+      (void)SendDatagramReady(aDatagramId);
+    }
+    return IPC_OK();
+  }
+
+  // A datagram written before the session was ready could not have been sent
+  // any sooner, so unless the page set an explicit outgoingMaxAge, don't
+  // count the connection setup against neqo's implementation-defined default
+  // max age (a small multiple of the RTT).  Datagrams written right after
+  // constructing the WebTransport would otherwise expire whenever the
+  // handshake took longer than that.
+  TimeStamp timestamp = aTimestamp;
+  if (!std::isfinite(mDatagramMaxAge) && timestamp < mSessionReadyTime) {
+    timestamp = mSessionReadyTime;
+  }
+
+  // neqo's queue requires a session's timestamps to be non-decreasing.
+  // Writes from several writables, flushed one writable at a time at
+  // connect, need not be, so never go backwards.
+  if (mLastOutgoingDatagramTimestamp.IsNull() ||
+      timestamp > mLastOutgoingDatagramTimestamp) {
+    mLastOutgoingDatagramTimestamp = timestamp;
+  }
+
+  // Send to neqo's datagram queue. The datagram will be sent when the queue
+  // is processed, and OnOutgoingDatagramOutCome will be called with the result.
+  (void)mWebTransport->SendDatagramAt(aData, aDatagramId, aSendGroupId,
+                                      aSendOrder,
+                                      mLastOutgoingDatagramTimestamp);
+
+  return IPC_OK();
+}
+
+::mozilla::ipc::IPCResult WebTransportParent::RecvUpdateDatagramQueueParams(
+    const uint32_t& aOutgoingMaxBufferedDatagrams,
+    const double& aOutgoingMaxAge) {
+  LOG(
+      ("WebTransportParent::RecvUpdateDatagramQueueParams: "
+       "outgoingMaxBufferedDatagrams=%" PRIu32 ", maxAge=%f",
+       aOutgoingMaxBufferedDatagrams, aOutgoingMaxAge));
+  MOZ_ASSERT(mSocketThread->IsOnCurrentThread());
+  MOZ_ASSERT(mWebTransport);
+  mWebTransport->SetDatagramMaxBufferedDatagrams(aOutgoingMaxBufferedDatagrams);
+  mWebTransport->SetDatagramMaxAge(aOutgoingMaxAge);
+  mDatagramMaxAge = aOutgoingMaxAge;
 
   return IPC_OK();
 }
@@ -1154,24 +1199,18 @@ NS_IMETHODIMP
 WebTransportParent::OnOutgoingDatagramOutCome(
     uint64_t aId, WebTransportSessionEventListener::DatagramOutcome aOutCome) {
   MOZ_ASSERT(mSocketThread->IsOnCurrentThread());
-  // XXX - do we need better error mappings for failures?
-  nsresult result = NS_ERROR_FAILURE;
-  (void)result;
-  (void)aId;
 
   if (aOutCome == WebTransportSessionEventListener::DatagramOutcome::SENT) {
-    result = NS_OK;
     LOG(("Sent datagram id= %" PRIu64, aId));
   } else {
-    LOG(("Didn't send datagram id= %" PRIu64, aId));
+    LOG(("Dropped datagram id= %" PRIu64, aId));
   }
 
-  // This assumes the stack is calling us back synchronously!
-  if (!mOutgoingDatagramResolver) {
-    return NS_OK;
+  // With the datagram queue, outcomes are reported asynchronously.
+  // Send DatagramReady IPC message to notify the content process.
+  if (CanSend()) {
+    (void)SendDatagramReady(aId);
   }
-  mOutgoingDatagramResolver(result);
-  mOutgoingDatagramResolver = nullptr;
 
   return NS_OK;
 }

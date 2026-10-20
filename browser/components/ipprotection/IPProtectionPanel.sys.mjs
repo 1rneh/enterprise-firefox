@@ -633,6 +633,7 @@ export class IPProtectionPanel {
     }
 
     this.#updateSiteData();
+    lazy.IPProtectionServerlist.maybeFetchList();
 
     if (this.state.paused) {
       lazy.IPPProxyManager.refreshUsage();
@@ -867,6 +868,7 @@ export class IPProtectionPanel {
       { once: true }
     );
 
+    await lazy.IPProtectionServerlist.maybeFetchList();
     this.panelMultiView?.showSubView(IPProtectionPanel.LOCATIONS_PANELVIEW);
     this.#createPanel(view, IPProtectionPanel.LOCATIONS_TAGNAME);
 

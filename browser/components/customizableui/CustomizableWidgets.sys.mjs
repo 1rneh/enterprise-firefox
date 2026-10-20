@@ -50,49 +50,53 @@ XPCOMUtils.defineLazyPreferenceGetter(
 );
 
 /**
- * A helper method to synchronize aNode's DOM attributes with the properties and
- * values in aAttrs. If aNode has an attribute that is false-y in aAttrs,
- * then this attribute is removed.
+ * Synchronizes aNode's DOM attributes with aAttrs: each key is set as an
+ * attribute with its value, or removed from aNode if the value is falsy.
  *
- * If aAttrs includes "shortcutId", the value is never set on aNode, but is
- * instead used when setting the "label" or "tooltiptext" attributes to include
- * the shortcut key combo. shortcutId should refer to the ID of the XUL <key>
- * element that acts as the shortcut.
+ * The following keys are not copied to aNode, but control how it is
+ * localized:
+ * - l10nId: Fluent identifier used to localize aNode.
+ * - tooltipL10nId: Fluent identifier of a message whose value is set,
+ *   asynchronously, as the "tooltiptext" attribute only. Use it instead of
+ *   l10nId when other localizable attributes, such as "label", are set by
+ *   other code, since Fluent would remove them.
+ * - shortcutId: ID of the XUL <key> element for the shortcut, passed to the
+ *   Fluent messages as the "$shortcut" variable.
  *
  * @param {Element} aNode
  *   The element to change the attributes of.
  * @param {object} aAttrs
- *   A set of key-value pairs where the key is set as the attribute name, and
- *   the value is set as the attribute value.
+ *   Attribute names mapped to their values, plus the special keys above.
  */
 function setAttributes(aNode, aAttrs) {
   let doc = aNode.ownerDocument;
   for (let [name, value] of Object.entries(aAttrs)) {
+    if (["l10nId", "tooltipL10nId", "shortcutId"].includes(name)) {
+      continue;
+    }
     if (!value) {
       if (aNode.hasAttribute(name)) {
         aNode.removeAttribute(name);
       }
     } else {
-      if (name == "shortcutId") {
-        continue;
-      }
-      if (name == "label" || name == "tooltiptext") {
-        let stringId = typeof value == "string" ? value : name;
-        let additionalArgs = [];
-        if (aAttrs.shortcutId) {
-          let shortcut = doc.getElementById(aAttrs.shortcutId);
-          if (shortcut) {
-            additionalArgs.push(lazy.ShortcutUtils.prettifyShortcut(shortcut));
-          }
-        }
-        value = lazy.CustomizableUI.getLocalizedProperty(
-          { id: aAttrs.id },
-          stringId,
-          additionalArgs
-        );
-      }
       aNode.setAttribute(name, value);
     }
+  }
+
+  let l10nArgs;
+  if (aAttrs.shortcutId) {
+    let shortcut = doc.getElementById(aAttrs.shortcutId);
+    if (shortcut) {
+      l10nArgs = { shortcut: lazy.ShortcutUtils.prettifyShortcut(shortcut) };
+    }
+  }
+  if (aAttrs.l10nId) {
+    doc.l10n.setAttributes(aNode, aAttrs.l10nId, l10nArgs);
+  }
+  if (aAttrs.tooltipL10nId) {
+    doc.l10n
+      .formatValue(aAttrs.tooltipL10nId, l10nArgs)
+      .then(tooltip => aNode.setAttribute("tooltiptext", tooltip));
   }
 }
 
@@ -107,8 +111,8 @@ export const CustomizableWidgets = [
     id: "history-panelmenu",
     type: "view",
     viewId: "PanelUI-history",
+    l10nId: "toolbar-button-history",
     shortcutId: "key_gotoHistory",
-    tooltiptext: "history-panelmenu.tooltiptext2",
     recentlyClosedTabsPanel: "appMenu-library-recentlyClosedTabs",
     recentlyClosedWindowsPanel: "appMenu-library-recentlyClosedWindows",
     handleEvent(event) {
@@ -277,8 +281,8 @@ export const CustomizableWidgets = [
   },
   {
     id: "find-button",
+    l10nId: "toolbar-button-find",
     shortcutId: "key_find",
-    tooltiptext: "find-button.tooltiptext3",
     onCommand(aEvent) {
       let win = aEvent.target.documentGlobal;
       if (win.gLazyFindCommand) {
@@ -332,15 +336,13 @@ export const CustomizableWidgets = [
   {
     id: "zoom-controls",
     type: "custom",
-    tooltiptext: "zoom-controls.tooltiptext2",
     onBuild(aDocument) {
       let buttons = [
         {
           id: "zoom-out-button",
           command: "cmd_fullZoomReduce",
-          label: true,
           closemenu: "none",
-          tooltiptext: "tooltiptext2",
+          l10nId: "toolbar-button-zoom-out",
           shortcutId: "key_fullZoomReduce",
           class: "toolbarbutton-1 toolbarbutton-combined",
         },
@@ -348,7 +350,7 @@ export const CustomizableWidgets = [
           id: "zoom-reset-button",
           command: "cmd_fullZoomReset",
           closemenu: "none",
-          tooltiptext: "tooltiptext2",
+          tooltipL10nId: "toolbar-button-zoom-reset-tooltip",
           shortcutId: "key_fullZoomReset",
           class: "toolbarbutton-1 toolbarbutton-combined",
         },
@@ -356,8 +358,7 @@ export const CustomizableWidgets = [
           id: "zoom-in-button",
           command: "cmd_fullZoomEnlarge",
           closemenu: "none",
-          label: true,
-          tooltiptext: "tooltiptext2",
+          l10nId: "toolbar-button-zoom-in",
           shortcutId: "key_fullZoomEnlarge",
           class: "toolbarbutton-1 toolbarbutton-combined",
         },
@@ -365,14 +366,7 @@ export const CustomizableWidgets = [
 
       let node = aDocument.createXULElement("toolbaritem");
       node.setAttribute("id", "zoom-controls");
-      node.setAttribute(
-        "label",
-        lazy.CustomizableUI.getLocalizedProperty(this, "label")
-      );
-      node.setAttribute(
-        "title",
-        lazy.CustomizableUI.getLocalizedProperty(this, "tooltiptext")
-      );
+      aDocument.l10n.setAttributes(node, "toolbar-zoom-controls");
       // Set this as an attribute in addition to the property to make sure we can style correctly.
       node.setAttribute("removable", "true");
       node.classList.add("chromeclass-toolbar-additional");
@@ -392,30 +386,26 @@ export const CustomizableWidgets = [
   {
     id: "edit-controls",
     type: "custom",
-    tooltiptext: "edit-controls.tooltiptext2",
     onBuild(aDocument) {
       let buttons = [
         {
           id: "cut-button",
           command: "cmd_cut",
-          label: true,
-          tooltiptext: "tooltiptext2",
+          l10nId: "toolbar-button-cut",
           shortcutId: "key_cut",
           class: "toolbarbutton-1 toolbarbutton-combined",
         },
         {
           id: "copy-button",
           command: "cmd_copy",
-          label: true,
-          tooltiptext: "tooltiptext2",
+          l10nId: "toolbar-button-copy",
           shortcutId: "key_copy",
           class: "toolbarbutton-1 toolbarbutton-combined",
         },
         {
           id: "paste-button",
           command: "cmd_paste",
-          label: true,
-          tooltiptext: "tooltiptext2",
+          l10nId: "toolbar-button-paste",
           shortcutId: "key_paste",
           class: "toolbarbutton-1 toolbarbutton-combined",
         },
@@ -423,14 +413,7 @@ export const CustomizableWidgets = [
 
       let node = aDocument.createXULElement("toolbaritem");
       node.setAttribute("id", "edit-controls");
-      node.setAttribute(
-        "label",
-        lazy.CustomizableUI.getLocalizedProperty(this, "label")
-      );
-      node.setAttribute(
-        "title",
-        lazy.CustomizableUI.getLocalizedProperty(this, "tooltiptext")
-      );
+      aDocument.l10n.setAttributes(node, "toolbar-edit-controls");
       // Set this as an attribute in addition to the property to make sure we can style correctly.
       node.setAttribute("removable", "true");
       node.classList.add("chromeclass-toolbar-additional");
@@ -731,6 +714,7 @@ if (Services.prefs.getBoolPref("privacy.panicButton.enabled")) {
     id: "panic-button",
     type: "view",
     viewId: "PanelUI-panicView",
+    l10nId: "toolbar-button-forget",
 
     forgetButtonCalled(aEvent) {
       let doc = aEvent.target.ownerDocument;
@@ -989,6 +973,7 @@ if (Services.prefs.getBoolPref("browser.fireButton.enabled", false)) {
       try {
         let result = await lazy.Sanitizer.showUI(win, "clearSiteData", {
           closeWindowsWithHistory: true,
+          entryPoint: lazy.Sanitizer.DIALOG_ENTRY_POINTS.FIRE_BUTTON,
         });
         if (result != "accept") {
           this.recordFlowCompleted(aFlow, "cancelled", "dialog");
@@ -1114,7 +1099,7 @@ if (PrivateBrowsingUtils.enabled) {
   });
 }
 
-if (Services.prefs.getBoolPref("browser.tabs.groups.alternateMenu", false)) {
+if (Services.prefs.getBoolPref("browser.toolbars.tab-groups.enabled", false)) {
   CustomizableWidgets.push({
     id: "tab-groups-button",
     type: "view",

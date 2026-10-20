@@ -106,16 +106,20 @@ export class PrivacySettingHelpers {
       ts.value = 0;
     }
     let dialogFile = "chrome://browser/content/sanitize_v2.xhtml";
-    gSubDialog.open(dialogFile, {
-      features: "resizable=no",
-      closingCallback: () => {
-        // reset the timeSpan pref
-        if (aClearEverything) {
-          ts.value = timeSpanOrig;
-        }
-        Services.obs.notifyObservers(null, "clear-private-data");
+    gSubDialog.open(
+      dialogFile,
+      {
+        features: "resizable=no",
+        closingCallback: () => {
+          // reset the timeSpan pref
+          if (aClearEverything) {
+            ts.value = timeSpanOrig;
+          }
+          Services.obs.notifyObservers(null, "clear-private-data");
+        },
       },
-    });
+      { entryPoint: lazy.Sanitizer.DIALOG_ENTRY_POINTS.SETTINGS_HISTORY }
+    );
   }
 
   /**
@@ -2917,6 +2921,7 @@ Preferences.addSetting(
         },
         {
           mode: "clearSiteData",
+          entryPoint: lazy.Sanitizer.DIALOG_ENTRY_POINTS.SETTINGS_SITE_DATA,
         }
       );
     },

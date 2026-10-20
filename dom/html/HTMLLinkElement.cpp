@@ -148,6 +148,10 @@ bool HTMLLinkElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
       return true;
     }
 
+    if (aAttribute == nsGkAtoms::referrerpolicy) {
+      return ParseReferrerAttribute(aValue, aResult);
+    }
+
     if (aAttribute == nsGkAtoms::sizes) {
       aResult.ParseAtomArray(aValue);
       return true;

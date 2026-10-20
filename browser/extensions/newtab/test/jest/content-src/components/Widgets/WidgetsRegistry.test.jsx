@@ -211,6 +211,7 @@ describe("getWidgetOrder", () => {
       "recentSearches",
       "horoscopes",
       "travel",
+      "solitaire",
     ]);
   });
 
@@ -227,6 +228,7 @@ describe("getWidgetOrder", () => {
       "recentSearches",
       "horoscopes",
       "travel",
+      "solitaire",
     ]);
   });
 
@@ -243,6 +245,7 @@ describe("getWidgetOrder", () => {
       "recentSearches",
       "horoscopes",
       "travel",
+      "solitaire",
     ]);
   });
 
@@ -266,6 +269,7 @@ describe("getWidgetOrder", () => {
       "recentSearches",
       "horoscopes",
       "travel",
+      "solitaire",
     ]);
     expect(result.length).toBe(registryIds.length);
   });
@@ -293,6 +297,7 @@ describe("resolveWidgetOrder", () => {
       "recentSearches",
       "horoscopes",
       "travel",
+      "solitaire",
     ]);
   });
 
@@ -314,6 +319,7 @@ describe("resolveWidgetOrder", () => {
       "recentSearches",
       "horoscopes",
       "travel",
+      "solitaire",
     ]);
   });
 
@@ -335,6 +341,7 @@ describe("resolveWidgetOrder", () => {
       "recentSearches",
       "horoscopes",
       "travel",
+      "solitaire",
     ]);
   });
 });
@@ -503,6 +510,16 @@ describe("isWidgetAddable", () => {
       isWidgetAddable(travel, {
         [travel.systemEnabledPref]: false,
         trainhopConfig: { widgetTravel: { visible: true } },
+      })
+    ).toBe(true);
+  });
+
+  it("is addable when revealed via the dedicated widgetSolitaire namespace", () => {
+    const solitaire = WIDGET_REGISTRY.find(w => w.id === "solitaire");
+    expect(
+      isWidgetAddable(solitaire, {
+        [solitaire.systemEnabledPref]: false,
+        trainhopConfig: { widgetSolitaire: { visible: true } },
       })
     ).toBe(true);
   });
@@ -1115,6 +1132,7 @@ describe("WIDGET_REGISTRY customize panel fields", () => {
     recentSearches: "WIDGET_RECENT_SEARCHES",
     horoscopes: "WIDGET_HOROSCOPES",
     travel: "WIDGET_TRAVEL",
+    solitaire: "WIDGET_SOLITAIRE",
   };
 
   it("gives every active entry a customizeL10nId", () => {

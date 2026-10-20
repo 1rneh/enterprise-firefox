@@ -2335,6 +2335,19 @@ void Document::AccumulatePageLoadTelemetry() {
     }
   }
 
+  // A matching record is not enough; the disposition says it was really used.
+  if (isCacheHit &&
+      GetNavigationTiming()->WasActivatedFromNavigationalPrefetch()) {
+    mPageloadEventData.SetDocumentFeature(
+        performance::pageload_event::DocumentFeature::NAVIGATIONAL_PREFETCH);
+  }
+
+  nsCOMPtr<nsILoadInfo> loadInfo = GetChannel()->LoadInfo();
+  if (loadInfo->GetPrefetchCandidateMatched()) {
+    mPageloadEventData.SetDocumentFeature(
+        performance::pageload_event::NAVIGATIONAL_PREFETCH_ELIGIBLE);
+  }
+
   if (mScriptLoader) {
     mPageloadEventData.set_scriptFromNeckoText(
         mScriptLoader->GetLoadedFromNeckoAsText());
@@ -4337,13 +4350,6 @@ static PermissionsPolicy* GetPermissionsPolicyFromElement(Element* aElement) {
 }
 
 nsresult Document::InitDocPolicy(nsIChannel* aChannel) {
-  // We only use document policy to implement the text fragments spec, so leave
-  // everything at the default value if it isn't enabled. This includes the
-  // behavior for element fragments.
-  if (!StaticPrefs::dom_text_fragments_enabled()) {
-    return NS_OK;
-  }
-
   nsCOMPtr<nsIHttpChannel> httpChannel;
   nsresult rv = GetHttpChannelHelper(aChannel, getter_AddRefs(httpChannel));
   if (NS_WARN_IF(NS_FAILED(rv))) {
@@ -9219,9 +9225,10 @@ void Document::CreateCustomContentContainerIfNeeded() {
   container->SetIsNativeAnonymousRoot();
   // Do not create an accessible object for the container.
   container->SetAttr(kNameSpaceID_None, nsGkAtoms::role, u"presentation"_ns,
-                     false);
+                     false, IsKnownNewAttr::Yes);
   container->SetAttr(kNameSpaceID_None, nsGkAtoms::_class,
-                     u"moz-custom-content-container"_ns, false);
+                     u"moz-custom-content-container"_ns, false,
+                     IsKnownNewAttr::Yes);
   nsAutoScriptBlocker scriptBlocker;
   BindContext context(*root, BindContext::ForNativeAnonymous);
   if (NS_WARN_IF(NS_FAILED(container->BindToTree(context, *root)))) {
@@ -10207,8 +10214,8 @@ void Document::SetTitle(const nsAString& aTitle, ErrorResult& aRv) {
   }
 
   if (rootElement->IsXULElement()) {
-    aRv =
-        rootElement->SetAttr(kNameSpaceID_None, nsGkAtoms::title, aTitle, true);
+    aRv = rootElement->SetAttr(kNameSpaceID_None, nsGkAtoms::title, aTitle,
+                               true, IsKnownNewAttr::No);
     return;
   }
 
@@ -10576,7 +10583,8 @@ void Document::GetDir(nsAString& aDirection) const {
 void Document::SetDir(const nsAString& aDirection) {
   Element* rootElement = GetHtmlElement();
   if (rootElement) {
-    rootElement->SetAttr(kNameSpaceID_None, nsGkAtoms::dir, aDirection, true);
+    rootElement->SetAttr(kNameSpaceID_None, nsGkAtoms::dir, aDirection, true,
+                         IsKnownNewAttr::No);
   }
 }
 

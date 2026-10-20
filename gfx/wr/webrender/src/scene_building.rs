@@ -56,6 +56,7 @@ use crate::box_shadow::BLUR_SAMPLE_SCALE;
 use crate::clip::{ClipIntern, ClipItemKey, ClipItemKeyKind, ClipStore};
 use crate::clip::{ClipInternData, ClipNodeId};
 use crate::clip::{PolygonDataHandle, ClipTreeBuilder};
+use crate::dl_interner::{DlDocumentBuilders, DlHandle, DlNamespace, DlStore};
 use crate::gpu_types::BlurEdgeMode;
 use crate::segment::EdgeMask;
 use crate::spatial_tree::{SceneSpatialTree, SpatialNodeContainer, SpatialNodeIndex};
@@ -69,11 +70,10 @@ use crate::picture::{Picture3DContext, PictureInstance};
 use crate::picture::{BlitReason, OrderedPictureChild, PrimitiveList, PictureFlags};
 use crate::surface::SurfaceInfo;
 use crate::picture_graph::PictureGraph;
-use crate::prim_store::{PrimitiveInstance, PrimitiveStoreStats};
+use crate::prim_store::{PrimitiveInstance, PrimitiveInstanceIndex, PrimitiveStoreStats};
 use crate::prim_store::{PrimitiveKind, NinePatchDescriptor, PrimitiveStore};
-use crate::prim_store::{InternablePrimitive, PictureIndex};
+use crate::prim_store::{InternablePrimitive, PictureIndex, PrimPlacement};
 use crate::prim_store::PolygonKey;
-use crate::prim_store::rectangle::RectanglePrim;
 use crate::prim_store::backdrop::{BackdropCapture, BackdropRender};
 use crate::prim_store::borders::ImageBorder;
 use crate::prim_store::gradient::{
@@ -85,8 +85,8 @@ use crate::prim_store::picture::{Picture, PictureKey};
 use crate::picture_composite_mode::{PictureCompositeKey, PictureCompositeMode};
 use crate::prim_store::text_run::TextRun;
 use crate::render_backend::SceneView;
-use crate::scene::{BuiltScene, Scene, ScenePipeline, SceneStats, StackingContextHelpers};
-use crate::scene_builder_thread::Interners;
+use crate::scene::{BackdropChain, BuiltScene, Scene, ScenePipeline, SceneStats, StackingContextHelpers};
+use crate::scene_builder_thread::{Interners, SceneDlStores};
 use crate::spatial_node::{
     ReferenceFrameInfo, StickyFrameInfo, ScrollFrameKind, SpatialNodeType
 };
@@ -112,7 +112,14 @@ impl NodeIdToIndexMapper {
     }
 
     fn get_spatial_node_index(&self, id: SpatialId) -> SpatialNodeIndex {
-        self.spatial_node_map[&id]
+        match self.spatial_node_map.get(&id) {
+            Some(index) => *index,
+            None => panic!(
+                "webrender: missing spatial node {:?} (defined_spatial_nodes={})",
+                id,
+                self.spatial_node_map.len(),
+            ),
+        }
     }
 }
 
@@ -204,10 +211,8 @@ struct PictureChainBuilder {
     flags: PrimitiveFlags,
     /// Requested raster space for enclosing stacking context
     raster_space: RasterSpace,
-    /// If true, set first picture as a resolve target
-    set_resolve_target: bool,
-    /// If true, mark the last picture as a sub-graph
-    establishes_sub_graph: bool,
+    /// If true, mark the last picture as the outermost of a backdrop-filter chain
+    is_backdrop_chain: bool,
 }
 
 impl PictureChainBuilder {
@@ -217,7 +222,7 @@ impl PictureChainBuilder {
         flags: PrimitiveFlags,
         spatial_node_index: SpatialNodeIndex,
         raster_space: RasterSpace,
-        is_sub_graph: bool,
+        is_backdrop_chain: bool,
     ) -> Self {
         PictureChainBuilder {
             current: PictureSource::PrimitiveList {
@@ -226,8 +231,7 @@ impl PictureChainBuilder {
             spatial_node_index,
             flags,
             raster_space,
-            establishes_sub_graph: is_sub_graph,
-            set_resolve_target: is_sub_graph,
+            is_backdrop_chain,
         }
     }
 
@@ -245,8 +249,7 @@ impl PictureChainBuilder {
             flags,
             spatial_node_index,
             raster_space,
-            establishes_sub_graph: false,
-            set_resolve_target: false,
+            is_backdrop_chain: false,
         }
     }
 
@@ -282,12 +285,6 @@ impl PictureChainBuilder {
             }
         };
 
-        let flags = if self.set_resolve_target {
-            PictureFlags::IS_RESOLVE_TARGET
-        } else {
-            PictureFlags::empty()
-        };
-
         let pic_index = PictureIndex(prim_store.pictures
             .alloc()
             .init(PictureInstance::new_image(
@@ -297,7 +294,7 @@ impl PictureChainBuilder {
                 prim_list,
                 self.spatial_node_index,
                 self.raster_space,
-                flags,
+                PictureFlags::empty(),
                 None,
             )) as u32
         );
@@ -317,9 +314,7 @@ impl PictureChainBuilder {
             spatial_node_index: self.spatial_node_index,
             flags: self.flags,
             raster_space: self.raster_space,
-            // We are now on a subsequent picture, so set_resolve_target has been handled
-            set_resolve_target: false,
-            establishes_sub_graph: self.establishes_sub_graph,
+            is_backdrop_chain: self.is_backdrop_chain,
         }
     }
 
@@ -332,8 +327,8 @@ impl PictureChainBuilder {
         snapshot: Option<SnapshotInfo>,
     ) -> PrimitiveInstance {
         let mut flags = PictureFlags::empty();
-        if self.establishes_sub_graph {
-            flags |= PictureFlags::IS_SUB_GRAPH;
+        if self.is_backdrop_chain {
+            flags |= PictureFlags::IS_BACKDROP_CHAIN;
         }
 
         match self.current {
@@ -346,10 +341,6 @@ impl PictureChainBuilder {
                 instance
             }
             PictureSource::PrimitiveList { prim_list } => {
-                if self.set_resolve_target {
-                    flags |= PictureFlags::IS_RESOLVE_TARGET;
-                }
-
                 // If no picture was created for this stacking context, create a
                 // pass-through wrapper now. This is only needed in 1-2 edge cases
                 // now, and will be removed as a follow up.
@@ -410,6 +401,19 @@ bitflags! {
 pub struct SceneBuilder<'a> {
     /// The scene that we are currently building.
     scene: &'a Scene,
+
+    /// Namespaces for the items interned by each pipeline's content display
+    /// list builder.
+    dl_builders: DlDocumentBuilders<'a>,
+
+    /// The entries interned by the content builders that scene building
+    /// itself reads.
+    scene_stores: &'a SceneDlStores,
+
+    /// Namespace of the pipeline currently being traversed, and its generation
+    /// (see `DlHandle::generation`), resolved once on entry rather than per
+    /// primitive. Iframe descent swaps it and the pop restores it.
+    dl_namespace: (DlNamespace, u32),
 
     /// The map of all font instances.
     fonts: SharedFontResources,
@@ -473,6 +477,7 @@ pub struct SceneBuilder<'a> {
     /// Keep track of snapshot pictures to ensure that they are rendered even if they
     /// are off-screen and the visibility traversal does not reach them.
     snapshot_pictures: Vec<PictureIndex>,
+    backdrop_chains: Vec<BackdropChain>,
 
     /// Keep track of allocated plane splitters for this scene. A plane
     /// splitter is allocated whenever we encounter a new 3d rendering context.
@@ -516,6 +521,8 @@ impl<'a> SceneBuilder<'a> {
     pub fn build(
         scene: &Scene,
         root_pipeline: Option<PipelineId>,
+        dl_builders: DlDocumentBuilders,
+        scene_stores: &SceneDlStores,
         fonts: SharedFontResources,
         view: &SceneView,
         frame_builder_config: &FrameBuilderConfig,
@@ -539,6 +546,9 @@ impl<'a> SceneBuilder<'a> {
         let mut builder = SceneBuilder {
             scene,
             spatial_tree,
+            dl_builders,
+            scene_stores,
+            dl_namespace: dl_builders.expect(root_pipeline_id),
             fonts,
             config: *frame_builder_config,
             id_to_index_mapper_stack: mem::take(&mut recycler.id_to_index_mapper_stack),
@@ -560,6 +570,7 @@ impl<'a> SceneBuilder<'a> {
             picture_graph: mem::take(&mut recycler.picture_graph),
             // This vector is empty most of the time, don't bother with recycling it for now.
             snapshot_pictures: Vec::new(),
+            backdrop_chains: Vec::new(),
             next_plane_splitter_index: 0,
             prim_instances: mem::take(&mut recycler.prim_instances),
             surfaces: mem::take(&mut recycler.surfaces),
@@ -641,6 +652,7 @@ impl<'a> SceneBuilder<'a> {
             config: builder.config,
             tile_cache_config,
             snapshot_pictures: builder.snapshot_pictures,
+            backdrop_chains: builder.backdrop_chains,
             tile_cache_pictures,
             picture_graph: builder.picture_graph,
             num_plane_splitters: builder.next_plane_splitter_index,
@@ -883,6 +895,9 @@ impl<'a> SceneBuilder<'a> {
             ReferenceFrame,
             Iframe {
                 parent_traversal: BuiltDisplayListIter<'a>,
+                /// The enclosing pipeline's namespace, to restore on the way
+                /// back out - the iframe's content interns into its own.
+                parent_dl_namespace: (DlNamespace, u32),
             }
         }
         struct BuildContext<'a> {
@@ -1008,11 +1023,16 @@ impl<'a> SceneBuilder<'a> {
                             None => continue,
                         };
 
+                        let iframe_dl_namespace = self.dl_builders.expect(info.pipeline_id);
                         let new_context = BuildContext {
                             pipeline_id: info.pipeline_id,
                             namespace,
                             kind: ContextKind::Iframe {
                                 parent_traversal: mem::replace(&mut traversal, subtraversal),
+                                parent_dl_namespace: mem::replace(
+                                    &mut self.dl_namespace,
+                                    iframe_dl_namespace,
+                                ),
                             },
                         };
                         stack.push(bc);
@@ -1032,7 +1052,8 @@ impl<'a> SceneBuilder<'a> {
                 }
                 ContextKind::ReferenceFrame => {
                 }
-                ContextKind::Iframe { parent_traversal } => {
+                ContextKind::Iframe { parent_traversal, parent_dl_namespace } => {
+                    self.dl_namespace = parent_dl_namespace;
                     self.iframe_size.pop();
                     self.clip_tree_builder.pop_clip();
                     self.clip_tree_builder.pop_clip();
@@ -1432,34 +1453,25 @@ impl<'a> SceneBuilder<'a> {
             DisplayItem::Rectangle(ref info) => {
                 tracy_rs::profile_scope!("rect");
 
-                let (mut layout, spatial_node_index, clip_node_id) = self.process_common_properties_with_bounds(
-                    &info.common,
-                    info.bounds,
-                );
-
-                layout.transformed_aa_edges &= info.transformed_aa_edges;
-
                 // The display list builder drops every other fully transparent
                 // rectangle at record time, but records a checkerboard
-                // background whatever its colour, since the barrier below is
-                // keyed off the flag alone. Such a rectangle draws nothing.
-                // Tested on the quantized colour, as the primitive stores it.
-                let visible = match info.color {
-                    PropertyBinding::Value(color) => api::ColorU::from(color).a > 0,
-                    PropertyBinding::Binding(..) => true,
-                };
-                if visible {
-                    self.add_primitive(
-                        spatial_node_index,
-                        clip_node_id,
-                        &layout,
-                        RectanglePrim {
-                            color: info.color.into(),
-                        },
-                    );
+                // background whatever its colour, since the barrier is keyed
+                // off the flag alone. Such a rectangle draws nothing and
+                // carries no handle; nothing else reaches here without one.
+                if info.rect == api::interning::Handle::INVALID {
+                    self.add_tile_cache_barrier_if_needed(SliceFlags::empty());
+                    return;
                 }
 
-                if info.common.flags.contains(PrimitiveFlags::CHECKERBOARD_BACKGROUND) {
+                let stores = self.scene_stores;
+                let flags = self.add_dl_prim(
+                    info.spatial_id,
+                    info.clip_chain_id,
+                    &stores.rectangles,
+                    info.rect,
+                    |handle| PrimitiveKind::Rectangle { handle },
+                );
+                if flags.contains(PrimitiveFlags::CHECKERBOARD_BACKGROUND) {
                     self.add_tile_cache_barrier_if_needed(SliceFlags::empty());
                 }
             }
@@ -1886,6 +1898,39 @@ impl<'a> SceneBuilder<'a> {
             spatial_node_index,
             info.flags,
         );
+    }
+
+    /// Add the instance of an item that refers to a primitive interned by the
+    /// content builder. The item names the spatial node, the clip chain and the
+    /// handle; where the instance goes comes from the scene store's copy of the
+    /// key. Returns the primitive's flags.
+    fn add_dl_prim<K>(
+        &mut self,
+        spatial_id: SpatialId,
+        clip_chain_id: api::ClipChainId,
+        placements: &DlStore<K, PrimPlacement>,
+        handle: api::interning::Handle<K>,
+        kind: impl FnOnce(DlHandle<K>) -> PrimitiveKind,
+    ) -> PrimitiveFlags {
+        let spatial_node_index = self.get_space(spatial_id);
+        let clip_node_id = self.get_clip_node(clip_chain_id);
+        self.clip_tree_builder.debug_check_clip_stack(clip_node_id);
+
+        let (namespace, generation) = self.dl_namespace;
+        let handle = DlHandle::new(namespace, generation, handle.slot());
+        let placement = &placements[handle];
+        let (rect, clip_rect, flags) = (placement.rect, placement.clip_rect, placement.flags);
+
+        let prim_instance = PrimitiveInstance::new(kind(handle), clip_node_id);
+        self.add_primitive_to_draw_list(
+            prim_instance,
+            rect,
+            clip_rect,
+            spatial_node_index,
+            flags,
+        );
+
+        flags
     }
 
     fn make_current_slice_atomic_if_required(&mut self) {
@@ -3112,8 +3157,8 @@ impl<'a> SceneBuilder<'a> {
         // is considered visible.
         self.clip_tree_builder.debug_check_clip_stack(clip_node_id);
 
-        // Create the backdrop prim - this is a placeholder which sets the size of resolve
-        // picture that reads from the backdrop root
+        // Create the backdrop prim - this is a placeholder which sets the size of the
+        // capture surface that the primitives behind the element are drawn into
         let backdrop_capture_instance = self.create_primitive(
             info,
             clip_node_id,
@@ -3123,6 +3168,7 @@ impl<'a> SceneBuilder<'a> {
 
         // Create a prim_list for this backdrop prim and add to a picture chain builder, which
         // is needed for the call to `wrap_prim_with_filters` below
+        let capture_instance_index = PrimitiveInstanceIndex(self.prim_instances.len() as u32);
         let mut prim_list = PrimitiveList::empty();
         prim_list.add_prim(
             backdrop_capture_instance,
@@ -3180,6 +3226,10 @@ impl<'a> SceneBuilder<'a> {
                 PrimitiveKind::Picture { pic_index, .. } => pic_index,
                 _ => panic!("bug: not a picture"),
             };
+            self.backdrop_chains.push(BackdropChain {
+                output_pic_index,
+                capture_instance_index,
+            });
 
             // Find which stacking context (or root tile cache) to add the
             // backdrop-filter chain to

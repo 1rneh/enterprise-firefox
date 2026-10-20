@@ -110,6 +110,10 @@ class ConnectionAllowlists final {
                               nsILoadInfo* aLoadInfo,
                               const Allowlist& aAllowlist);
 
+  static void ReportToConsole(const Variant<nsIURI*, nsCString>& aResource,
+                              nsILoadInfo* aLoadInfo,
+                              const Allowlist& aAllowlist);
+
   static Maybe<Allowlist> ParseConnectionAllowlistHeader(
       const nsACString& aHeader, Disposition aDisposition);
 

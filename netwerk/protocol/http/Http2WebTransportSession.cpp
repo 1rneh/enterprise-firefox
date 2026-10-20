@@ -122,18 +122,33 @@ void Http2WebTransportSessionImpl::GetNegotiatedProtocol(
 void Http2WebTransportSessionImpl::SendDatagram(nsTArray<uint8_t>&& aData,
                                                 uint64_t aTrackingId,
                                                 uint64_t aSendGroupId,
-                                                int64_t aSendOrder) {
+                                                int64_t aSendOrder,
+                                                TimeStamp aTimestamp) {
   LOG(("Http2WebTransportSessionImpl::SendDatagram %p, sendGroup=%" PRIu64
        ", sendOrder=%" PRId64,
        this, aSendGroupId, aSendOrder));
   // Note: Http2 WebTransport doesn't support sendGroup/sendOrder prioritization
   // yet. These parameters are accepted for API compatibility but not used.
+  // Nor is aTimestamp: the datagram is sent here, so it cannot expire.
 
   Capsule capsule = Capsule::WebTransportDatagram(std::move(aData));
 
   UniquePtr<CapsuleEncoder> encoder = MakeUnique<CapsuleEncoder>();
   encoder->EncodeCapsule(capsule);
   EnqueueOutCapsule(CapsuleTransmissionPriority::Normal, std::move(encoder));
+}
+
+void Http2WebTransportSessionImpl::SetDatagramMaxBufferedDatagrams(
+    uint32_t aMaxBufferedDatagrams) {
+  LOG(
+      ("Http2WebTransportSessionImpl::SetDatagramMaxBufferedDatagrams %p "
+       "max=%" PRIu32,
+       this, aMaxBufferedDatagrams));
+}
+
+void Http2WebTransportSessionImpl::SetDatagramMaxAge(double aMaxAge) {
+  LOG(("Http2WebTransportSessionImpl::SetDatagramMaxAge %p age=%f", this,
+       aMaxAge));
 }
 
 void Http2WebTransportSessionImpl::CreateOutgoingStreamInternal(

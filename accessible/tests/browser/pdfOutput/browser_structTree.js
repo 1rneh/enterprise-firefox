@@ -440,3 +440,74 @@ addPdfStructTreeTest(
   ],
   { chrome: true, topLevel: true }
 );
+
+addPdfStructTreeTest(
+  "testLink",
+  `<p>a <a href="https://example.com/">l</a></p>`,
+  [
+    {
+      role: "Root",
+      children: [
+        {
+          role: "Document",
+          children: [
+            {
+              role: "P",
+              children: [
+                { role: "NonStruct", children: [{ content: ["a"] }] },
+                {
+                  role: "Link",
+                  children: [
+                    { role: "NonStruct", children: [{ content: [" ", "l"] }] },
+                    { annotation: "Link", url: "https://example.com/" },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ]
+);
+
+addPdfStructTreeTest(
+  "testLinkOverflow",
+  `
+<p>a <a href="https://example.com/">l<span style="display: inline-block; height: 100px;">m</span></a></p>
+  `,
+  [
+    {
+      role: "Root",
+      children: [
+        {
+          role: "Document",
+          children: [
+            {
+              role: "P",
+              children: [
+                { role: "NonStruct", children: [{ content: ["a"] }] },
+                {
+                  role: "Link",
+                  children: [
+                    { role: "NonStruct", children: [{ content: [" ", "l"] }] },
+                    {
+                      role: "NonStruct",
+                      children: [
+                        { role: "NonStruct", children: [{ content: ["m"] }] },
+                        // This extends outside the link element's frame, so it
+                        // needs its own link annotation.
+                        { annotation: "Link", url: "https://example.com/" },
+                      ],
+                    },
+                    { annotation: "Link", url: "https://example.com/" },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ]
+);

@@ -1126,7 +1126,8 @@ TEST(TestHttp2WebTransport, SendAndReceiveDatagram)
   expectedData.AppendElements(mockData);
 
   // Send datagram from client to server
-  client->Session()->SendDatagram(std::move(mockData), 1, 0, 0);
+  client->Session()->SendDatagram(std::move(mockData), 1, 0, 0,
+                                  TimeStamp::Now());
   ServerProcessCapsules(server, client);
 
   // Verify the server received the correct datagram capsule

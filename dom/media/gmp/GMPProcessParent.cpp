@@ -248,22 +248,6 @@ bool GMPProcessParent::Launch(int32_t aTimeoutMs) {
   return launched;
 }
 
-void GMPProcessParent::Delete(nsCOMPtr<nsIRunnable> aCallback) {
-  mDeletedCallback = std::move(aCallback);
-  XRE_GetAsyncIOEventTarget()->Dispatch(NewNonOwningRunnableMethod(
-      "gmp::GMPProcessParent::DoDelete", this, &GMPProcessParent::DoDelete));
-}
-
-void GMPProcessParent::DoDelete() {
-  MOZ_ASSERT(XRE_GetAsyncIOEventTarget()->IsOnCurrentThread());
-
-  if (mDeletedCallback) {
-    mDeletedCallback->Run();
-  }
-
-  Destroy();
-}
-
 #if defined(XP_MACOSX) && defined(MOZ_SANDBOX)
 bool GMPProcessParent::IsMacSandboxLaunchEnabled() {
   return sLaunchWithMacSandbox;

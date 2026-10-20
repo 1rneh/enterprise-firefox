@@ -314,6 +314,9 @@ export var Bookmarks = Object.freeze({
       if (!parent) {
         throw new Error("parentGuid must be valid");
       }
+      if (parent.type != this.TYPE_FOLDER) {
+        throw new Error("parentGuid must be a folder");
+      }
 
       // Set index in the appending case.
       if (
@@ -614,6 +617,10 @@ export var Bookmarks = Object.freeze({
         throw new Error("Can't use insertTree to insert tags.");
       }
 
+      if (treeParent.type != Bookmarks.TYPE_FOLDER) {
+        throw new Error("The parent you specified must be a folder.");
+      }
+
       await insertBookmarkTree(
         insertInfos,
         source,
@@ -831,6 +838,9 @@ export var Bookmarks = Object.freeze({
             parent = await fetchBookmark({ guid: updateInfo.parentGuid });
             if (!parent) {
               throw new Error("No bookmarks found for the provided parentGuid");
+            }
+            if (parent.type != this.TYPE_FOLDER) {
+              throw new Error("parentGuid must be a folder");
             }
           }
 
@@ -1146,6 +1156,13 @@ export var Bookmarks = Object.freeze({
             { guid: targetParentGuid },
             { db }
           );
+
+          if (!newParent) {
+            throw new Error("No bookmarks found for the provided parentGuid");
+          }
+          if (newParent.type != this.TYPE_FOLDER) {
+            throw new Error("parentGuid must be a folder");
+          }
 
           if (newParent._grandParentId == lazy.PlacesUtils.tagsFolderId) {
             throw new Error("Can't move to a tags folder");

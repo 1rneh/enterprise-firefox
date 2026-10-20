@@ -162,7 +162,7 @@ const FEATURE_GATED_HANDLERS = new Map([
 /**
  * @typedef {object} GenerateAiTabSuccess
  * @property {true} success - If the AITab was generated successfully
- * @property {{message: string, aiTab: {slug: string}}} toolResult - The
+ * @property {{message: string, page: {slug: string}}} toolResult - The
  *   model response and the stored page's slug
  * @property {GenerateAiTabToolUI} uiData - Data to update the ToolUI
  */

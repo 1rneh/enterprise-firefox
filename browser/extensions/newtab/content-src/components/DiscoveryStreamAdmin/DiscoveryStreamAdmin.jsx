@@ -1233,6 +1233,10 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
     const adsFeedEnabled =
       this.props.otherPrefs[PREF_UNIFIED_ADS_ADSFEED_ENABLED];
 
+    const PREF_UNIFIED_ADS_ADSCLIENT_ENABLED = "unifiedAds.adsClient.enabled";
+    const adsClientEnabled =
+      this.props.otherPrefs[PREF_UNIFIED_ADS_ADSCLIENT_ENABLED];
+
     const unifiedAdsEndpoint = this.props.otherPrefs[PREF_UNIFIED_ADS_ENDPOINT];
     const spocsEndpoint = unifiedAdsSpocsEnabled
       ? unifiedAdsEndpoint
@@ -1263,6 +1267,10 @@ export class DiscoveryStreamAdminUI extends React.PureComponent {
                   label="Toggle allizom"
                 />
               </td>
+            </Row>
+            <Row>
+              <td className="min">MAC enabled</td>
+              <td>{adsClientEnabled ? "true" : "false"}</td>
             </Row>
             <Row>
               <td className="min">adsfeed enabled</td>

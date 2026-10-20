@@ -880,13 +880,6 @@ class LogModuleManager {
     }
   }
 
-  void DisableModules() {
-    OffTheBooksMutexAutoLock guard(mModulesLock);
-    for (auto& m : mModules) {
-      (*(m.GetModifiableData()))->SetLevel(LogLevel::Disabled);
-    }
-  }
-
  private:
   OffTheBooksMutex mModulesLock;
   nsClassHashtable<nsCharPtrHashKey, LogModule> mModules;

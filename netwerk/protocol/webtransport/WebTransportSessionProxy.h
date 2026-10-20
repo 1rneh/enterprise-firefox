@@ -176,7 +176,8 @@ class WebTransportSessionProxy final
                       WebTransportSessionBase* aSession, bool aBidi);
   void SendDatagramInternal(const RefPtr<WebTransportSessionBase>& aSession,
                             nsTArray<uint8_t>&& aData, uint64_t aTrackingId,
-                            uint64_t aSendGroupId, int64_t aSendOrder);
+                            uint64_t aSendGroupId, int64_t aSendOrder,
+                            TimeStamp aTimestamp);
   void NotifyDatagramReceived(nsTArray<uint8_t>&& aData);
   void GetMaxDatagramSizeInternal(
       const RefPtr<WebTransportSessionBase>& aSession);
@@ -189,6 +190,11 @@ class WebTransportSessionProxy final
       uint64_t aId, WebTransportSessionEventListener::DatagramOutcome aOutCome);
   void OnStopSendingInternal(uint64_t aStreamId, uint64_t aErrorCode);
   void OnResetReceivedInternal(uint64_t aStreamId, uint64_t aErrorCode);
+  void SetDatagramMaxBufferedDatagramsInternal(
+      const RefPtr<WebTransportSessionBase>& aSession,
+      uint32_t aMaxBufferedDatagrams);
+  void SetDatagramMaxAgeInternal(
+      const RefPtr<WebTransportSessionBase>& aSession, double aMaxAge);
 
   nsCOMPtr<nsIChannel> mChannel;
   uint64_t mHttpChannelID = 0;

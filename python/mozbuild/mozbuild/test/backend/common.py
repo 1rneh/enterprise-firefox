@@ -383,6 +383,17 @@ CONFIGS = defaultdict(
                 "OBJ_SUFFIX": "o",
             },
         },
+        "shared-lib-paths-windows": {
+            "defines": {},
+            "substs": {
+                "COMPILE_ENVIRONMENT": "1",
+                "OS_ARCH": "WINNT",
+                "OS_TARGET": "WINNT",
+                "DLL_SUFFIX": ".dll",
+                "IMPORT_LIB_SUFFIX": "lib",
+                "LIB_SUFFIX": "lib",
+            },
+        },
         "l10n-manifest-roots": {
             "defines": {},
             "substs": {

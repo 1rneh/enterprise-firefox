@@ -204,6 +204,9 @@ const AD_COMPONENTS = [
  * @property {string[]} followOnParamNames
  *   An array of query parameter names that are used when a follow-on search
  *   occurs.
+ * @property {string[]} ignoredQueryParamNames
+ *   An array of query parameter names to ignore when matching a clicked URL
+ *   against the URLs of components found on the SERP.
  * @property {ImpressionAttribute[]} impressionAttributes
  *  An array of conditions to check and report to the impression.
  * @property {boolean} isSPA
@@ -590,6 +593,9 @@ class TelemetryHandler {
 
       newProvider.nonAdsLinkQueryParamNames =
         provider.nonAdsLinkQueryParamNames ?? [];
+
+      newProvider.ignoredQueryParamNames =
+        provider.ignoredQueryParamNames ?? [];
 
       newProvider.subframes =
         provider.subframes
@@ -1012,7 +1018,8 @@ class TelemetryHandler {
    *   score is 0.
    * - If the path is the same, the score is increased by 1.
    * - For each query parameter, if the key exists the score is increased by 1.
-   *   Likewise if the query parameter values match.
+   *   Likewise if the query parameter values match. Query parameters listed
+   *   in matchOptions.ignoredQueryParamNames are skipped.
    * - If the hash is the same, the score is increased by 1. This includes if
    *   the hash is missing in both URLs.
    *
@@ -1027,6 +1034,8 @@ class TelemetryHandler {
    * @param {boolean} [matchOptions.paramValues]
    *   Whether the values of the query parameters must match if the query
    *   parameter key exists in the other. Defaults to false.
+   * @param {string[]} [matchOptions.ignoredQueryParamNames]
+   *   Names of query parameters to skip when comparing.
    * @returns {number}
    *   A score of how closely the two URLs match. Returns 0 if there is no
    *   match or the equality check failed for an enabled match option.
@@ -1046,6 +1055,9 @@ class TelemetryHandler {
       if (url1.pathname == url2.pathname) {
         ++score;
         for (let [key1, value1] of url1.searchParams) {
+          if (matchOptions.ignoredQueryParamNames?.includes(key1)) {
+            continue;
+          }
           // Let's not fuss about the ordering of search params, since the
           // score effect will solve that.
           if (url2.searchParams.has(key1)) {
@@ -1875,6 +1887,7 @@ class ContentHandler {
           let score = SearchSERPTelemetry.compareUrls(storedUrl, parsedUrl, {
             paramValues: true,
             path: true,
+            ignoredQueryParamNames: info.ignoredQueryParamNames,
           });
           if (score) {
             type = componentType;

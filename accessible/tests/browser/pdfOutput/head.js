@@ -77,8 +77,14 @@ async function assertPdfUsesTestFont(pdf) {
  * renumbered in tree order. A cell can reference a header which comes later in
  * the tree, so the headers references are remapped after the walk, once all ids
  * are known.
+ *
+ * pdf.js only exposes a struct tree node with type "annotation" if the
+ * annotation's StructParent maps back to the struct element containing the
+ * object reference. The id of such a node refers to an annotation object, which
+ * isn't stable, so these nodes are replaced with the annotation's subtype and
+ * url, found in `annotations`.
  */
-function simplifyStructTree(root, contentItems) {
+function simplifyStructTree(root, contentItems, annotations) {
   const structIds = new Map();
   const nodesWithHeaders = [];
   const walk = node => {
@@ -102,6 +108,14 @@ function simplifyStructTree(root, contentItems) {
         if (item.type == "endMarkedContent") {
           break;
         }
+      }
+      delete node.type;
+      delete node.id;
+    } else if (node.type == "annotation") {
+      const annotation = annotations.get(node.id);
+      node.annotation = annotation.subtype;
+      if (annotation.url) {
+        node.url = annotation.url;
       }
       delete node.type;
       delete node.id;
@@ -282,7 +296,10 @@ async function assertPdfStructTree(pdf, pageTrees) {
     const contentItems = (
       await page.getTextContent({ includeMarkedContent: true })
     ).items;
-    simplifyStructTree(actualTree, contentItems);
+    const annotations = new Map(
+      (await page.getAnnotations()).map(a => [`pdfjs_internal_id_${a.id}`, a])
+    );
+    simplifyStructTree(actualTree, contentItems, annotations);
     SimpleTest.isDeeply(
       actualTree,
       pageTrees[p],

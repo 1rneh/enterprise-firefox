@@ -1335,27 +1335,15 @@ IPCResult BrowserParent::RecvNewWindowGlobal(
     return IPC_FAIL(this, "Cannot create without valid documentURI");
   }
 
-  nsCOMPtr<nsIURI> docURI = aInit.documentURI();
-
   // Ensure we never load a document with a content principal in
   // the wrong type of webIsolated process
   // NOTE: Keep the AllowSystem condition in sync with the similar check in
   // DocumentLoadListener::TriggerRedirectToRealChannel.
   EnumSet<ValidatePrincipalOptions> validationOptions = {};
-  if (xpc::IsInAutomation()) {
-    // Automation-Only: chrome://reftest/** + blank subframes
-    bool isChromeReftest = false;
-    if (docURI->SchemeIs("chrome")) {
-      nsAutoCString host;
-      docURI->GetHost(host);
-      isChromeReftest = host.EqualsLiteral("reftest");
-    }
-
-    if (isChromeReftest ||
-        (NS_IsAboutBlank(docURI) && parentWgp && parentWgp->Manager() == this &&
-         parentWgp->DocumentPrincipal()->IsSystemPrincipal())) {
-      validationOptions += ValidatePrincipalOptions::AllowSystemIfLoaded;
-    }
+  if (StaticPrefs::
+          dom_ipc_validatePrincipal_testing_allowContentSystemDocuments() &&
+      xpc::IsInAutomation()) {
+    validationOptions += ValidatePrincipalOptions::AllowSystemIfLoaded;
   }
   if (!Manager()->ValidatePrincipal(aInit.principal(), validationOptions)) {
     return ContentParent::PrincipalValidationIpcFail(aInit.principal(), this,

@@ -3817,6 +3817,13 @@
   value: true
   mirror: always
 
+# Whether or not loading system principal chrome:// documents within a content
+# process is allowed. Only enabled during reftests.
+- name: dom.ipc.validatePrincipal.testing.allowContentSystemDocuments
+  type: bool
+  value: false
+  mirror: always
+
 # If this is true, any JS actor with safeForUntrustedWebProcess set to false
 # won't be allowed in a process that can hold web content.
 - name: dom.jsipc.check_safeForUntrustedWebProcess
@@ -4759,6 +4766,13 @@
   value: 25
   mirror: always
 
+# When true, newly initialized origins get at-rest encryption (not just
+# private browsing). Existing origins keep their encryption state.
+- name: dom.quotaManager.encryption.enabled
+  type: RelaxedAtomicBool
+  value: false
+  mirror: always
+
 # Use to control to dump CheckedUnsafePtr creation stack and assignment stacks.
 - name: dom.checkedUnsafePtr.dumpStacks.enabled
   type: RelaxedAtomicBool
@@ -5003,6 +5017,14 @@
 - name: dom.speculation_rules.record_expiry_ms
   type: RelaxedAtomicUint32
   value: 300000
+  mirror: always
+
+# Record prefetch candidates but never issue the request, so a navigation can
+# be reported as one that would have been prefetched. Control branch of the
+# prefetch A/B experiment; not for general use.
+- name: dom.speculation_rules.prefetch.dry_run
+  type: RelaxedAtomicBool
+  value: false
   mirror: always
 
 # When true, cross-origin prefetch URLs are rejected at StartPrefetch.
@@ -5645,12 +5667,6 @@
 - name: dom.headingoffset.enabled
   type: RelaxedAtomicBool
   value: false
-  mirror: always
-  rust: true
-
-- name: dom.text_fragments.enabled
-  type: RelaxedAtomicBool
-  value: true
   mirror: always
   rust: true
 
@@ -9988,6 +10004,13 @@
   mirror: always
   set_spidermonkey_pref: startup
 
+  # Improve field initializer bytecode.
+- name: javascript.options.experimental.inline_simple_field_initializers
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: startup
+
 #ifdef NIGHTLY_BUILD
   # Experimental support for Async Iterator Helpers in JavaScript.
 -   name: javascript.options.experimental.async_iterator_helpers
@@ -10555,6 +10578,12 @@
 #else
   value: false
 #endif
+  mirror: always
+
+# Whether to disable JIT in all other processes
+- name: javascript.options.other_processes_disable_jit
+  type: bool
+  value: false
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -11437,6 +11466,13 @@
   type: bool
   value: true
   mirror: always
+
+# Is support for ::-webkit-input-placeholder enabled?
+- name: layout.css.webkit-input-placeholder.enabled
+  type: RelaxedAtomicBool
+  value: true
+  mirror: always
+  rust: true
 
 # Is support for the progress() function enabled?
 # https://drafts.csswg.org/css-values-5/#progress
@@ -19919,6 +19955,13 @@
 - name: svg.use-element.recursive-clone-limit
   type: uint32_t
   value: 8
+  mirror: always
+
+# Whether to block inline event handlers (other than onload and onerror, which
+# are always blocked) on elements in <svg:use> shadow trees.
+- name: svg.use-element.block-inline-event-handlers
+  type: bool
+  value: @IS_NIGHTLY_BUILD@
   mirror: always
 
 #---------------------------------------------------------------------------

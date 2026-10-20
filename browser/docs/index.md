@@ -12,6 +12,7 @@ FrontendCodeReviewBestPractices
 CommandLineParameters
 BrowserStartup
 CategoryManagerIndirection
+DistributionIni
 components/customizableui/docs/index
 components/enterprisepolicies/docs/index
 components/taskbartabs/docs/index

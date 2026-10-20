@@ -668,14 +668,7 @@ bool nsWindow::WidgetTypeSupportsNativeCompositing() {
   if (IsDragPopup()) {
     return false;
   }
-#if defined(NIGHTLY_BUILD)
-  // For testing purpose use layered native composition for popups
-  // on nightly. It uses rapid map/unmap sequences it may reveal
-  // hidden bugs in layered code.
-  return true;
-#else
   return WidgetTypeSupportsAcceleration();
-#endif
 }
 
 static bool IsPenEvent(GdkEvent* aEvent, bool* isEraser) {
@@ -764,23 +757,10 @@ void nsWindow::ConstrainPosition(DesktopIntPoint& aPoint) {
     return;
   }
 
-  double dpiScale = GetDefaultScale().scale;
+  const DesktopIntRect screenBounds = GetScreenBoundsUnscaled();
+  nsCOMPtr<nsIScreen> screen =
+      ScreenManager::GetSingleton().ScreenForRect(screenBounds);
 
-  // we need to use the window size in logical screen pixels
-  auto bounds = GetScreenBounds();
-  int32_t logWidth = std::max(NSToIntRound(bounds.width / dpiScale), 1);
-  int32_t logHeight = std::max(NSToIntRound(bounds.height / dpiScale), 1);
-
-  /* get our playing field. use the current screen, or failing that
-    for any reason, use device caps for the default screen. */
-  nsCOMPtr<nsIScreenManager> screenmgr =
-      do_GetService("@mozilla.org/gfx/screenmanager;1");
-  if (!screenmgr) {
-    return;
-  }
-  nsCOMPtr<nsIScreen> screen;
-  screenmgr->ScreenForRect(aPoint.x, aPoint.y, logWidth, logHeight,
-                           getter_AddRefs(screen));
   // We don't have any screen so leave the coordinates as is
   if (!screen) {
     return;
@@ -796,8 +776,7 @@ void nsWindow::ConstrainPosition(DesktopIntPoint& aPoint) {
   auto slop =
       DesktopIntPoint::Round(GetScreenEdgeSlop() / GetDesktopToDeviceScale());
   screenRect.Inflate(slop.x, slop.y);
-
-  aPoint = ConstrainPositionToBounds(aPoint, {logWidth, logHeight}, screenRect);
+  aPoint = ConstrainPositionToBounds(aPoint, screenBounds.Size(), screenRect);
 }
 
 bool nsWindow::ConstrainSizeWithScale(int* aWidth, int* aHeight,
@@ -1341,7 +1320,7 @@ void nsWindow::SetFocus(Raise aRaise, mozilla::dom::CallerType aCallerType) {
                                    timestamp);
 
 #ifdef MOZ_WAYLAND
-      if (auto* toplevelWayland = toplevelWindow->AsWayland()) {
+      if (auto* toplevelWayland = toplevelWindow->AsWaylandToplevel()) {
         auto existingToken =
             std::move(toplevelWayland->mWindowActivationTokenFromEnv);
         if (!existingToken.IsEmpty()) {
@@ -2716,7 +2695,7 @@ void nsWindow::OnMotionNotifyEvent(GdkEventMotion* aEvent) {
 
     if (dragWindow) {
 #ifdef MOZ_WAYLAND
-      if (AsWayland() && AsWayland()->PIPMove()) {
+      if (AsWaylandToplevel() && AsWaylandToplevel()->PIPMove()) {
         // The ungrab is needed because the compositor won't send a button
         // release event. GDK may get stuck thinking that the implicit grab is
         // still active.
@@ -3019,7 +2998,7 @@ void nsWindow::OnButtonPressEvent(GdkEventButton* aEvent) {
       return;
     }
 #ifdef MOZ_WAYLAND
-    if (AsWayland() && AsWayland()->PIPResize(*edge)) {
+    if (AsWaylandToplevel() && AsWaylandToplevel()->PIPResize(*edge)) {
       // The ungrab is needed because the compositor won't send a button release
       // event. GDK may get stuck thinking that the implicit grab is still
       // active.
@@ -4063,8 +4042,8 @@ gboolean nsWindow::OnTouchEvent(GdkEventTouch* aEvent) {
 
           bool moved = false;
 #ifdef MOZ_WAYLAND
-          if (AsWayland()) {
-            moved = AsWayland()->PIPMove();
+          if (AsWaylandToplevel()) {
+            moved = AsWaylandToplevel()->PIPMove();
           }
 #endif
           if (!moved) {
@@ -4824,8 +4803,8 @@ void nsWindow::NativeMoveResize(bool aMoved, bool aResized) {
   }
 
 #ifdef MOZ_WAYLAND
-  if (IsWaylandPopup()) {
-    AsWayland()->NativeMoveResizeWaylandPopup(aMoved, aResized);
+  if (auto* popup = AsWaylandPopup()) {
+    popup->NativeMoveResizeWaylandPopup(aMoved, aResized);
   } else
 #endif
   {
@@ -7313,11 +7292,15 @@ nsresult nsWindow::GetSystemFont(nsCString& aFontName) {
   return NS_OK;
 }
 
-static already_AddRefed<nsIWidget> CreateWindow() {
+static already_AddRefed<nsIWidget> CreateWindow(bool aToplevel) {
   nsCOMPtr<nsIWidget> window;
 #ifdef MOZ_WAYLAND
   if (GdkIsWaylandDisplay()) {
-    window = new nsWindowWayland();
+    if (aToplevel) {
+      window = new nsWindowWaylandToplevel();
+    } else {
+      window = new nsWindowWaylandPopup();
+    }
   }
 #endif
 #ifdef MOZ_X11
@@ -7330,12 +7313,12 @@ static already_AddRefed<nsIWidget> CreateWindow() {
 }
 
 already_AddRefed<nsIWidget> nsIWidget::CreateTopLevelWindow() {
-  nsCOMPtr<nsIWidget> window = CreateWindow();
+  nsCOMPtr<nsIWidget> window = CreateWindow(/* aToplevel */ true);
   return window.forget();
 }
 
 already_AddRefed<nsIWidget> nsIWidget::CreateChildWindow() {
-  nsCOMPtr<nsIWidget> window = CreateWindow();
+  nsCOMPtr<nsIWidget> window = CreateWindow(/* aToplevel */ false);
   return window.forget();
 }
 
@@ -7444,8 +7427,8 @@ void nsWindow::OnUnmap() {
   LOG("nsWindow::OnUnmap");
 
 #ifdef MOZ_WAYLAND
-  if (AsWayland()) {
-    AsWayland()->ClearPipResources();
+  if (auto* toplevel = AsWaylandToplevel()) {
+    toplevel->ClearPipResources();
   }
 #endif
 

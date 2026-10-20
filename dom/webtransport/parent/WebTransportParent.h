@@ -5,6 +5,8 @@
 #ifndef DOM_WEBTRANSPORT_PARENT_WEBTRANSPORTPARENT_H_
 #define DOM_WEBTRANSPORT_PARENT_WEBTRANSPORTPARENT_H_
 
+#include <limits>
+
 #include "ErrorList.h"
 #include "mozilla/dom/ClientIPCTypes.h"
 #include "mozilla/dom/FlippedOnce.h"
@@ -67,9 +69,13 @@ class WebTransportParent : public PWebTransportParent,
       CreateBidirectionalStreamResolver&& aResolver);
 
   ::mozilla::ipc::IPCResult RecvOutgoingDatagram(
-      nsTArray<uint8_t>&& aData, const TimeStamp& aExpirationTime,
-      const uint64_t& aSendGroupId, const int64_t& aSendOrder,
-      OutgoingDatagramResolver&& aResolver);
+      const uint64_t& aDatagramId, nsTArray<uint8_t>&& aData,
+      const TimeStamp& aTimestamp, const uint64_t& aSendGroupId,
+      const int64_t& aSendOrder, OutgoingDatagramResolver&& aResolver);
+
+  ::mozilla::ipc::IPCResult RecvUpdateDatagramQueueParams(
+      const uint32_t& aOutgoingMaxBufferedDatagrams,
+      const double& aOutgoingMaxAge);
 
   ::mozilla::ipc::IPCResult RecvGetMaxDatagramSize(
       GetMaxDatagramSizeResolver&& aResolver);
@@ -142,6 +148,14 @@ class WebTransportParent : public PWebTransportParent,
   OutgoingDatagramResolver mOutgoingDatagramResolver;
   GetMaxDatagramSizeResolver mMaxDatagramSizeResolver;
   uint64_t mMaxDatagramSizeValue{0};
+  // Last value set via RecvUpdateDatagramQueueParams(), used by
+  // RecvOutgoingDatagram() to drop datagrams that are already older than
+  // outgoingMaxAge by the time they reach the parent (see comment there).
+  double mDatagramMaxAge{std::numeric_limits<double>::infinity()};
+  // Latest write timestamp handed to neqo; see RecvOutgoingDatagram().
+  TimeStamp mLastOutgoingDatagramTimestamp;
+  // When OnSessionReady() ran; the earliest a datagram could have been sent.
+  TimeStamp mSessionReadyTime;
   // Resolvers for in-flight GetStats() requests; only one gather runs at a
   // time, so concurrent calls share it. Socket thread only; drained via
   // ResolvePendingGetStats().

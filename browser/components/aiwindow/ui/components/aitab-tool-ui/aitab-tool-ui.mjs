@@ -71,7 +71,7 @@ export class AITabToolUI extends MozLitElement {
           width="16"
           height="16"
         />
-        ${this.title}
+        <span class="card-title">${this.title}</span>
       </p>
       <div class="actions">
         <moz-button
@@ -150,6 +150,10 @@ export class AITabToolUI extends MozLitElement {
 
   render() {
     return html`
+      <link
+        rel="stylesheet"
+        href="chrome://browser/content/aiwindow/components/ai-action-confirmation.css"
+      />
       <link
         rel="stylesheet"
         href="chrome://browser/content/aiwindow/components/aitab-tool-ui.css"

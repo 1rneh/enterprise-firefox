@@ -30,6 +30,60 @@ namespace mozilla::dom {
 namespace {
 
 template <typename Operation>
+class SameUnitValueComputation final {
+ public:
+  SameUnitValueComputation(const nsTArray<RefPtr<CSSNumericValue>>& aValues,
+                           Operation aOperation) {
+    MOZ_DIAGNOSTIC_ASSERT(!aValues.IsEmpty());
+
+    if (!aValues[0]->IsCSSUnitValue()) {
+      return;
+    }
+
+    auto& firstUnitValue = aValues[0]->GetAsCSSUnitValue();
+    double computedValue = firstUnitValue.Value();
+
+    for (size_t i = 1; i < aValues.Length(); ++i) {
+      if (!aValues[i]->IsCSSUnitValue()) {
+        return;
+      }
+
+      const auto& unitValue = aValues[i]->GetAsCSSUnitValue();
+
+      if (unitValue.Unit() != firstUnitValue.Unit()) {
+        return;
+      }
+
+      computedValue = aOperation(computedValue, unitValue.Value());
+    }
+
+    mCommonUnitValue = &firstUnitValue;
+    mComputedValue = computedValue;
+  }
+
+  bool AllHaveSameUnit() const { return mCommonUnitValue; }
+
+  const StyleNumericType& CommonNumericType() const {
+    MOZ_DIAGNOSTIC_ASSERT(AllHaveSameUnit());
+    return mCommonUnitValue->GetNumericType();
+  }
+
+  const nsACString& CommonUnit() const {
+    MOZ_DIAGNOSTIC_ASSERT(AllHaveSameUnit());
+    return mCommonUnitValue->Unit();
+  }
+
+  double ComputedValue() const {
+    MOZ_DIAGNOSTIC_ASSERT(AllHaveSameUnit());
+    return mComputedValue;
+  }
+
+ private:
+  RefPtr<CSSUnitValue> mCommonUnitValue;
+  double mComputedValue = 0.0;
+};
+
+template <typename Operation>
 UniquePtr<StyleNumericType> ComputeNumericType(
     Span<const RefPtr<CSSNumericValue>> aValues, Operation aOperation,
     ErrorResult& aRv) {
@@ -123,10 +177,24 @@ JSObject* CSSNumericValue::WrapObject(JSContext* aCx,
 
 // start of CSSNumericValue Web IDL implementation
 
+// Note: Implementing arithmetic operations in Stylo/Rust was considered, but
+// would require recursively converting operands via ToStyleNumericValue().
+// While this can be justified for To() and ToSum(), it would introduce
+// unnecessary conversions for arithmetic operations, which can work directly
+// with the existing DOM numeric values.
+
+// https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-add
 already_AddRefed<CSSNumericValue> CSSNumericValue::Add(
     const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv) {
-  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-  return nullptr;
+  nsTArray<RefPtr<CSSNumericValue>> values;
+
+  // Step 1.
+  for (const OwningCSSNumberish& numberish : aValues) {
+    values.AppendElement(CSSNumericValue::Create(mParent, numberish));
+  }
+
+  // Step 2-5.
+  return Add(std::move(values), aRv);
 }
 
 already_AddRefed<CSSNumericValue> CSSNumericValue::Sub(
@@ -335,6 +403,39 @@ void CSSNumericValue::ToCssTextWithProperty(
       break;
     }
   }
+}
+
+// Step 2-5 of:
+// https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-add
+already_AddRefed<CSSNumericValue> CSSNumericValue::Add(
+    nsTArray<RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv) {
+  // Step 2.
+  if (IsCSSMathValue() && GetAsCSSMathValue().IsCSSMathSum()) {
+    aValues.InsertElementsAt(
+        0, GetAsCSSMathValue().GetAsCSSMathSum().Values()->GetValues());
+  } else {
+    aValues.InsertElementAt(0, this);
+  }
+
+  SameUnitValueComputation computation(aValues, std::plus<double>{});
+
+  // Step 3.
+  if (computation.AllHaveSameUnit()) {
+    return MakeCSSUnitValue(mParent, computation.CommonNumericType(),
+                            computation.ComputedValue(),
+                            computation.CommonUnit());
+  }
+
+  // Step 4.
+  auto numericType = AddTypes(aValues, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  // Step 5.
+  RefPtr<CSSMathSum> mathSum =
+      CSSMathSum::Create(mParent, std::move(numericType), std::move(aValues));
+  return mathSum.forget();
 }
 
 StyleNumericValue CSSNumericValue::ToStyleNumericValue() const {

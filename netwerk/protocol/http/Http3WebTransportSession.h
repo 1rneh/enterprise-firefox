@@ -128,11 +128,15 @@ class Http3WebTransportSession final : public WebTransportSessionBase,
       WebTransportStreamType aType, uint64_t aId);
 
   void SendDatagram(nsTArray<uint8_t>&& aData, uint64_t aTrackingId,
-                    uint64_t aSendGroupId, int64_t aSendOrder) override;
+                    uint64_t aSendGroupId, int64_t aSendOrder,
+                    TimeStamp aTimestamp) override;
 
   void OnDatagramReceived(nsTArray<uint8_t>&& aData) override;
 
   void GetMaxDatagramSize() override;
+
+  void SetDatagramMaxBufferedDatagrams(uint32_t aMaxBufferedDatagrams) override;
+  void SetDatagramMaxAge(double aMaxAge) override;
 
   nsresult ExportKeyingMaterial(const nsTArray<uint8_t>& aLabel,
                                 const nsTArray<uint8_t>& aContext,

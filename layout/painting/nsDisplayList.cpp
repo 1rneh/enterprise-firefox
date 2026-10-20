@@ -833,6 +833,11 @@ nsDisplayListBuilder::Linkifier::Linkifier(nsDisplayListBuilder* aBuilder,
     return;
   }
 
+  nsPoint offset;
+  aBuilder->mLinkReferenceFrame =
+      aBuilder->FindReferenceFrameFor(aFrame, &offset);
+  aBuilder->mLinkBounds = nsRect(offset, aFrame->GetSize());
+
   // Record that we need to reset the builder's state on destruction.
   mBuilderToReset = aBuilder;
 }
@@ -842,12 +847,25 @@ void nsDisplayListBuilder::Linkifier::MaybeAppendLink(
   // Note that we may generate a link here even if the constructor bailed out
   // without updating aBuilder->mLinkURI/Dest, because it may have been set by
   // an ancestor that was associated with a link element.
-  if (!aBuilder->mLinkURI.IsEmpty() || !aBuilder->mLinkDest.IsEmpty()) {
-    auto* link = MakeDisplayItem<nsDisplayLink>(
-        aBuilder, aFrame, aBuilder->mLinkDest.get(), aBuilder->mLinkURI.get(),
-        aFrame->GetRect());
-    mList->AppendToTop(link);
+  if (aBuilder->mLinkURI.IsEmpty() && aBuilder->mLinkDest.IsEmpty()) {
+    return;
   }
+  if (!mBuilderToReset) {
+    // mBuilderToReset is only set for the link element's frame, so this is a
+    // descendant of that frame. If it is entirely covered by that frame, a link
+    // for it would be redundant.
+    nsPoint offset;
+    const nsIFrame* referenceFrame =
+        aBuilder->FindReferenceFrameFor(aFrame, &offset);
+    if (referenceFrame == aBuilder->mLinkReferenceFrame &&
+        aBuilder->mLinkBounds.Contains(nsRect(offset, aFrame->GetSize()))) {
+      return;
+    }
+  }
+  auto* link = MakeDisplayItem<nsDisplayLink>(
+      aBuilder, aFrame, aBuilder->mLinkDest.get(), aBuilder->mLinkURI.get(),
+      aFrame->GetRect());
+  mList->AppendToTop(link);
 }
 
 uint32_t nsDisplayListBuilder::sPaintSequenceNumber(1);
@@ -4927,79 +4945,6 @@ nsDisplayWrapList::CreateWebRenderCommandsNewClipListOption(
       GetChildren(), this, aDisplayListBuilder, aSc, aBuilder, aResources,
       aNewClipList);
   return Ok();
-}
-
-static nsresult WrapDisplayList(nsDisplayListBuilder* aBuilder,
-                                nsIFrame* aFrame, nsDisplayList* aList,
-                                nsDisplayItemWrapper* aWrapper) {
-  if (!aList->GetTop()) {
-    return NS_OK;
-  }
-  nsDisplayItem* item = aWrapper->WrapList(aBuilder, aFrame, aList);
-  if (!item) {
-    return NS_ERROR_OUT_OF_MEMORY;
-  }
-  // aList was emptied
-  aList->AppendToTop(item);
-  return NS_OK;
-}
-
-static nsresult WrapEachDisplayItem(nsDisplayListBuilder* aBuilder,
-                                    nsDisplayList* aList,
-                                    nsDisplayItemWrapper* aWrapper) {
-  for (nsDisplayItem* item : aList->TakeItems()) {
-    item = aWrapper->WrapItem(aBuilder, item);
-    if (!item) {
-      return NS_ERROR_OUT_OF_MEMORY;
-    }
-    aList->AppendToTop(item);
-  }
-  // aList was emptied
-  return NS_OK;
-}
-
-nsresult nsDisplayItemWrapper::WrapLists(nsDisplayListBuilder* aBuilder,
-                                         nsIFrame* aFrame,
-                                         const nsDisplayListSet& aIn,
-                                         const nsDisplayListSet& aOut) {
-  nsresult rv = WrapListsInPlace(aBuilder, aFrame, aIn);
-  NS_ENSURE_SUCCESS(rv, rv);
-
-  if (&aOut == &aIn) {
-    return NS_OK;
-  }
-  aOut.BorderBackground()->AppendToTop(aIn.BorderBackground());
-  aOut.BlockBorderBackgrounds()->AppendToTop(aIn.BlockBorderBackgrounds());
-  aOut.Floats()->AppendToTop(aIn.Floats());
-  aOut.Content()->AppendToTop(aIn.Content());
-  aOut.PositionedDescendants()->AppendToTop(aIn.PositionedDescendants());
-  aOut.Outlines()->AppendToTop(aIn.Outlines());
-  return NS_OK;
-}
-
-nsresult nsDisplayItemWrapper::WrapListsInPlace(
-    nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
-    const nsDisplayListSet& aLists) {
-  nsresult rv;
-  if (WrapBorderBackground()) {
-    // Our border-backgrounds are in-flow
-    rv = WrapDisplayList(aBuilder, aFrame, aLists.BorderBackground(), this);
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
-  // Our block border-backgrounds are in-flow
-  rv = WrapDisplayList(aBuilder, aFrame, aLists.BlockBorderBackgrounds(), this);
-  NS_ENSURE_SUCCESS(rv, rv);
-  // The floats are not in flow
-  rv = WrapEachDisplayItem(aBuilder, aLists.Floats(), this);
-  NS_ENSURE_SUCCESS(rv, rv);
-  // Our child content is in flow
-  rv = WrapDisplayList(aBuilder, aFrame, aLists.Content(), this);
-  NS_ENSURE_SUCCESS(rv, rv);
-  // The positioned descendants may not be in-flow
-  rv = WrapEachDisplayItem(aBuilder, aLists.PositionedDescendants(), this);
-  NS_ENSURE_SUCCESS(rv, rv);
-  // The outlines may not be in-flow
-  return WrapEachDisplayItem(aBuilder, aLists.Outlines(), this);
 }
 
 nsDisplayOpacity::nsDisplayOpacity(

@@ -297,9 +297,20 @@ document.addEventListener(
           case "Tools:ChatsHistory":
             FirefoxViewHandler.openTab("chats");
             break;
-          case "Tools:Sanitize":
-            Sanitizer.showUI(window);
+          case "Tools:Sanitize": {
+            let { DIALOG_ENTRY_POINTS } = Sanitizer;
+            let source = event.sourceEvent?.target;
+            let entryPoint = DIALOG_ENTRY_POINTS.OTHER;
+            if (source?.localName == "key") {
+              entryPoint = DIALOG_ENTRY_POINTS.SHORTCUT;
+            } else if (source?.id == "sanitizeItem") {
+              entryPoint = DIALOG_ENTRY_POINTS.MENU_BAR;
+            } else if (source?.id == "appMenuClearRecentHistory") {
+              entryPoint = DIALOG_ENTRY_POINTS.APP_MENU;
+            }
+            Sanitizer.showUI(window, undefined, { entryPoint });
             break;
+          }
           case "Tools:PrivateBrowsing":
             OpenBrowserWindow({ private: true });
             break;

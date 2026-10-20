@@ -401,7 +401,7 @@ class GPUProcessManager final : public GPUProcessHost::Listener {
   bool mAppInForeground;
 
   // Fields that are associated with the current GPU process.
-  GPUProcessHost* mProcess;
+  RefPtr<GPUProcessHost> mProcess;
   uint64_t mProcessToken;
   bool mProcessStable = false;
   bool mProcessStableOnce = false;

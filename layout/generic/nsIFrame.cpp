@@ -4414,19 +4414,18 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
   // frames that correspond to HTML link elements so that we can have active
   // links in saved PDF output. Note that the state of "within a link" is
   // set on the display-list builder, such that all descendants of the link
-  // element will generate display-list links.
-  // TODO: we should be able to optimize this so as to avoid creating links
-  // for the same destination that entirely overlap each other, which adds
-  // nothing useful to the final PDF.
+  // element will generate display-list links, except for descendants entirely
+  // covered by the link element's frame, since those would add nothing useful
+  // to the final PDF.
   Maybe<nsDisplayListBuilder::Linkifier> linkifier;
   if (aBuilder->IsForPrinting()) {
+#ifdef ACCESSIBILITY
+    MaybeAddAccId(childOrOutOfFlow, aBuilder, aLists);
+#endif
     if (StaticPrefs::print_save_as_pdf_links_enabled()) {
       linkifier.emplace(aBuilder, childOrOutOfFlow, aLists.Content());
       linkifier->MaybeAppendLink(aBuilder, childOrOutOfFlow);
     }
-#ifdef ACCESSIBILITY
-    MaybeAddAccId(childOrOutOfFlow, aBuilder, aLists);
-#endif
   }
 
   nsIFrame* parent = childOrOutOfFlow->GetParent();
@@ -9501,6 +9500,17 @@ void nsIFrame::DumpFrameTreeLimitedInCSSPixels() const {
 
 #endif
 
+static bool IsFragmentedPageContent(const nsIFrame* aFrame) {
+  MOZ_ASSERT(aFrame->IsPageContentFrame());
+  return aFrame->GetPrevInFlow() || aFrame->GetNextInFlow();
+}
+
+static bool IsReplicatedFixedPos(const nsIFrame* aFrame) {
+  return aFrame->StyleDisplay()->mPosition == StylePositionProperty::Fixed &&
+         nsLayoutUtils::IsReallyFixedPos(aFrame) &&
+         IsFragmentedPageContent(aFrame->GetParent());
+}
+
 // FIXME(emilio, bug 1633685): We should ideally figure out how to properly
 // restyle replicated fixed pos frames... We seem to assume everywhere that they
 // can't get restyled at the moment...
@@ -9509,10 +9519,34 @@ bool nsIFrame::IsInReplicatedFixedPosTree() const {
     return false;
   }
   for (const nsIFrame* f = this; f; f = f->GetParent()) {
-    if (f->StyleDisplay()->mPosition == StylePositionProperty::Fixed &&
-        nsLayoutUtils::IsReallyFixedPos(f)) {
-      const nsIFrame* pageContent = f->GetParent();
-      return pageContent->GetPrevInFlow() || pageContent->GetNextInFlow();
+    if (IsReplicatedFixedPos(f)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool nsIFrame::ContainsReplicatedFixedPosPlaceholders() const {
+  if (!PresContext()->IsPaginated()) {
+    return false;
+  }
+  // Assumption here is that, in the common case, this will be faster than a
+  // whole subtree walk.
+  auto* ancestorPageContent =
+      nsLayoutUtils::GetClosestFrameOfType(this, LayoutFrameType::PageContent);
+  if (!ancestorPageContent || !IsFragmentedPageContent(ancestorPageContent)) {
+    return false;
+  }
+  for (auto* f : ancestorPageContent->GetChildList(ChildListID::Absolute)) {
+    if (!IsReplicatedFixedPos(f)) {
+      continue;
+    }
+    auto* ph = f->GetPlaceholderFrame();
+    if (NS_WARN_IF(!ph)) {
+      continue;
+    }
+    if (nsLayoutUtils::IsProperAncestorFrame(this, ph)) {
+      return true;
     }
   }
   return false;

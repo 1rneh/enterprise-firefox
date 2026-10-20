@@ -56,7 +56,7 @@ skip-if = [
 https_first_disabled = true
 skip-if = [
   "debug", # bug 1369731
-  "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && opt && nova", # Bug 2057534
+  "os == 'linux' && os_version == '22.04' && arch == 'x86_64' && opt", # Bug 2057534
 ]
 
 ["browser_devices_get_user_media_in_xorigin_frame_chain.js"]

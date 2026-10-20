@@ -32,15 +32,17 @@ namespace mozilla::dom::quota {
 // resort to check the origin scheme instead to initialize mIsExtension.
 OriginInfo::OriginInfo(GroupInfo* aGroupInfo, const nsACString& aOrigin,
                        const nsACString& aStorageOrigin, bool aIsPrivate,
-                       const ClientUsageArray& aClientUsages, int64_t aUsage,
-                       int64_t aAccessTime, int32_t aMaintenanceDate,
-                       bool aPersisted, bool aDirectoryExists)
+                       bool aIsEncrypted, const ClientUsageArray& aClientUsages,
+                       int64_t aUsage, int64_t aAccessTime,
+                       int32_t aMaintenanceDate, bool aPersisted,
+                       bool aDirectoryExists)
     : mGroupInfo(aGroupInfo),
       mOrigin(aOrigin),
       mStorageOrigin(aStorageOrigin),
       mAccessTime(aAccessTime),
       mMaintenanceDate(aMaintenanceDate),
       mIsPrivate(aIsPrivate),
+      mIsEncrypted(aIsEncrypted),
       mAccessed(false),
       mPersisted(aPersisted),
       mIsExtension(StringBeginsWith(aOrigin, "moz-extension://"_ns)),
@@ -76,7 +78,8 @@ OriginMetadata OriginInfo::FlattenToOriginMetadata() const {
           mOrigin,
           mStorageOrigin,
           mIsPrivate,
-          mGroupInfo->mPersistenceType};
+          mGroupInfo->mPersistenceType,
+          mIsEncrypted};
 }
 
 OriginStateMetadata OriginInfo::LockedFlattenToOriginStateMetadata() const {
@@ -118,9 +121,9 @@ nsresult OriginInfo::LockedBindToStatement(
       aStatement->BindInt64ByName("last_access_time"_ns, mAccessTime)));
   QM_TRY(MOZ_TO_RESULT(aStatement->BindInt32ByName("last_maintenance_date"_ns,
                                                    mMaintenanceDate)));
-  OriginStateMetadata stateMetadata = LockedFlattenToOriginStateMetadata();
   QM_TRY(MOZ_TO_RESULT(aStatement->BindInt32ByName(
-      "metadata_flags"_ns, stateMetadata.ToMetadataFlags())));
+      "metadata_flags"_ns,
+      LockedFlattenToFullOriginMetadata().ToMetadataFlags())));
 
   return NS_OK;
 }

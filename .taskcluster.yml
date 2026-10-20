@@ -411,8 +411,8 @@ tasks:
                           $switch:
                               'repoUrl == "https://github.com/mozilla/enterprise-firefox"': "prod"
                               'repoUrl == "https://github.com/mozilla/enterprise-firefox-try"': "dev"
-                              'repoUrl == "https://github.com/mozilla/firefox-dev"': "dev"
                               'repoUrl == "https://github.com/mozilla-releng/staging-firefox"': "dev"
+                              'repoUrl == "https://github.com/mozilla-firefox/firefox-dev"': "dev"
                               'repoUrl == "https://github.com/mozilla-firefox/firefox"': "prod"
                               $default: null
                       shortRef:

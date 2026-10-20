@@ -77,6 +77,38 @@ add_task(async function test_policy_enterprise_telemetry() {
   await clearWebsiteFilter();
 });
 
+add_task(async function test_telemetry_https_only_upgrade() {
+  const path =
+    "://example.com/browser/browser/components/enterprisepolicies/tests/browser/" +
+    BLOCKED_PAGE;
+
+  await setupPolicyEngineWithJson({
+    policies: {
+      WebsiteFilter: {
+        Block: ["https://example.com/*policy_websitefilter_block*"],
+      },
+      SecurityLogging: {
+        BlocklistDomainBrowsed: { Enabled: true, UrlLogging: "full" },
+      },
+    },
+  });
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.policies.enterprise.telemetry.testing.disableSubmit", true],
+      ["dom.security.https_only_mode", true],
+    ],
+  });
+
+  // The upgrade is a redirect without a 3xx response, so only the
+  // WebsiteFilter channel event sink sees the blocked https URL.
+  await checkBlockedPageTelemetry("http" + path, {
+    resolvedURL: "https" + path,
+  });
+
+  await SpecialPowers.popPrefEnv();
+  await clearWebsiteFilter();
+});
+
 add_task(async function test_no_telemetry_without_security_logging_policy() {
   await setupPolicyEngineWithJson({
     policies: {

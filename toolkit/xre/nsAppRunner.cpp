@@ -5293,7 +5293,7 @@ int XREMain::XRE_mainInit(bool* aExitFlag) {
   #endif
 #endif  // MOZ_THUNDERBIRD
 
-#ifdef MOZ_ENTERPRISE
+#if defined(MOZ_ENTERPRISE) && !defined(MOZ_THUNDERBIRD)
   FOG::SetApplicationID("firefox.enterprise.desktop"_ns);
 #endif
 

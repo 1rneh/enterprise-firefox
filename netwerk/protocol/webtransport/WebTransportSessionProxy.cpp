@@ -758,11 +758,12 @@ WebTransportSessionProxy::CreateOutgoingBidirectionalStream(
 
 void WebTransportSessionProxy::SendDatagramInternal(
     const RefPtr<WebTransportSessionBase>& aSession, nsTArray<uint8_t>&& aData,
-    uint64_t aTrackingId, uint64_t aSendGroupId, int64_t aSendOrder) {
+    uint64_t aTrackingId, uint64_t aSendGroupId, int64_t aSendOrder,
+    TimeStamp aTimestamp) {
   MOZ_ASSERT(OnSocketThread());
 
   aSession->SendDatagram(std::move(aData), aTrackingId, aSendGroupId,
-                         aSendOrder);
+                         aSendOrder, aTimestamp);
 }
 
 NS_IMETHODIMP
@@ -770,6 +771,16 @@ WebTransportSessionProxy::SendDatagram(const nsTArray<uint8_t>& aData,
                                        uint64_t aTrackingId,
                                        uint64_t aSendGroupId,
                                        int64_t aSendOrder) {
+  return SendDatagramAt(aData, aTrackingId, aSendGroupId, aSendOrder,
+                        TimeStamp::Now());
+}
+
+NS_IMETHODIMP
+WebTransportSessionProxy::SendDatagramAt(const nsTArray<uint8_t>& aData,
+                                         uint64_t aTrackingId,
+                                         uint64_t aSendGroupId,
+                                         int64_t aSendOrder,
+                                         TimeStamp aTimestamp) {
   RefPtr<WebTransportSessionBase> session;
   {
     MutexAutoLock lock(mMutex);
@@ -787,14 +798,15 @@ WebTransportSessionProxy::SendDatagram(const nsTArray<uint8_t>& aData,
         "WebTransportSessionProxy::SendDatagramInternal",
         [self = RefPtr{this}, session{std::move(session)},
          data{std::move(copied)}, trackingId(aTrackingId),
-         sendGroupId(aSendGroupId), sendOrder(aSendOrder)]() mutable {
+         sendGroupId(aSendGroupId), sendOrder(aSendOrder),
+         timestamp(aTimestamp)]() mutable {
           self->SendDatagramInternal(session, std::move(data), trackingId,
-                                     sendGroupId, sendOrder);
+                                     sendGroupId, sendOrder, timestamp);
         }));
   }
 
   SendDatagramInternal(session, std::move(copied), aTrackingId, aSendGroupId,
-                       aSendOrder);
+                       aSendOrder, aTimestamp);
   return NS_OK;
 }
 
@@ -832,6 +844,72 @@ WebTransportSessionProxy::GetMaxDatagramSize() {
 NS_IMETHODIMP
 WebTransportSessionProxy::GetHttpChannelID(uint64_t* _retval) {
   *_retval = mHttpChannelID;
+  return NS_OK;
+}
+
+void WebTransportSessionProxy::SetDatagramMaxBufferedDatagramsInternal(
+    const RefPtr<WebTransportSessionBase>& aSession,
+    uint32_t aMaxBufferedDatagrams) {
+  MOZ_ASSERT(OnSocketThread());
+
+  aSession->SetDatagramMaxBufferedDatagrams(aMaxBufferedDatagrams);
+}
+
+NS_IMETHODIMP
+WebTransportSessionProxy::SetDatagramMaxBufferedDatagrams(
+    uint32_t aMaxBufferedDatagrams) {
+  RefPtr<WebTransportSessionBase> session;
+  {
+    MutexAutoLock lock(mMutex);
+    if (mState != WebTransportSessionProxyState::ACTIVE ||
+        !mWebTransportSession) {
+      return NS_ERROR_NOT_AVAILABLE;
+    }
+    session = mWebTransportSession;
+  }
+
+  if (!OnSocketThread()) {
+    return gSocketTransportService->Dispatch(NS_NewRunnableFunction(
+        "WebTransportSessionProxy::SetDatagramMaxBufferedDatagramsInternal",
+        [self = RefPtr{this}, session{std::move(session)},
+         maxBufferedDatagrams(aMaxBufferedDatagrams)]() {
+          self->SetDatagramMaxBufferedDatagramsInternal(session,
+                                                        maxBufferedDatagrams);
+        }));
+  }
+
+  SetDatagramMaxBufferedDatagramsInternal(session, aMaxBufferedDatagrams);
+  return NS_OK;
+}
+
+void WebTransportSessionProxy::SetDatagramMaxAgeInternal(
+    const RefPtr<WebTransportSessionBase>& aSession, double aMaxAge) {
+  MOZ_ASSERT(OnSocketThread());
+
+  aSession->SetDatagramMaxAge(aMaxAge);
+}
+
+NS_IMETHODIMP
+WebTransportSessionProxy::SetDatagramMaxAge(double aMaxAge) {
+  RefPtr<WebTransportSessionBase> session;
+  {
+    MutexAutoLock lock(mMutex);
+    if (mState != WebTransportSessionProxyState::ACTIVE ||
+        !mWebTransportSession) {
+      return NS_ERROR_NOT_AVAILABLE;
+    }
+    session = mWebTransportSession;
+  }
+
+  if (!OnSocketThread()) {
+    return gSocketTransportService->Dispatch(NS_NewRunnableFunction(
+        "WebTransportSessionProxy::SetDatagramMaxAgeInternal",
+        [self = RefPtr{this}, session{std::move(session)}, maxAge(aMaxAge)]() {
+          self->SetDatagramMaxAgeInternal(session, maxAge);
+        }));
+  }
+
+  SetDatagramMaxAgeInternal(session, aMaxAge);
   return NS_OK;
 }
 

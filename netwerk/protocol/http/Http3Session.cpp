@@ -3192,30 +3192,44 @@ nsresult Http3Session::CreateWebTransportStream(
 
 void Http3Session::SendDatagram(Http3WebTransportSession* aSession,
                                 nsTArray<uint8_t>& aData, uint64_t aTrackingId,
-                                uint64_t aSendGroupId, int64_t aSendOrder) {
+                                uint64_t aSendGroupId, int64_t aSendOrder,
+                                TimeStamp aTimestamp) {
+  // Taken as late as possible, so time spent getting here counts too.
+  uint64_t ageUs = static_cast<uint64_t>(
+      std::max(0.0, (TimeStamp::Now() - aTimestamp).ToMicroseconds()));
+  bool belowHighWaterMark = false;
   nsresult rv = mHttp3Connection->WebTransportSendDatagram(
-      aSession->StreamId(), aData, aTrackingId, aSendGroupId, aSendOrder);
-  LOG(("Http3Session::SendDatagram %p res=%" PRIx32, this,
-       static_cast<uint32_t>(rv)));
-  if (!aTrackingId) {
-    return;
+      aSession->StreamId(), aData, aTrackingId, &belowHighWaterMark,
+      aSendGroupId, aSendOrder, ageUs);
+  LOG(("Http3Session::SendDatagram %p res=%" PRIx32
+       " belowHWM=%d, sendGroup=%" PRIu64 ", sendOrder=%" PRId64,
+       this, static_cast<uint32_t>(rv), belowHighWaterMark, aSendGroupId,
+       aSendOrder));
+
+  // Per spec section 4.3 step 9: if queue is below high water mark,
+  // resolve promise immediately (send OnDatagramReady now).
+  // neqo will also emit a DatagramOutcome event for this datagram once it is
+  // actually sent/dropped, which results in a second, redundant
+  // OnDatagramReady/DatagramReady for the same tracking ID. This is
+  // intentional: the content-process side treats an unknown tracking ID as a
+  // harmless no-op (the promise was already resolved by the first
+  // notification), so we accept the extra IPC round-trip rather than track
+  // per-ID dedup state here.
+  if (aTrackingId && NS_SUCCEEDED(rv) && belowHighWaterMark) {
+    aSession->OnOutgoingDatagramOutCome(
+        aTrackingId, WebTransportSessionEventListener::DatagramOutcome::SENT);
   }
 
-  switch (rv) {
-    case NS_OK:
-      aSession->OnOutgoingDatagramOutCome(
-          aTrackingId, WebTransportSessionEventListener::DatagramOutcome::SENT);
-      break;
-    case NS_ERROR_NOT_AVAILABLE:
-      aSession->OnOutgoingDatagramOutCome(
-          aTrackingId, WebTransportSessionEventListener::DatagramOutcome::
-                           DROPPED_TOO_MUCH_DATA);
-      break;
-    default:
-      aSession->OnOutgoingDatagramOutCome(
-          aTrackingId,
-          WebTransportSessionEventListener::DatagramOutcome::UNKNOWN);
-      break;
+  // Only report immediate failures if queuing itself failed.
+  if (aTrackingId && NS_FAILED(rv)) {
+    WebTransportSessionEventListener::DatagramOutcome outcome;
+    if (rv == NS_ERROR_NOT_AVAILABLE) {
+      outcome = WebTransportSessionEventListener::DatagramOutcome::
+          DROPPED_TOO_MUCH_DATA;
+    } else {
+      outcome = WebTransportSessionEventListener::DatagramOutcome::UNKNOWN;
+    }
+    aSession->OnOutgoingDatagramOutCome(aTrackingId, outcome);
   }
 }
 
@@ -3231,6 +3245,21 @@ nsresult Http3Session::ExportWebTransportKeyingMaterial(
     nsTArray<uint8_t>& aKeyingMaterial) {
   return mHttp3Connection->ExportWebTransportKeyingMaterial(
       aSessionId, aLabel, aContext, aOutputLength, aKeyingMaterial);
+}
+
+void Http3Session::SetDatagramMaxBufferedDatagrams(
+    uint64_t aSessionId, uint32_t aMaxBufferedDatagrams) {
+  LOG(("Http3Session::SetDatagramMaxBufferedDatagrams sessionId=%" PRIu64
+       " max=%" PRIu32,
+       aSessionId, aMaxBufferedDatagrams));
+  (void)mHttp3Connection->WebTransportSetDatagramMaxBufferedDatagrams(
+      aSessionId, aMaxBufferedDatagrams);
+}
+
+void Http3Session::SetDatagramMaxAge(uint64_t aSessionId, double aMaxAge) {
+  LOG(("Http3Session::SetDatagramMaxAge sessionId=%" PRIu64 " age=%f",
+       aSessionId, aMaxAge));
+  (void)mHttp3Connection->WebTransportSetDatagramMaxAge(aSessionId, aMaxAge);
 }
 
 bool Http3Session::GetWebTransportSessionStats(

@@ -34,7 +34,7 @@ use crate::picture::{get_relative_scale_offset, PictureInstance};
 use crate::picture::MAX_COMPOSITOR_SURFACES_SIZE;
 use crate::prim_store::{ClipSnap, PrimitiveInstance, PrimitiveKind, PrimitiveScratchBuffer, PictureIndex};
 use crate::print_tree::{PrintTreePrinter, PrintTree};
-use crate::{profiler, render_backend::DataStores};
+use crate::{profiler, render_backend::{DataStores, DlStores}};
 use crate::profiler::TransactionProfile;
 use crate::renderer::GpuBufferBuilderF;
 use crate::resource_cache::{ResourceCache, ImageRequest};
@@ -2103,6 +2103,7 @@ impl TileCacheInstance {
         local_prim_rect: LayoutRect,
         frame_context: &FrameVisibilityContext,
         data_stores: &DataStores,
+        dl_stores: &DlStores,
         clip_store: &ClipStore,
         pictures: &[PictureInstance],
         resource_cache: &mut ResourceCache,
@@ -2187,7 +2188,7 @@ impl TileCacheInstance {
         }
 
         // Build the list of resources that this primitive has dependencies on.
-        let mut prim_info = PrimitiveDependencyInfo::new(prim_instance.uid(), pic_coverage_rect);
+        let mut prim_info = PrimitiveDependencyInfo::new(prim_instance.uid(dl_stores), pic_coverage_rect);
         // Compute once here so it's available for both prim_info and the tile loop.
         let prim_clamp_to_tile = matches!(
             prim_instance.kind,
@@ -2248,11 +2249,11 @@ impl TileCacheInstance {
                     prim_info.opacity_bindings.push(binding.into());
                 }
             }
-            PrimitiveKind::Rectangle { data_handle, .. } => {
+            PrimitiveKind::Rectangle { handle } => {
                 // Rectangles can only form a backdrop candidate if they are known opaque.
                 // TODO(gw): We could resolve the opacity binding here, but the common
                 //           case for background rects is that they don't have animated opacity.
-                let prim_color = data_stores.prim[data_handle].kind.color;
+                let prim_color = dl_stores.rectangles[handle].kind.color;
                 let resolved = frame_context.scene_properties.resolve_color(&prim_color);
                 if resolved.a >= 1.0 {
                     backdrop_candidate = Some(BackdropInfo {
@@ -2378,7 +2379,7 @@ impl TileCacheInstance {
                 });
             }
             PrimitiveKind::YuvImage { data_handle, .. } => {
-                let prim_uid = prim_instance.uid();
+                let prim_uid = prim_instance.uid(dl_stores);
                 let prim_data = &data_stores.yuv_image[data_handle];
 
                 let mut promotion_result: Result<CompositorSurfaceKind, SurfacePromotionFailure> = Ok(CompositorSurfaceKind::Blit);
@@ -2585,38 +2586,42 @@ impl TileCacheInstance {
             PrimitiveKind::BackdropCapture { .. } => {}
             PrimitiveKind::BackdropRender { pic_index, .. } => {
                 // If the area that the backdrop covers in the space of the surface it draws on
-                // is empty, skip any sub-graph processing. This is not just a performance win,
+                // is empty, skip any backdrop-filter chain processing. This is not just a performance win,
                 // it also ensures that we don't do a deferred dirty test that invalidates a tile
                 // even if the tile isn't actually dirty, which can cause panics later in the
                 // WR pipeline.
                 if !pic_coverage_rect.is_empty() {
-                    // Mark that we need the sub-graph this render depends on so that
-                    // we don't skip it during the prepare pass
-                    scratch.frame.required_sub_graphs.insert(pic_index);
+                    // Mark that we need the backdrop-filter chain this render depends on so
+                    // that we don't skip it during the prepare pass
+                    scratch.frame.required_backdrop_chains.insert(pic_index);
 
-                    // If this is a sub-graph, register the bounds on any affected tiles
-                    // so we know how much to expand the content tile by.
-                    let sub_slice = &mut self.sub_slices[sub_slice_index];
+                    // A backdrop drawn by its own primitives depends on everything
+                    // in the region its filters sample, not just what's under the
+                    // element. Those primitives are recorded in their own tiles,
+                    // so only this test can make a change to them redraw the
+                    // backdrop. Invalidating that whole region also keeps any
+                    // surface behind the element from being clipped to a part of
+                    // it. Only a tiled surface is drawn within dirty rects, and the
+                    // region is in the backdrop root's space, so this is only done
+                    // when the root is this slice.
+                    let collected_region = scratch.frame.backdrop_captures.for_chain(pic_index)
+                        .filter(|capture| capture.root_surface_index == self.surface_index)
+                        .map(|capture| capture.region);
 
-                    let mut surface_info = Vec::new();
-                    for (pic_index, surface_index) in surface_stack.iter().rev() {
-                        let pic = &pictures[pic_index.0 as usize];
-                        surface_info.push((pic.composite_mode.as_ref().unwrap().clone(), *surface_index));
-                    }
-
-                    for y in p0.y .. p1.y {
-                        for x in p0.x .. p1.x {
-                            let key = TileOffset::new(x, y);
-                            let tile = sub_slice.tiles.get_mut(&key).expect("bug: no tile");
-                            tile.cached_surface.sub_graphs.push((pic_coverage_rect, surface_info.clone()));
+                    let (dirty_test_rect, dirty_test_p0, dirty_test_p1) = match collected_region {
+                        Some(region) => {
+                            let rect = region.union(&pic_coverage_rect);
+                            let (p0, p1) = self.get_tile_coords_for_rect(&rect);
+                            (rect, p0, p1)
                         }
-                    }
+                        None => (pic_coverage_rect, p0, p1),
+                    };
 
                     // For backdrop-filter, we need to check if any of the dirty rects
                     // in tiles that are affected by the filter primitive are dirty.
                     self.deferred_dirty_tests.push(DeferredDirtyTest {
-                        tile_rect: TileRect::new(p0, p1),
-                        prim_rect: pic_coverage_rect,
+                        tile_rect: TileRect::new(dirty_test_p0, dirty_test_p1),
+                        prim_rect: dirty_test_rect,
                     });
                 }
             }

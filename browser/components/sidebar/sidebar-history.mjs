@@ -181,7 +181,9 @@ export class SidebarHistory extends SidebarPage {
         this.#changeSortOption(e, "mostvisited");
         break;
       case "sidebar-history-clear": {
-        const button = await lazy.Sanitizer.showUI(this.topWindow);
+        const button = await lazy.Sanitizer.showUI(this.topWindow, undefined, {
+          entryPoint: lazy.Sanitizer.DIALOG_ENTRY_POINTS.SIDEBAR_HISTORY,
+        });
         const outcome = button === "accept" ? "confirmed" : "cancelled";
         Glean.browserUiInteraction.sidebarHistory[
           `clear_history_${outcome}`

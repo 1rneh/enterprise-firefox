@@ -269,6 +269,15 @@
         "string": "The query param name to examine."
       }
     },
+    "ignoredQueryParamNames": {
+      "type": "array",
+      "title": "Ignored query param names",
+      "description": "Query param names to ignore when matching the URL of a clicked link to a component on the SERP. Useful for params whose value changes between page load and click, e.g. a click-time token.",
+      "items": {
+        "type": "string",
+        "description": "The query param name to ignore."
+      }
+    },
     "nonAdsLinkRegexps": {
       "type": "array",
       "title": "Non-ads link matching regular expressions",

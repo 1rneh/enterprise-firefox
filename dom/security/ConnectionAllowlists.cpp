@@ -278,6 +278,9 @@ bool ConnectionAllowlists::ShouldBlockURL(nsIURI* aURI,
 void ConnectionAllowlists::ReportViolation(
     const Variant<nsIURI*, nsCString>& aResource, nsILoadInfo* aLoadInfo,
     const Allowlist& aAllowlist) {
+  // Report violations to the web console.
+  ReportToConsole(aResource, aLoadInfo, aAllowlist);
+
   // 1. If allowlist’s reporting endpoint is null, return.
   if (aAllowlist.mReportingEndpoint.IsEmpty()) {
     return;
@@ -335,6 +338,37 @@ void ConnectionAllowlists::ReportViolation(
   // destination, and violation as the data.
   ReportingUtils::Report(window, nsGkAtoms::connection_allowlist,
                          aAllowlist.mReportingEndpoint, url, violation);
+}
+
+/* static */
+void ConnectionAllowlists::ReportToConsole(
+    const Variant<nsIURI*, nsCString>& aResource, nsILoadInfo* aLoadInfo,
+    const Allowlist& aAllowlist) {
+  if (nsContentUtils::IsPreloadType(aLoadInfo->InternalContentPolicyType())) {
+    return;  // Don't report for preloads.
+  }
+
+  const bool enforce = aAllowlist.mDisposition == Disposition::Enforce;
+  const char* messageKey = enforce ? "ConnectionAllowlistBlocked"
+                                   : "ConnectionAllowlistReportOnlyBlocked";
+  AutoTArray<nsString, 1> params;
+  nsString* param = params.AppendElement();
+  if (aResource.is<nsIURI*>()) {
+    CopyUTF8toUTF16(aResource.as<nsIURI*>()->GetSpecOrDefault(), *param);
+  } else {
+    CopyUTF8toUTF16(aResource.as<nsCString>(), *param);
+  }
+  nsAutoString localizedMsg;
+  nsresult rv = nsContentUtils::FormatLocalizedString(
+      PropertiesFile::SECURITY_PROPERTIES, messageKey, params, localizedMsg);
+  NS_ENSURE_SUCCESS_VOID(rv);
+
+  uint64_t windowID = aLoadInfo->GetInnerWindowID();
+
+  nsContentUtils::ReportToConsoleByWindowID(
+      localizedMsg,
+      enforce ? nsIScriptError::errorFlag : nsIScriptError::warningFlag,
+      "Security"_ns, windowID);
 }
 
 void ConnectionAllowlists::Allowlist::ToEntryArgs(

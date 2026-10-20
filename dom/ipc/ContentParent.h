@@ -1496,7 +1496,7 @@ class ContentParent final : public PContentParent,
   // release these objects in ShutDownProcess.  See the comment there for more
   // details.
 
-  GeckoChildProcessHost* mSubprocess;
+  RefPtr<GeckoChildProcessHost> mSubprocess;
   const TimeStamp mLaunchTS;  // used to calculate time to start content process
   TimeStamp mLaunchYieldTS;   // used to calculate async launch main thread time
 

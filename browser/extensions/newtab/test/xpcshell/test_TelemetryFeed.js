@@ -19,8 +19,6 @@ ChromeUtils.defineESModuleGetters(this, {
   GleanSessionType: "resource://newtab/lib/TelemetryFeed.sys.mjs",
   HomePage: "resource:///modules/HomePage.sys.mjs",
   isAdEligiblePositionSupported: "resource://newtab/lib/TelemetryFeed.sys.mjs",
-  isBrowserContextMenuClickSupported:
-    "resource://newtab/lib/TelemetryFeed.sys.mjs",
   NewTabContentPing: "resource://newtab/lib/NewTabContentPing.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   sinon: "resource://testing-common/Sinon.sys.mjs",
@@ -2144,21 +2142,6 @@ add_task(async function test_isAdEligiblePositionSupported() {
   );
 });
 
-add_task(async function test_isBrowserContextMenuClickSupported() {
-  info(
-    "background, and event_source on topsites.click, should only be sent on " +
-      "hosts whose schema has them"
-  );
-
-  Assert.ok(!isBrowserContextMenuClickSupported("159.0"), "Not on a 159 host");
-  Assert.ok(
-    isBrowserContextMenuClickSupported("160.0a1"),
-    "On the 160 nightly it landed in"
-  );
-  Assert.ok(isBrowserContextMenuClickSupported("160.0b4"), "On 160 beta");
-  Assert.ok(isBrowserContextMenuClickSupported("161.0a1"), "On a newer host");
-});
-
 add_task(
   async function test_handleTopSitesOrganicImpressionStats_record_glean_topsites_click() {
     info(
@@ -3477,6 +3460,38 @@ add_task(
   }
 );
 
+add_task(
+  async function test_initializePrivacySession_defaults_to_private_sponsored_scoring() {
+    info(
+      "initializeGleanSession should default to PrivateGleanSession when sponsored top site scoring is enabled"
+    );
+
+    Services.prefs.setBoolPref(PREF_PRIVATE_PING_ENABLED, true);
+
+    let instance = new TelemetryFeed();
+    instance.store = {
+      getState: () => ({
+        Prefs: {
+          values: {
+            adsBackendConfig: { sponsored_top_site_scoring: true },
+            trainhopConfig: { newtabPrivatePing: { clickOnly: true } },
+          },
+        },
+      }),
+    };
+
+    instance.initializeGleanSession();
+
+    Assert.equal(
+      instance.gleanSessionType,
+      "private",
+      "Should be PrivateGleanSession when sponsored top site scoring is enabled"
+    );
+
+    Services.prefs.clearUserPref(PREF_PRIVATE_PING_ENABLED);
+  }
+);
+
 add_task(async function test_hasRecordedClicksInCIV_with_click_count() {
   info("hasRecordedClicksInCIV should return true when click count > 0");
 
@@ -3814,6 +3829,71 @@ add_task(
       recordEventStub.callCount,
       1,
       "Non-frecency-boosted impression should go to newtab-content ping in private session"
+    );
+
+    Services.prefs.clearUserPref(PREF_PRIVATE_PING_ENABLED);
+    sandbox.restore();
+  }
+);
+
+add_task(
+  async function test_handleTopSitesSponsoredImpressionStats_sponsored_scoring_content_ping() {
+    info(
+      "Sponsored topsites events with score-based selection enabled should go to the newtab-content ping"
+    );
+
+    let sandbox = sinon.createSandbox();
+    let instance = new TelemetryFeed();
+    Services.fog.testResetFOG();
+    Services.prefs.setBoolPref(PREF_PRIVATE_PING_ENABLED, true);
+
+    instance.gleanSessionType = "private";
+    instance.store = {
+      getState: () => ({
+        Prefs: {
+          values: {
+            adsBackendConfig: { sponsored_top_site_scoring: true },
+            trainhopConfig: { newtabPrivatePing: { clickOnly: true } },
+          },
+        },
+      }),
+    };
+
+    const SESSION_ID = "decafc0ffee";
+    sandbox.stub(instance.sessions, "get").returns({ session_id: SESSION_ID });
+
+    let recordEventStub = sandbox.stub(
+      instance.newtabContentPing,
+      "recordEvent"
+    );
+
+    for (const type of ["impression", "click"]) {
+      await instance.handleTopSitesSponsoredImpressionStats({
+        data: {
+          type,
+          tile_id: 42,
+          source: "newtab",
+          position: 1,
+          advertiser_name: "test advertiser",
+          visible_topsites: 8,
+        },
+      });
+    }
+
+    Assert.deepEqual(
+      recordEventStub.getCalls().map(call => call.args[0]),
+      ["topSitesImpression", "topSitesClick"],
+      "The impression and click should go to the newtab-content ping"
+    );
+    Assert.equal(
+      Glean.topsites.impression.testGetValue(),
+      null,
+      "No topsites.impression event should be recorded in the newtab ping"
+    );
+    Assert.equal(
+      Glean.topsites.click.testGetValue(),
+      null,
+      "No topsites.click event should be recorded in the newtab ping"
     );
 
     Services.prefs.clearUserPref(PREF_PRIVATE_PING_ENABLED);
@@ -5718,42 +5798,6 @@ add_task(
   }
 );
 
-add_task(async function test_new_topsite_clicks_skipped_on_older_hosts() {
-  info(
-    "Top site clicks newtab did not record before should not be recorded " +
-      "on hosts that cannot tell them apart from plain clicks"
-  );
-
-  Services.fog.testResetFOG();
-  let sandbox = sinon.createSandbox();
-  let { instance, notify, cleanup } = withNavigationTargetFeed({
-    TopSites: { rows: [{ url: "https://example.com/" }] },
-  });
-  sandbox.stub(instance, "canRecordBrowserTopSiteClicks").get(() => false);
-  sandbox.stub(instance.sessions, "get").returns({ session_id: "decafc0ffee" });
-
-  notify("https://example.com/");
-  for (const event of ["OPEN_NEW_WINDOW", "OPEN_PRIVATE_WINDOW"]) {
-    instance.handleUserEvent(
-      actionCreators.UserEvent({
-        event,
-        source: "TOP_SITES",
-        action_position: 0,
-        value: {},
-      })
-    );
-  }
-
-  Assert.equal(
-    Glean.topsites.click.testGetValue(),
-    null,
-    "No top site click recorded"
-  );
-
-  sandbox.restore();
-  cleanup();
-});
-
 add_task(
   async function test_handleCreatedNavigationTarget_records_foreground_tab() {
     info(
@@ -5919,10 +5963,7 @@ add_task(
       clicks[0].extra.event_source,
       "BROWSER_CONTEXT_MENU_OR_MIDDLE_CLICK"
     );
-    Assert.equal(
-      clicks[0].extra.background,
-      isBrowserContextMenuClickSupported() ? String(false) : undefined
-    );
+    Assert.equal(clicks[0].extra.background, String(false));
     Assert.equal(clicks[0].extra.newtab_visit_id, sessionId);
     Assert.equal(
       clicks[0].extra.position,

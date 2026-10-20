@@ -89,6 +89,9 @@ var gSanitizePromptDialog = {
     this._inBrowserWindow = !!arg.inBrowserWindow;
     this._closeWindowsWithHistory = !!(arg.wrappedJSObject ?? arg)
       .closeWindowsWithHistory;
+    this._entryPoint =
+      (arg.wrappedJSObject ?? arg).entryPoint ??
+      Sanitizer.DIALOG_ENTRY_POINTS.OTHER;
     if (arg.mode) {
       this._inClearOnShutdownNewDialog = arg.mode == "clearOnShutdown";
       this._inClearSiteDataNewDialog = arg.mode == "clearSiteData";
@@ -214,9 +217,24 @@ var gSanitizePromptDialog = {
       if (this._inClearOnShutdownNewDialog) {
         this.updatePrefs();
       } else {
+        this.recordDialogClosed(Sanitizer.DIALOG_OUTCOMES.DELETED);
         this.sanitize(e);
       }
     });
+    // Clear on shutdown only saves settings, so it isn't part of this
+    // telemetry.
+    if (!this._inClearOnShutdownNewDialog) {
+      Glean.browserSanitizer.dialogOpened.record({
+        entry_point: this._entryPoint,
+      });
+      document.addEventListener("dialogcancel", () =>
+        this.recordDialogClosed(Sanitizer.DIALOG_OUTCOMES.CANCELLED)
+      );
+      // The Settings dialog's own close button closes the window directly.
+      window.addEventListener("unload", () =>
+        this.recordDialogClosed(Sanitizer.DIALOG_OUTCOMES.DISMISSED)
+      );
+    }
 
     const { onAccept, onCancel } = arg.wrappedJSObject ?? arg;
     if (typeof onAccept === "function") {
@@ -245,6 +263,22 @@ var gSanitizePromptDialog = {
     } else {
       this.warningBox.hidden = true;
     }
+  },
+
+  /**
+   * Records how the dialog was closed, once.
+   *
+   * @param {string} outcome - One of Sanitizer.DIALOG_OUTCOMES.
+   */
+  recordDialogClosed(outcome) {
+    if (this._dialogClosedRecorded) {
+      return;
+    }
+    this._dialogClosedRecorded = true;
+    Glean.browserSanitizer.dialogClosed.record({
+      entry_point: this._entryPoint,
+      outcome,
+    });
   },
 
   updateAcceptButtonState() {

@@ -603,6 +603,14 @@ RefPtr<dom::PrefetchMatchPromise> DocumentLoadListener::TryActivateFromPrefetch(
     return nullptr;
   }
 
+  // This telemetry-only flag is recorded in both experiment branches,
+  // including when the prefetch was never fetched, so the control branch can
+  // be compared like for like.
+  if (sourceWGP->HasMatchingPrefetchCandidate(aURI)) {
+    nsCOMPtr<nsILoadInfo> loadInfo = mChannel->LoadInfo();
+    loadInfo->SetPrefetchCandidateMatched(true);
+  }
+
   if (dom::PrefetchRecordParent* rec =
           sourceWGP->FindMatchingPrefetchRecord(aURI)) {
     ActivateFromPrefetch(rec);
@@ -2732,23 +2740,10 @@ void DocumentLoadListener::TriggerRedirectToRealChannel(
     // BrowserParent::RecvNewWindowGlobal.
     EnumSet<ValidatePrincipalOptions> validationOptions = {
         ValidatePrincipalOptions::AllowNotLoadedOrigin};
-    if (xpc::IsInAutomation()) {
-      // Automation-Only: chrome://reftest/** + blank subframes
-      bool isChromeReftest = false;
-      if (docURI->SchemeIs("chrome")) {
-        nsAutoCString host;
-        docURI->GetHost(host);
-        isChromeReftest = host.EqualsLiteral("reftest");
-      }
-
-      if (isChromeReftest ||
-          (NS_IsAboutBlank(docURI) && GetParentWindowContext() &&
-           GetParentWindowContext()->Manager()->Manager() == contentParent &&
-           GetParentWindowContext()
-               ->DocumentPrincipal()
-               ->IsSystemPrincipal())) {
-        validationOptions += ValidatePrincipalOptions::AlwaysAllowSystem;
-      }
+    if (StaticPrefs::
+            dom_ipc_validatePrincipal_testing_allowContentSystemDocuments() &&
+        xpc::IsInAutomation()) {
+      validationOptions += ValidatePrincipalOptions::AlwaysAllowSystem;
     }
     if (!contentParent->ValidatePrincipal(unsandboxedPrincipal,
                                           validationOptions)) {

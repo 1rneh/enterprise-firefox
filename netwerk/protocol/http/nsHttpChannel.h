@@ -96,7 +96,6 @@ class nsHttpChannel final : public HttpBaseChannel,
   // nsIHttpAuthenticableChannel. We can't use
   // NS_DECL_NSIHTTPAUTHENTICABLECHANNEL because it duplicates cancel() and
   // others.
-  NS_IMETHOD GetIsSSL(bool* aIsSSL) override;
   NS_IMETHOD GetProxyMethodIsConnect(bool* aProxyMethodIsConnect) override;
   NS_IMETHOD GetServerResponseHeader(
       nsACString& aServerResponseHeader) override;

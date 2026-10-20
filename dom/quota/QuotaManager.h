@@ -54,6 +54,13 @@ class nsIRunnable;
 class nsIThread;
 class nsITimer;
 
+namespace mozilla::dom::quota {
+class CipherKeyStoreBackend;
+template <typename CipherStrategy>
+class CipherKeyManager;
+struct NSSCipherStrategy;
+}  // namespace mozilla::dom::quota
+
 namespace mozilla {
 
 class OriginAttributes;
@@ -809,6 +816,14 @@ class QuotaManager final : public BackgroundThreadObject {
   OriginMetadataArray GetTemporaryOrigins(
       PersistenceType aPersistenceType) const;
 
+  Result<RefPtr<CipherKeyManager<NSSCipherStrategy>>, nsresult>
+  GetOrCreateCipherKeyManager(const nsACString& aOrigin,
+                              Client::Type aClientType);
+
+  bool IsStorageEncryptionEnabled() const { return mStorageEncryptionEnabled; }
+
+  bool IsOriginEncrypted(const OriginMetadata& aOriginMetadata);
+
  private:
   virtual ~QuotaManager();
 
@@ -1305,6 +1320,9 @@ class QuotaManager final : public BackgroundThreadObject {
   bool mCacheUsable;
   bool mCacheRequiresFullScan;
   std::atomic<bool> mUsageModificationDisabled{false};
+  bool mStorageEncryptionEnabled = false;
+
+  RefPtr<CipherKeyStoreBackend> mCipherKeyStore;
 };
 
 }  // namespace mozilla::dom::quota

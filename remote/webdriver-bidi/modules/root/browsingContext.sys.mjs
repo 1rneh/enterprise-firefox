@@ -937,6 +937,9 @@ class BrowsingContextModule extends RootBiDiModule {
    *     Tree of browsing context information.
    * @throws {NoSuchFrameError}
    *     If the browsing context cannot be found.
+   * @throws {UnsupportedOperationError}
+   *     If "moz:scope" is "chrome" and system access is not allowed, or the
+   *     session is restricted to a single user context.
    */
   getTree(options = {}) {
     const {
@@ -959,6 +962,12 @@ class BrowsingContextModule extends RootBiDiModule {
         `Expected "moz:scope" to be one of ${contextScopes}, ` +
           lazy.pprint`got ${scope}`
       )(scope);
+
+      if (scope == MozContextScope.CHROME && this._isSessionRestricted) {
+        throw new lazy.error.UnsupportedOperationError(
+          `"moz:scope" "${scope}" is not supported in a session restricted to a single user context`
+        );
+      }
 
       if (scope != MozContextScope.CONTENT) {
         // By default only content browsing contexts are allowed.
@@ -3105,6 +3114,24 @@ class BrowsingContextModule extends RootBiDiModule {
 
   static get supportedCommandsFromContent() {
     return ["_onConfigurationComplete"];
+  }
+
+  static get supportedCommandsInRestrictedSession() {
+    return [
+      "activate",
+      "captureScreenshot",
+      "close",
+      "create",
+      "getTree",
+      "handleUserPrompt",
+      "locateNodes",
+      "navigate",
+      "reload",
+      "setViewport",
+      "startScreencast",
+      "stopScreencast",
+      "traverseHistory",
+    ];
   }
 
   static get supportedEvents() {

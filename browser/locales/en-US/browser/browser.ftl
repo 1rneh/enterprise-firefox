@@ -1171,14 +1171,13 @@ qrcode-image =
 qrcode-close-button =
     .aria-label = Close
 
-# Variables:
-#  $shortcut (String): keyboard shortcut to save a copy of the page
+## Variables:
+##  $shortcut (String): keyboard shortcut to perform the action
+
 toolbar-button-save-page =
   .label = Save page
   .tooltiptext = Save this page ({ $shortcut })
 
-# Variables:
-#  $shortcut (String): keyboard shortcut to open a local file
 toolbar-button-open-file =
   .label = Open file
   .tooltiptext = Open a file ({ $shortcut })
@@ -1191,8 +1190,6 @@ toolbar-button-send-tab =
   .label = Send tab
   .tooltiptext = Send current tab to another device
 
-# Variables
-# $shortcut (string) - Keyboard shortcut to open a new private browsing window
 toolbar-button-new-private-window =
   .label = New private window
   .tooltiptext = Open a new private browsing window ({ $shortcut })
@@ -1205,6 +1202,52 @@ toolbar-button-tab-groups =
   .label = Tab groups
   .tooltiptext = Show your tab groups
 
+toolbar-button-history =
+  .label = History
+  .tooltiptext = Show your history ({ $shortcut })
+
+toolbar-button-find =
+  .label = Find
+  .tooltiptext = Find in this page ({ $shortcut })
+
+toolbar-button-developer =
+  .label = Developer
+  .tooltiptext = Open Web developer tools ({ $shortcut })
+
+toolbar-button-forget =
+  .label = Forget
+  .tooltiptext = Forget about some browsing history
+
+toolbar-zoom-controls =
+  .label = Zoom Controls
+  .title = Zoom controls
+
+toolbar-button-zoom-out =
+  .label = Zoom out
+  .tooltiptext = Zoom out ({ $shortcut })
+
+toolbar-button-zoom-reset-tooltip = Reset zoom level ({ $shortcut })
+
+toolbar-button-zoom-in =
+  .label = Zoom in
+  .tooltiptext = Zoom in ({ $shortcut })
+
+toolbar-edit-controls =
+  .label = Edit controls
+  .title = Edit controls
+
+toolbar-button-cut =
+  .label = Cut
+  .tooltiptext = Cut ({ $shortcut })
+
+toolbar-button-copy =
+  .label = Copy
+  .tooltiptext = Copy ({ $shortcut })
+
+toolbar-button-paste =
+  .label = Paste
+  .tooltiptext = Paste ({ $shortcut })
+
 ## EME notification panel
 
 eme-notifications-drm-content-playing = Some audio or video on this site uses DRM software, which may limit what { -brand-short-name } can let you do with it.
@@ -1212,6 +1255,35 @@ eme-notifications-drm-content-playing-manage = Manage settings
 eme-notifications-drm-content-playing-manage-accesskey = M
 eme-notifications-drm-content-playing-dismiss = Dismiss
 eme-notifications-drm-content-playing-dismiss-accesskey = D
+
+## Notification bars for media playback issues
+
+eme-notifications-drm-content-disabled-message = You must enable DRM to play some audio or video on this page.
+eme-notifications-drm-content-disabled-button =
+    .label = Enable DRM
+    .accesskey = E
+eme-notifications-drm-content-cdm-installing-message = { -brand-short-name } is installing components needed to play the audio or video on this page. Please try again later.
+
+decoder-doctor-no-codecs-linux-message = To play video, you may need to install the required video codecs.
+decoder-doctor-no-hw-acceleration-message = To improve video quality, you may need to install Microsoft’s Media Feature Pack.
+decoder-doctor-no-pulse-audio-message = To play audio, you may need to install the required PulseAudio software.
+decoder-doctor-unsupported-libavcodec-message = libavcodec may be vulnerable or is not supported, and should be updated to play video.
+decoder-doctor-decode-error-message = An error occurred while decoding a media resource.
+decoder-doctor-decode-warning-message = A recoverable error occurred while decoding a media resource.
+decoder-doctor-learn-how-link = Learn how
+decoder-doctor-report-issue-button =
+    .label = Report site issue
+    .accesskey = R
+
+# Variables:
+#   $pluginName (String) - The name of the media plugin that crashed (for example, “Widevine Content Decryption Module”).
+plugin-crashed-notification-message = The { $pluginName } plugin has crashed.
+plugin-crashed-notification-reload-button =
+    .label = Reload page
+    .accesskey = R
+plugin-crashed-notification-submit-button =
+    .label = Submit a crash report
+    .accesskey = S
 
 ## Password save/update panel
 

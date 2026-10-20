@@ -115,7 +115,6 @@ dom/push/PushRecord.sys.mjs
 dom/push/PushService.sys.mjs
 dom/push/PushServiceWebSocket.sys.mjs
 dom/webauthn/WebAuthnRelatedOriginFetcher.sys.mjs
-extensions/permissions/RemotePermissionService.sys.mjs
 js/xpconnect/loader/ComponentUtils.sys.mjs
 js/xpconnect/loader/XPCOMUtils.sys.mjs
 mobile/android/modules/geckoview/AndroidLog.sys.mjs

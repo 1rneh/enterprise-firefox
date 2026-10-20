@@ -2146,6 +2146,16 @@ nsresult PermissionManager::AddInternal(
       PermissionEntry oldPermissionEntry = entry->GetPermissions()[index];
       id = oldPermissionEntry.mID;
 
+      // EXPIRE_POLICY permissions can only be removed by a caller that passes
+      // EXPIRE_POLICY, which is what the enterprise policy engine does.
+      if (entry->GetPermissions()[index].mExpireType == EXPIRE_POLICY &&
+          aExpireType != EXPIRE_POLICY) {
+        NS_WARNING(
+            "Ignoring removal of EXPIRE_POLICY permission by a caller that "
+            "did not pass EXPIRE_POLICY");
+        break;
+      }
+
       entry->GetPermissions().RemoveElementAt(index);
 
       // If there are no more permissions stored for that entry, clear it.
@@ -2187,6 +2197,13 @@ nsresult PermissionManager::AddInternal(
 
     case eOperationChanging: {
       id = entry->GetPermissions()[index].mID;
+
+      // If the existing type is EXPIRE_POLICY, we need to reject attempts to
+      // change the permission.
+      if (entry->GetPermissions()[index].mExpireType == EXPIRE_POLICY) {
+        NS_WARNING("Attempting to modify EXPIRE_POLICY permission");
+        break;
+      }
 
       PermissionEntry oldPermissionEntry = entry->GetPermissions()[index];
 

@@ -481,6 +481,11 @@ class WindowGlobalParent final : public WindowContext,
   // https://wicg.github.io/nav-speculation/prefetch.html#wait-for-a-matching-prefetch-record
   bool HasPotentialPrefetchMatch(nsIURI* aURI);
 
+  // Whether a prefetch candidate covered aURI, whether or not it was fetched.
+  // Branch-symmetric, so the experiment can compare prefetched navigations
+  // against ones that would have been prefetched.
+  bool HasMatchingPrefetchCandidate(nsIURI* aURI);
+
   void RemoveWaiter(PrefetchMatchWaiter* aWaiter);
 
   void UpdateFullscreenKeyboardLockStatus(FullscreenKeyboardLock aStatus);

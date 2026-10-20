@@ -90,14 +90,22 @@ async protocol PWebTransport
 
   /**
   * IPC for sending webtransport datagrams
+  * @param datagramId unique identifier for tracking promise resolution
   * @param data represents the datagram to be transferred
-  * @param expirationTime time at which the datagram expires
+  * @param timestamp time at which the datagram was created (for maxAge calculation)
   * @param sendGroupId optional send group ID for prioritization (0 = null/default group)
   * @param sendOrder send order for prioritization
   */
-  async OutgoingDatagram(uint8_t[] data, TimeStamp expirationTime,
+  async OutgoingDatagram(uint64_t datagramId, uint8_t[] data, TimeStamp timestamp,
                          uint64_t sendGroupId, int64_t sendOrder)
     returns(nsresult response);
+
+  /**
+  * Update datagram queue parameters
+  * @param outgoingMaxBufferedDatagrams queue depth before backpressure kicks in
+  * @param outgoingMaxAge maximum age in milliseconds (INFINITY for no limit)
+  */
+  async UpdateDatagramQueueParams(uint32_t outgoingMaxBufferedDatagrams, double outgoingMaxAge);
 
   /**
   * Get the maximum supported datagram size from necko stack
@@ -147,6 +155,13 @@ async protocol PWebTransport
   * @param data is the datagram received
   */
   async IncomingDatagram(uint8_t[] data, TimeStamp receivedTime);
+
+  /**
+  * Notify child that a datagram is ready (sent or dropped)
+  * This allows the content process to resolve the corresponding promise
+  * @param datagramId the ID of the datagram that was sent/dropped
+  */
+  async DatagramReady(uint64_t datagramId);
 
   /**
   * Notify child of the negotiated protocol and HTTP response headers

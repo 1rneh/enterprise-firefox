@@ -586,6 +586,15 @@ export class EngineURL {
     if (this.#partnerCodeMap.has(sapSource)) {
       return this.#partnerCodeMap.get(sapSource);
     }
+    if (sapSource in lazy.SearchUtils.SAP_SOURCE_TO_SEARCH_CONFIG_MAP) {
+      let partnerDetails = this.#partnerCodeMap.get(
+        lazy.SearchUtils.SAP_SOURCE_TO_SEARCH_CONFIG_MAP[sapSource]
+      );
+      if (partnerDetails) {
+        return partnerDetails;
+      }
+    }
+
     return this.#partnerCodeMap.get("default");
   }
 

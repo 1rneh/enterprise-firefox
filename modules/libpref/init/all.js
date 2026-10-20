@@ -3170,17 +3170,6 @@ pref("extensions.recommendations.privacyPolicyUrl", "");
 // The URL for a recommended theme, shown on the theme page in about:addons.
 pref("extensions.recommendations.themeRecommendationUrl", "");
 
-// Report Site Issue button
-// Note that on enabling the button in other release channels, make sure to
-// disable it in problematic tests, see disableNonReleaseActions() inside
-// browser/modules/test/browser/head.js
-pref("extensions.webcompat-reporter.newIssueEndpoint", "https://webcompat.com/issues/new");
-#if MOZ_UPDATE_CHANNEL != release && MOZ_UPDATE_CHANNEL != esr && !defined(MOZ_ENTERPRISE)
-  pref("extensions.webcompat-reporter.enabled", true);
-#else
-  pref("extensions.webcompat-reporter.enabled", false);
-#endif
-
 // Add-on content security policies.
 pref("extensions.webextensions.base-content-security-policy", "script-src 'self' https://* http://localhost:* http://127.0.0.1:* moz-extension: blob: filesystem: 'unsafe-eval' 'wasm-unsafe-eval' 'unsafe-inline';");
 pref("extensions.webextensions.base-content-security-policy.v3", "script-src 'self' 'wasm-unsafe-eval';");

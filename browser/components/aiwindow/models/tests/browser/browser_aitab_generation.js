@@ -90,8 +90,8 @@ function generatePage(mockEngine, conversation, toolParams) {
  * @param {{body: object|string}} result - What `generatePage()` resolved with.
  */
 async function storedPage({ body }) {
-  Assert.ok(body.aiTab, `generation should succeed: ${JSON.stringify(body)}`);
-  return lazy.AITabStore.getBySlug(body.aiTab.slug);
+  Assert.ok(body.page, `generation should succeed: ${JSON.stringify(body)}`);
+  return lazy.AITabStore.getBySlug(body.page.slug);
 }
 
 /**
@@ -632,6 +632,41 @@ add_task(async function test_generateAITab_slug_keeps_accented_letters() {
   }
 });
 
+add_task(async function test_generateAITab_model_reported_error() {
+  Services.fog.testResetFOG();
+  const mockEngine = new lazy.MockEngineManager();
+  const { url: GEN_URL, cleanup: stopServing } = servePage();
+  try {
+    const genPromise = lazy.AITab.generateAITab(
+      { urlList: [GEN_URL] },
+      lazy.newConversation()
+    );
+
+    await mockEngine.respondTo({
+      purpose: lazy.MODEL_FEATURES.AITAB,
+      response: JSON.stringify({ error: "the pages have nothing to compare" }),
+    });
+
+    const result = await genPromise;
+    Assert.ok(
+      result.error?.includes("the pages have nothing to compare"),
+      `the model's error is returned: ${result.error}`
+    );
+    Assert.equal(result.code, "content_related", "the error code is returned");
+
+    const [complete] = Glean.smartWindow.aitabCreateComplete.testGetValue();
+    Assert.equal(complete.extra.is_success, "false", "is_success is false");
+    Assert.equal(
+      complete.extra.error,
+      "content_related",
+      "the error code is set"
+    );
+  } finally {
+    await stopServing();
+    mockEngine.cleanupMocks();
+  }
+});
+
 add_task(async function test_generateAITab_default_title_is_localized() {
   const mockEngine = new lazy.MockEngineManager();
   // Two URLs, so the single-URL heading fallback doesn't apply either.
@@ -694,7 +729,7 @@ add_task(async function test_createAITab_links_to_the_stored_page() {
     Assert.equal(toolUIData.properties.state, "choose");
 
     Assert.ok(
-      toolResult.aiTab.slug,
+      toolResult.page.slug,
       "the tool reports the stored page's slug, so a later turn can find it"
     );
 
@@ -702,7 +737,7 @@ add_task(async function test_createAITab_links_to_the_stored_page() {
       toolResult.message,
       conversation.tokenToUrl
     );
-    const viewerURL = `about:smartpage?page=${toolResult.aiTab.slug}`;
+    const viewerURL = `about:smartpage?page=${toolResult.page.slug}`;
     Assert.ok(
       expanded.includes(`](${viewerURL})`),
       `the link names the stored page: ${expanded}`

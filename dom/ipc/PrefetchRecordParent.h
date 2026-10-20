@@ -71,6 +71,7 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   bool HadConflictingCredentials() const { return mHadConflictingCredentials; }
   const nsTArray<Maybe<nsString>>& Tags() const { return mTags; }
   const nsString& NoVarySearchHint() const { return mNoVarySearchHint; }
+  bool IsEligibleForPrefetch() const { return mIsEligibleForPrefetch; }
 
   // (https://wicg.github.io/nav-speculation/prefetch.html#prefetch-record-cancel-and-discard).
   mozilla::ipc::IPCResult RecvCancel();
@@ -97,6 +98,11 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   // https://wicg.github.io/nav-speculation/prefetch.html#prefetch-record-is-expected-to-match-a-url
   bool IsExpectedToMatch(nsIURI* aURL) const;
 
+  // Matches using only candidate data available in both experiment branches.
+  // Unlike IsExpectedToMatch, this never consults response data, which the
+  // dry-run branch cannot observe.
+  bool MatchesCandidateURL(nsIURI* aURL) const;
+
   void ActorDestroy(ActorDestroyReason aReason) override;
 
  private:
@@ -109,6 +115,7 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   nsString ComputePartitionKeyForChannel(nsIChannel* aChannel) const;
   bool IsReferrerPolicySufficientlyStrict() const;
   void ReleaseCacheToken();
+  bool MatchesNoVarySearchHint(nsIURI* aURL) const;
 
   // Prefetch record fields:
   // https://wicg.github.io/nav-speculation/prefetch.html#prefetch-record
@@ -131,6 +138,7 @@ class PrefetchRecordParent final : public PPrefetchRecordParent,
   nsString mSourcePartitionKey;
   nsString mIsolatedPartitionKey;
   bool mHadConflictingCredentials = false;
+  bool mIsEligibleForPrefetch = false;
 
   // Tracks incoming body bytes for the body cap.
   uint64_t mBytesReceived = 0;

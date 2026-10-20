@@ -11,7 +11,7 @@ support-files = [
   "head.js",
 ]
 skip-if = [
-  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan && nova", # Bug 2057552
+  "os == 'linux' && os_version == '24.04' && arch == 'x86_64' && display == 'x11' && tsan", # Bug 2057552
 ]
 
 ["browser_aitab_context_tab_limit.js"]

@@ -1746,6 +1746,7 @@ class nsDisplayListBuilder {
       if (mBuilderToReset) {
         mBuilderToReset->mLinkURI.Truncate(0);
         mBuilderToReset->mLinkDest.Truncate(0);
+        mBuilderToReset->mLinkReferenceFrame = nullptr;
       }
     }
 
@@ -1872,6 +1873,11 @@ class nsDisplayListBuilder {
   const ActiveScrolledRoot* mFilterASR;
   nsCString mLinkURI;   // URI of link currently being emitted, if any.
   nsCString mLinkDest;  // Local destination name of link, if any.
+  // Bounds of the frame for the link currently being emitted, relative to
+  // mLinkReferenceFrame.
+  nsRect mLinkBounds;
+  // Reference frame for mLinkBounds.
+  const nsIFrame* mLinkReferenceFrame = nullptr;
 
   // Optimized versions for non-retained display list.
   LayoutDeviceIntRegion mWindowDraggingRegion;
@@ -5079,33 +5085,6 @@ class nsDisplayWrapper final : public nsDisplayWrapList {
   NS_DISPLAY_ALLOW_CLONING()
   friend class nsDisplayListBuilder;
   friend class nsDisplayWrapList;
-};
-
-/**
- * We call WrapDisplayList on the in-flow lists: BorderBackground(),
- * BlockBorderBackgrounds() and Content().
- * We call WrapDisplayItem on each item of Outlines(), PositionedDescendants(),
- * and Floats(). This is done to support special wrapping processing for frames
- * that may not be in-flow descendants of the current frame.
- */
-class nsDisplayItemWrapper {
- public:
-  // This is never instantiated directly (it has pure virtual methods), so no
-  // need to count constructors and destructors.
-
-  bool WrapBorderBackground() { return true; }
-  virtual nsDisplayItem* WrapList(nsDisplayListBuilder* aBuilder,
-                                  nsIFrame* aFrame, nsDisplayList* aList) = 0;
-  virtual nsDisplayItem* WrapItem(nsDisplayListBuilder* aBuilder,
-                                  nsDisplayItem* aItem) = 0;
-
-  nsresult WrapLists(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
-                     const nsDisplayListSet& aIn, const nsDisplayListSet& aOut);
-  nsresult WrapListsInPlace(nsDisplayListBuilder* aBuilder, nsIFrame* aFrame,
-                            const nsDisplayListSet& aLists);
-
- protected:
-  nsDisplayItemWrapper() = default;
 };
 
 /**

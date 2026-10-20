@@ -1234,6 +1234,10 @@ html {
         --card-stack-slot-shift: 0px;
       }
 
+      @media (prefers-contrast) {
+        --card-stack-border: 1px solid var(--text-color);
+      }
+
       border-radius: var(--border-radius-medium);
       box-sizing: border-box;
       height: 204px;
@@ -1359,6 +1363,7 @@ html {
 
         .main-content {
           background-color: transparent;
+          border: none;
           border-start-start-radius: 0;
           border-end-start-radius: 0;
           border-start-end-radius: var(--border-radius-medium);

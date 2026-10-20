@@ -530,8 +530,8 @@ void nsVideoFrame::UpdatePosterSource(bool aNotify) {
                             nsGkAtoms::_empty, eIgnoreCase)) {
     nsAutoString posterStr;
     element->GetPoster(posterStr);
-    mPosterImage->SetAttr(kNameSpaceID_None, nsGkAtoms::src, posterStr,
-                          aNotify);
+    mPosterImage->SetAttr(kNameSpaceID_None, nsGkAtoms::src, posterStr, aNotify,
+                          IsKnownNewAttr::No);
   } else {
     mPosterImage->UnsetAttr(kNameSpaceID_None, nsGkAtoms::src, aNotify);
   }

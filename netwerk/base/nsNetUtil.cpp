@@ -542,26 +542,11 @@ NS_NewChannelWithTriggeringPrincipal(
   NS_ASSERTION(aTriggeringPrincipal,
                "Can not create channel without a triggering Principal!");
 
-  nsCOMPtr<nsICookieJarSettings> cookieJarSettings;
-
-  // Special treatment for resources injected by add-ons if not document,
-  // iframe, workers.
-  if (!nsContentUtils::IsNonSubresourceInternalPolicyType(aContentPolicyType) &&
-      aTriggeringPrincipal &&
-      StaticPrefs::privacy_antitracking_isolateContentScriptResources() &&
-      nsContentUtils::IsExpandedPrincipal(aTriggeringPrincipal)) {
-    bool shouldResistFingerprinting =
-        nsContentUtils::ShouldResistFingerprinting_dangerous(
-            aLoadingNode->NodePrincipal(),
-            "CookieJarSettings can't exist yet, we're creating it",
-            RFPTarget::IsAlwaysEnabledForPrecompute);
-    cookieJarSettings = CookieJarSettings::Create(
-        nsICookieService::BEHAVIOR_REJECT,
-        StoragePrincipalHelper::PartitionKeyForExpandedPrincipal(
-            aTriggeringPrincipal),
-        OriginAttributes::IsFirstPartyEnabled(), false,
-        shouldResistFingerprinting);
-  } else {
+  nsCOMPtr<nsICookieJarSettings> cookieJarSettings =
+      StoragePrincipalHelper::MaybeCreateCookieJarSettingsForContentScript(
+          aTriggeringPrincipal, aLoadingNode->NodePrincipal(),
+          aContentPolicyType);
+  if (!cookieJarSettings) {
     // Let's inherit the cookie behavior and permission from the parent
     // document.
     cookieJarSettings = aLoadingNode->OwnerDoc()->CookieJarSettings();

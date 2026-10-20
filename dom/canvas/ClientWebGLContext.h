@@ -781,6 +781,8 @@ class ClientWebGLContext final : public nsICanvasRenderingContextInternal,
   mutable webgl::ObjectId mLastId = 0;
   // Buffer to accumulate JS warnings until it is safe to flush them.
   mutable std::vector<std::string>* mDeferJsWarnings = nullptr;
+  // Description of a deferred context creation error.
+  mutable std::string mDeferContextCreationError;
 
  public:
   webgl::ObjectId NextId() const { return mLastId += 1; }
@@ -990,6 +992,8 @@ class ClientWebGLContext final : public nsICanvasRenderingContextInternal,
       const dom::CanvasRenderingContextOptions& aOptions) override;
   NS_IMETHOD
   SetDimensions(int32_t width, int32_t height) override;
+  NS_IMETHOD MaybeThrowContextCreationError() override;
+
   bool UpdateWebRenderCanvasData(
       nsDisplayListBuilder* aBuilder,
       layers::WebRenderCanvasData* aCanvasData) override;

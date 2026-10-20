@@ -56,6 +56,31 @@ Atomic<int32_t> Image::sSerialCounter(0);
 
 Atomic<uint32_t> ImageContainer::sGenerationCounter(0);
 
+static Maybe<IntSize> CheckedPictureRectEnd(const IntRect& aPictureRect) {
+  if (aPictureRect.IsEmpty() || aPictureRect.X() < 0 || aPictureRect.Y() < 0) {
+    return Nothing();
+  }
+
+  CheckedInt32 right(aPictureRect.X());
+  right += aPictureRect.Width();
+  CheckedInt32 bottom(aPictureRect.Y());
+  bottom += aPictureRect.Height();
+  if (!right.isValid() || !bottom.isValid()) {
+    return Nothing();
+  }
+  return Some(IntSize(right.value(), bottom.value()));
+}
+
+Maybe<IntSize> Image::GetAddressableSize() const {
+  const IntSize size = GetSize();
+  const Maybe<IntSize> pictureEnd = CheckedPictureRectEnd(GetPictureRect());
+  if (!IsValid() || size.IsEmpty() || !pictureEnd ||
+      pictureEnd->width > size.width || pictureEnd->height > size.height) {
+    return Nothing();
+  }
+  return Some(size);
+}
+
 static void CopyPlane(uint8_t* aDst, const uint8_t* aSrc,
                       const gfx::IntSize& aSize, int32_t aStride, int32_t aSkip,
                       int32_t aBytesPerElement = 1);
@@ -648,21 +673,13 @@ ImageContainer::GetMacIOSurfaceRecycleAllocator() {
 // https://searchfox.org/firefox-main/source/dom/media/ipc/RemoteImageHolder.cpp#46
 
 Maybe<PlanarYCbCrData::PlaneSizes> PlanarYCbCrData::GetPlaneSizes() const {
-  if (mPictureRect.IsEmpty() || mPictureRect.X() < 0 || mPictureRect.Y() < 0) {
+  const Maybe<IntSize> ySize = CheckedPictureRectEnd(mPictureRect);
+  if (!ySize) {
     return Nothing();
   }
-
-  CheckedInt32 width(mPictureRect.X());
-  width += mPictureRect.Width();
-  CheckedInt32 height(mPictureRect.Y());
-  height += mPictureRect.Height();
-  if (!width.isValid() || !height.isValid()) {
-    return Nothing();
-  }
-  const IntSize ySize(width.value(), height.value());
-  return Some(PlaneSizes{ySize, mCbCrStride > 0
-                                    ? ChromaSize(ySize, mChromaSubsampling)
-                                    : IntSize(0, 0)});
+  return Some(PlaneSizes{*ySize, mCbCrStride > 0
+                                     ? ChromaSize(*ySize, mChromaSubsampling)
+                                     : IntSize(0, 0)});
 }
 
 Maybe<PlanarYCbCrData> PlanarYCbCrData::From(
@@ -1035,6 +1052,11 @@ gfxImageFormat PlanarYCbCrImage::GetOffscreenFormat() const {
                                                     : mOffscreenFormat;
 }
 
+Maybe<IntSize> PlanarYCbCrImage::GetAddressableSize() const {
+  const auto sizes = IsValid() ? mData.GetPlaneSizes() : Nothing();
+  return sizes ? Some(sizes->mY) : Nothing();
+}
+
 nsresult PlanarYCbCrImage::AdoptData(const Data& aData) {
   if (aData.GetPlaneSizes().isNothing()) {
     return NS_ERROR_INVALID_ARG;
@@ -1091,6 +1113,11 @@ NVImage::~NVImage() = default;
 IntSize NVImage::GetSize() const { return mSize; }
 
 IntRect NVImage::GetPictureRect() const { return mData.mPictureRect; }
+
+Maybe<IntSize> NVImage::GetAddressableSize() const {
+  const auto sizes = IsValid() ? mData.GetPlaneSizes() : Nothing();
+  return sizes ? Some(sizes->mY) : Nothing();
+}
 
 // Planar I420 conversion of an NV12/NV21 image: mBuffer owns the pixels, mData
 // points into it.

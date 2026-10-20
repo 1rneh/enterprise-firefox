@@ -100,6 +100,10 @@ bool HTMLScriptElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
       return true;
     }
 
+    if (aAttribute == nsGkAtoms::referrerpolicy) {
+      return ParseReferrerAttribute(aValue, aResult);
+    }
+
     if (aAttribute == nsGkAtoms::blocking &&
         StaticPrefs::dom_element_blocking_enabled()) {
       aResult.ParseAtomArray(aValue);

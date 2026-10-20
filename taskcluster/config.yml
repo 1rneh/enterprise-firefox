@@ -232,6 +232,7 @@ treeherder:
         'SS': 'Shadow scheduler'
         'Sentry': 'Sentry synchronization'
         'test-info': 'Test manifest skip/fail information'
+        'testrail': 'TestRail release milestone creation'
         'condprof': 'Conditioned Profile Builder'
         'doc': 'Documentation'
         'perftest': 'Performance tests'

@@ -489,7 +489,7 @@ mozilla::ipc::IPCResult CompositorBridgeParent::RecvForcePresent(
 }
 
 mozilla::ipc::IPCResult CompositorBridgeParent::RecvStartFrameTimeRecording(
-    const int32_t& aBufferSize, uint32_t* aOutStartIndex) {
+    const uint32_t& aBufferSize, uint32_t* aOutStartIndex) {
   if (mWrBridge) {
     *aOutStartIndex = mWrBridge->StartFrameTimeRecording(aBufferSize);
   } else {

@@ -61,11 +61,6 @@ know what you are doing.
 
 : Cached proxy usage JSON used during startup.
 
-`browser.ipProtection.locationListCache` (string, default: `""`)
-
-: Cached Guardian location list shared between `IPProtectionService` and
-  `GuardianClient`.
-
 `browser.ipProtection.hasUpgraded` (boolean, default: `false`)
 
 : Cached flag indicating the user has a paid subscription.

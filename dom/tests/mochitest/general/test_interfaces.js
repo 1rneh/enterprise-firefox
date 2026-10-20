@@ -1570,70 +1570,60 @@ let interfaceNamesInGlobalScope = [
   {
     name: "SpeechGrammar",
     insecureContext: true,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechGrammarList",
     insecureContext: true,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognition",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognitionAlternative",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognitionErrorEvent",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognitionErrorEvent",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognitionEvent",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognitionPhrase",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognitionResult",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "SpeechRecognitionResultList",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
@@ -2349,21 +2339,18 @@ let interfaceNamesInGlobalScope = [
   {
     name: "webkitSpeechGrammar",
     insecureContext: true,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "webkitSpeechGrammarList",
     insecureContext: true,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!
   {
     name: "webkitSpeechRecognition",
     insecureContext: false,
-    nightly: true,
     android: false,
   },
   // IMPORTANT: Do not change this list without review from a DOM peer!

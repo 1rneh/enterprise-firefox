@@ -145,6 +145,20 @@ already_AddRefed<nsIURI> HTMLAnchorElement::GetHrefURI() const {
   return GetHrefURIForAnchors();
 }
 
+bool HTMLAnchorElement::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
+                                       const nsAString& aValue,
+                                       nsIPrincipal* aMaybeScriptedPrincipal,
+                                       nsAttrValue& aResult) {
+  if (aNamespaceID == kNameSpaceID_None) {
+    if (aAttribute == nsGkAtoms::referrerpolicy) {
+      return ParseReferrerAttribute(aValue, aResult);
+    }
+  }
+
+  return nsGenericHTMLElement::ParseAttribute(aNamespaceID, aAttribute, aValue,
+                                              aMaybeScriptedPrincipal, aResult);
+}
+
 void HTMLAnchorElement::BeforeSetAttr(int32_t aNamespaceID, nsAtom* aName,
                                       const nsAttrValue* aValue, bool aNotify) {
   if (aNamespaceID == kNameSpaceID_None && aName == nsGkAtoms::href) {

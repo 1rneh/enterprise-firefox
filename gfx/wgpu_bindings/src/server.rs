@@ -3224,17 +3224,19 @@ pub struct VkSemaphoreHandle(pub u64);
 /// the submission they belong to has been attempted. The actual
 /// `vkDestroySemaphore` calls happen later, from an `on_submitted_work_done`
 /// closure.
+///
+/// Returns `true` if at least one of `handles` was registered in (and removed
+/// from) the queue.
 #[cfg(target_os = "linux")]
 fn enqueue_signal_semaphores_destruction(
     queue: &Arc<wgc::device::queue::Queue>,
     device: Arc<wgc::device::Device>,
     handles: &[VkSemaphoreHandle],
-    submission_errored: bool,
-) {
+) -> bool {
     use ash::vk::Handle as _;
 
     if handles.is_empty() {
-        return;
+        return false;
     }
 
     let semaphores: Vec<vk::Semaphore> = handles
@@ -3242,15 +3244,18 @@ fn enqueue_signal_semaphores_destruction(
         .map(|handle| vk::Semaphore::from_raw(handle.0))
         .collect();
 
-    if submission_errored {
-        // Unregister the pending signals so that a later submission on this
-        // queue does not signal them. This is a no-op for any semaphore that a
-        // batch already consumed before `queue_submit` reported the failure.
+    // There may be some semaphores still left in the HAL queue if an error was
+    // encountered, and we must ensure they aren't signalled after destruction.
+    // Since attempting to remove a semaphore that was already consumed is a
+    // no-op, just ask the queue to remove all of the ones we know were part of
+    // the submission.
+    let mut semaphore_removed = false;
+    {
         let queue = queue.clone();
         let hal_queue =
             unsafe { queue.as_hal::<wgc::api::Vulkan>() }.expect("Vulkan backend queue on linux");
         for &semaphore in &semaphores {
-            hal_queue.remove_signal_semaphore(semaphore);
+            semaphore_removed |= hal_queue.remove_signal_semaphore(semaphore);
         }
     }
 
@@ -3275,6 +3280,8 @@ fn enqueue_signal_semaphores_destruction(
             }
         }
     }));
+
+    semaphore_removed
 }
 
 #[no_mangle]
@@ -3292,21 +3299,23 @@ pub unsafe extern "C" fn wgpu_server_queue_submit(
     device.push_error_scope(ErrorFilter::Validation);
     let submission_index = global.queue_submit(queue_id, unsafe { command_buffer_ids.as_slice() });
     let error = device.pop_error_scope().unwrap();
-    let submission_succeeded = error.is_none();
+    #[cfg_attr(not(target_os = "linux"), expect(unused_mut))]
+    let mut submission_succeeded = error.is_none();
     if let Some(error) = error {
         device.handle_error(error, None, "Queue::submit");
     }
 
     #[cfg(target_os = "linux")]
-    enqueue_signal_semaphores_destruction(
-        &queue,
-        device.clone(),
-        unsafe { signal_semaphores.as_slice() },
-        !submission_succeeded,
-    );
+    {
+        submission_succeeded &=
+            !enqueue_signal_semaphores_destruction(&queue, device.clone(), unsafe {
+                signal_semaphores.as_slice()
+            });
+    }
     #[cfg(not(target_os = "linux"))]
     let _ = signal_semaphores;
 
+    // NOTE: `0` means "no index to follow up with".
     submission_succeeded
         .then_some(submission_index)
         .unwrap_or(0)

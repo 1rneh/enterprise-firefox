@@ -60,6 +60,18 @@ XPCOMUtils.defineLazyPreferenceGetter(
   0
 );
 
+/**
+ * Whether any sponsored top sites scoring flag is enabled.
+ *
+ * @param {?object} flags The adsBackend flags.
+ * @returns {boolean} Whether a scoring flag is enabled.
+ */
+export function hasScoringFlag(flags) {
+  return Object.keys(flags ?? {}).some(
+    flag => flag.startsWith(FLAG_PREFIX) && flags[flag]
+  );
+}
+
 export class _SponsoredTopSitesScoreProvider {
   _getFlags = null;
   _rs = null;

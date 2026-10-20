@@ -1453,6 +1453,62 @@ export class FfiConverterMapStringBoolean extends FfiConverterArrayBuffer {
         }
     }
 }
+
+
+// Export the FFIConverter object to make external types work.
+export class FfiConverterMapStringFloat64 extends FfiConverterArrayBuffer {
+    static read(dataStream) {
+        const len = dataStream.readInt32();
+        const map = new Map();
+        for (let i = 0; i < len; i++) {
+            const key = FfiConverterString.read(dataStream);
+            const value = FfiConverterFloat64.read(dataStream);
+            map.set(key, value);
+        }
+
+        return map;
+    }
+
+     static write(dataStream, map) {
+        dataStream.writeInt32(map.size);
+        for (const [key, value] of map) {
+            FfiConverterString.write(dataStream, key);
+            FfiConverterFloat64.write(dataStream, value);
+        }
+    }
+
+    static computeSize(map) {
+        // The size of the length
+        let size = 4;
+        for (const [key, value] of map) {
+            size += FfiConverterString.computeSize(key);
+            size += FfiConverterFloat64.computeSize(value);
+        }
+        return size;
+    }
+
+    static checkType(map) {
+        for (const [key, value] of map) {
+            try {
+                FfiConverterString.checkType(key);
+            } catch (e) {
+                if (e instanceof UniFFITypeError) {
+                    e.addItemDescriptionPart("(key)");
+                }
+                throw e;
+            }
+
+            try {
+                FfiConverterFloat64.checkType(value);
+            } catch (e) {
+                if (e instanceof UniFFITypeError) {
+                    e.addItemDescriptionPart(`[${key}]`);
+                }
+                throw e;
+            }
+        }
+    }
+}
 /**
  * MozAdsRequestOptions
  */
@@ -1462,12 +1518,14 @@ export class MozAdsRequestOptions {
             blocks= [], 
             cachePolicy, 
             flags= new Map(), 
-            ohttp= false
+            ohttp= false, 
+            relevance= new Map()
         } = {
             blocks: undefined, 
             cachePolicy: undefined, 
             flags: undefined, 
-            ohttp: undefined
+            ohttp: undefined, 
+            relevance: undefined
         }
     ) {
         try {
@@ -1502,6 +1560,14 @@ export class MozAdsRequestOptions {
             }
             throw e;
         }
+        try {
+            FfiConverterMapStringFloat64.checkType(relevance)
+        } catch (e) {
+            if (e instanceof UniFFITypeError) {
+                e.addItemDescriptionPart("relevance");
+            }
+            throw e;
+        }
         /**
          * @type {Array.<string>}
          */
@@ -1518,6 +1584,10 @@ export class MozAdsRequestOptions {
          * @type {boolean}
          */
         this.ohttp = ohttp;
+        /**
+         * @type {Map}
+         */
+        this.relevance = relevance;
     }
 
     equals(other) {
@@ -1526,6 +1596,7 @@ export class MozAdsRequestOptions {
             && this.cachePolicy == other.cachePolicy
             && this.flags == other.flags
             && this.ohttp == other.ohttp
+            && this.relevance == other.relevance
         )
     }
 }
@@ -1538,6 +1609,7 @@ export class FfiConverterTypeMozAdsRequestOptions extends FfiConverterArrayBuffe
             cachePolicy: FfiConverterOptionalTypeMozAdsCachePolicy.read(dataStream),
             flags: FfiConverterMapStringBoolean.read(dataStream),
             ohttp: FfiConverterBoolean.read(dataStream),
+            relevance: FfiConverterMapStringFloat64.read(dataStream),
         });
     }
     static write(dataStream, value) {
@@ -1545,6 +1617,7 @@ export class FfiConverterTypeMozAdsRequestOptions extends FfiConverterArrayBuffe
         FfiConverterOptionalTypeMozAdsCachePolicy.write(dataStream, value.cachePolicy);
         FfiConverterMapStringBoolean.write(dataStream, value.flags);
         FfiConverterBoolean.write(dataStream, value.ohttp);
+        FfiConverterMapStringFloat64.write(dataStream, value.relevance);
     }
 
     static computeSize(value) {
@@ -1553,6 +1626,7 @@ export class FfiConverterTypeMozAdsRequestOptions extends FfiConverterArrayBuffe
         totalSize += FfiConverterOptionalTypeMozAdsCachePolicy.computeSize(value.cachePolicy);
         totalSize += FfiConverterMapStringBoolean.computeSize(value.flags);
         totalSize += FfiConverterBoolean.computeSize(value.ohttp);
+        totalSize += FfiConverterMapStringFloat64.computeSize(value.relevance);
         return totalSize
     }
 
@@ -1590,6 +1664,14 @@ export class FfiConverterTypeMozAdsRequestOptions extends FfiConverterArrayBuffe
         } catch (e) {
             if (e instanceof UniFFITypeError) {
                 e.addItemDescriptionPart(".ohttp");
+            }
+            throw e;
+        }
+        try {
+            FfiConverterMapStringFloat64.checkType(value.relevance);
+        } catch (e) {
+            if (e instanceof UniFFITypeError) {
+                e.addItemDescriptionPart(".relevance");
             }
             throw e;
         }
@@ -1685,8 +1767,6 @@ export class FfiConverterTypeMozAdsSpocFrequencyCaps extends FfiConverterArrayBu
         }
     }
 }
-
-
 // Export the FFIConverter object to make external types work.
 export class FfiConverterMapStringUInt32 extends FfiConverterArrayBuffer {
     static read(dataStream) {

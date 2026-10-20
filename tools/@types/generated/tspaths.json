@@ -7117,9 +7117,6 @@
       "resource://nimbus/lib/Telemetry.sys.mjs": [
         "../../../toolkit/components/nimbus/lib/Telemetry.sys.mjs"
       ],
-      "resource://normandy-content/AboutPages.sys.mjs": [
-        "../../../toolkit/components/normandy/content/AboutPages.sys.mjs"
-      ],
       "resource://normandy/Normandy.sys.mjs": [
         "../../../toolkit/components/normandy/Normandy.sys.mjs"
       ],

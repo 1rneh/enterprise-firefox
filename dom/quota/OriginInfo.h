@@ -30,9 +30,9 @@ class OriginInfo final : public SupportsThreadSafeWeakPtr<OriginInfo> {
 
   OriginInfo(GroupInfo* aGroupInfo, const nsACString& aOrigin,
              const nsACString& aStorageOrigin, bool aIsPrivate,
-             const ClientUsageArray& aClientUsages, int64_t aUsage,
-             int64_t aAccessTime, int32_t aMaintenanceDate, bool aPersisted,
-             bool aDirectoryExists);
+             bool aIsEncrypted, const ClientUsageArray& aClientUsages,
+             int64_t aUsage, int64_t aAccessTime, int32_t aMaintenanceDate,
+             bool aPersisted, bool aDirectoryExists);
 
   GroupInfo* GetGroupInfo() const { return mGroupInfo; }
 
@@ -71,6 +71,8 @@ class OriginInfo final : public SupportsThreadSafeWeakPtr<OriginInfo> {
   }
 
   bool IsPrivate() const { return mIsPrivate; }
+
+  bool IsEncrypted() const { return mIsEncrypted; }
 
   bool IsExtensionOrigin() const { return mIsExtension; }
 
@@ -166,6 +168,7 @@ class OriginInfo final : public SupportsThreadSafeWeakPtr<OriginInfo> {
   int64_t mAccessTime;
   int32_t mMaintenanceDate;
   bool mIsPrivate;
+  bool mIsEncrypted;
   bool mAccessed;
   bool mPersisted;
   const bool mIsExtension;

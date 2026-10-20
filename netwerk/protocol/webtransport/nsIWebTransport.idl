@@ -14,6 +14,9 @@ interface nsIWebTransportReceiveStream;
 interface nsIWebTransportHash;
 
 %{C++
+namespace mozilla {
+class TimeStamp;
+}
 namespace mozilla::dom {
 class ClientInfo;
 class WebTransportStatsData;
@@ -29,6 +32,7 @@ class WebTransportStreamBase;
 [ptr] native WebTransportSessionPtr(mozilla::net::WebTransportSessionBase);
 [ptr] native WebTransportStreamPtr(mozilla::net::WebTransportStreamBase);
 native Datagram(nsTArray<uint8_t>&&);
+native TimeStamp(mozilla::TimeStamp);
 [ref] native const_MaybeClientInfoRef(const mozilla::Maybe<mozilla::dom::ClientInfo>);
 
 [builtinclass, scriptable, uuid(c20d6e77-8cb1-4838-a88d-fff826080aa3)]
@@ -98,9 +102,23 @@ interface nsIWebTransport : nsISupports {
   void sendDatagram(in Array<uint8_t> aData, in uint64_t aTrackingId,
                     in uint64_t aSendGroupId, in int64_t aSendOrder);
 
+  // As sendDatagram(), for a datagram written at aTimestamp: outgoingMaxAge
+  // is measured from then, not from when it reaches the queue.
+  [noscript] void sendDatagramAt(in Array<uint8_t> aData,
+                                 in uint64_t aTrackingId,
+                                 in uint64_t aSendGroupId,
+                                 in int64_t aSendOrder,
+                                 in TimeStamp aTimestamp);
+
   void getMaxDatagramSize();
 
   uint64_t getHttpChannelID();
+
+  // Set the outgoing datagram queue's maximum buffered datagram count
+  void setDatagramMaxBufferedDatagrams(in uint32_t aMaxBufferedDatagrams);
+
+  // Set the outgoing datagram queue max age in milliseconds
+  void setDatagramMaxAge(in double aMaxAge);
 
   // Get the negotiated protocol (subprotocol) for the session.
   // Returns empty string if no protocol was negotiated.
@@ -158,6 +176,8 @@ interface WebTransportSessionEventListener : nsISupports {
     UNKNOWN               = 0,
     DROPPED_TOO_MUCH_DATA = 1,
     SENT                  = 2,
+    DROPPED_TOO_OLD       = 3,
+    DROPPED_QUEUE_FULL    = 4,
   };
 
   void onOutgoingDatagramOutCome(

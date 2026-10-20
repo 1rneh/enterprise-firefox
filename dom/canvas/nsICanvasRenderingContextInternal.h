@@ -99,9 +99,11 @@ class nsICanvasRenderingContextInternal : public nsISupports,
   virtual int32_t GetWidth() = 0;
   virtual int32_t GetHeight() = 0;
 
-  // Sets the dimensions of the canvas, in pixels.  Called
-  // whenever the size of the element changes.
+  // Sets the dimensions of the canvas, in pixels.  Called whenever the size of
+  // the element changes.
   NS_IMETHOD SetDimensions(int32_t width, int32_t height) = 0;
+  // Trigger a deferred context creation error from SetDimensions.
+  NS_IMETHOD MaybeThrowContextCreationError() { return NS_OK; }
 
   // Initializes the canvas after the object is constructed.
   virtual nsresult Initialize() { return NS_OK; }

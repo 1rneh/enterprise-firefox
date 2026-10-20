@@ -154,12 +154,16 @@ class Http3SessionBase {
       mozilla::dom::WebTransportStatsData& aStats) = 0;
   virtual void SendDatagram(Http3WebTransportSession* aSession,
                             nsTArray<uint8_t>& aData, uint64_t aTrackingId,
-                            uint64_t aSendGroupId, int64_t aSendOrder) = 0;
+                            uint64_t aSendGroupId, int64_t aSendOrder,
+                            TimeStamp aTimestamp) = 0;
   virtual uint64_t MaxDatagramSize(uint64_t aSessionId) = 0;
   virtual nsresult ExportWebTransportKeyingMaterial(
       uint64_t aSessionId, const nsTArray<uint8_t>& aLabel,
       const nsTArray<uint8_t>& aContext, uint32_t aOutputLength,
       nsTArray<uint8_t>& aKeyingMaterial) = 0;
+  virtual void SetDatagramMaxBufferedDatagrams(
+      uint64_t aSessionId, uint32_t aMaxBufferedDatagrams) = 0;
+  virtual void SetDatagramMaxAge(uint64_t aSessionId, double aMaxAge) = 0;
   virtual bool GetWebTransportSessionStats(
       uint64_t aSessionId, mozilla::dom::WebTransportStatsData& aStats) = 0;
   virtual nsresult RegisterWebTransportSendGroup(uint64_t aSessionId,
@@ -306,7 +310,8 @@ class Http3Session final : public Http3SessionBase,
 
   void SendDatagram(Http3WebTransportSession* aSession,
                     nsTArray<uint8_t>& aData, uint64_t aTrackingId,
-                    uint64_t aSendGroupId, int64_t aSendOrder) override;
+                    uint64_t aSendGroupId, int64_t aSendOrder,
+                    TimeStamp aTimestamp) override;
   void SendHTTPDatagram(uint64_t aStreamId, nsTArray<uint8_t>& aData,
                         uint64_t aTrackingId) override;
 
@@ -320,6 +325,9 @@ class Http3Session final : public Http3SessionBase,
   bool GetWebTransportSessionStats(
       uint64_t aSessionId,
       mozilla::dom::WebTransportStatsData& aStats) override;
+  void SetDatagramMaxBufferedDatagrams(uint64_t aSessionId,
+                                       uint32_t aMaxBufferedDatagrams) override;
+  void SetDatagramMaxAge(uint64_t aSessionId, double aMaxAge) override;
   nsresult GetWebTransportSessionProtocol(uint64_t aSessionId,
                                           nsACString& aProtocol) override;
   void SetSendOrder(Http3StreamBase* aStream, int64_t aSendOrder) override;

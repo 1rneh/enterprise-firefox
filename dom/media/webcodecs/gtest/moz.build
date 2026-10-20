@@ -9,6 +9,7 @@ UNIFIED_SOURCES += [
 
 LOCAL_INCLUDES += [
     "!/ipc/ipdl/_ipdlheaders",
+    "/dom/media/gtest",
     "/dom/media/webcodecs",
     "/gfx/2d",
     "/ipc/chromium/src/",

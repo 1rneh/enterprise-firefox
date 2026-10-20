@@ -105,7 +105,6 @@ GPUProcessManager::GPUProcessManager()
       mTotalProcessAttempts(0),
       mDeviceResetCount(0),
       mAppInForeground(true),
-      mProcess(nullptr),
       mProcessToken(0),
       mGPUChild(nullptr) {
   MOZ_COUNT_CTOR(GPUProcessManager);

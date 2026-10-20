@@ -266,7 +266,11 @@ export class IPPChannelFilter {
     }
 
     const principal = this.#principalForChannel(channel);
-    const rule = lazy.IPPSiteRuleManager.getRule(principal);
+    const { targetBrowsingContext, browsingContext } = channel.loadInfo ?? {};
+    const rule = lazy.IPPSiteRuleManager.getRule(
+      principal,
+      (targetBrowsingContext ?? browsingContext)?.top.browserId
+    );
     const isTopLevelDocument =
       channel.loadInfo?.externalContentPolicyType ===
       Ci.nsIContentPolicy.TYPE_DOCUMENT;

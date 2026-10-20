@@ -62,10 +62,11 @@ export class SiteRuleProvider extends EventTarget {
    * This provider's opinion for a principal.
    *
    * @param {?nsIPrincipal} _principal
+   * @param {number} [_browserId] - the tab the principal is loaded in.
    * @returns {?string}
    *  The rule, or null for "no opinion, ask the next provider".
    */
-  getRule(_principal) {
+  getRule(_principal, _browserId) {
     return null;
   }
 
@@ -461,5 +462,77 @@ export class IPPPermissionRuleProvider extends SiteRuleProvider {
       default:
         return IPPPrincipalRules.DEFAULT;
     }
+  }
+}
+
+/**
+ * Rules that cover every site in a single tab, for as long as it is open.
+ */
+export class IPPTabRuleProvider extends SiteRuleProvider {
+  /** @type {Map<number, string>} */
+  #rules = new Map();
+  #observer = null;
+
+  init() {
+    // ES6 classes that extend EventTarget cannot be coerced into nsIObserver.
+    this.#observer = (subject, topic, data) => {
+      this.observe(subject, topic, data);
+    };
+    Services.obs.addObserver(this.#observer, "browsing-context-discarded");
+  }
+
+  observe(browsingContext, topic, why) {
+    // A replaced context hands its browserId to the next one: same tab.
+    if (
+      topic !== "browsing-context-discarded" ||
+      browsingContext.parent ||
+      why === "replace"
+    ) {
+      return;
+    }
+    if (this.#rules.delete(browsingContext.browserId)) {
+      this.notifyChange();
+    }
+  }
+
+  uninit() {
+    if (!this.#observer) {
+      return;
+    }
+    Services.obs.removeObserver(this.#observer, "browsing-context-discarded");
+    this.#observer = null;
+    this.#rules.clear();
+  }
+
+  getRule(_principal, browserId) {
+    return this.#rules.get(browserId) ?? null;
+  }
+
+  /**
+   * Sets the rule for every site in one tab until it closes.
+   *
+   * @param {string} rule
+   *  An IPPPrincipalRules value; DEFAULT removes the rule.
+   * @param {number} browserId
+   *  The tab.
+   */
+  setTabRule(rule, browserId) {
+    if (!browserId || (this.#rules.get(browserId) ?? null) === rule) {
+      return;
+    }
+    if (rule) {
+      this.#rules.set(browserId, rule);
+    } else {
+      this.#rules.delete(browserId);
+    }
+    this.notifyChange();
+  }
+
+  count(rule) {
+    let count = 0;
+    for (const tabRule of this.#rules.values()) {
+      count += tabRule === rule ? 1 : 0;
+    }
+    return count;
   }
 }

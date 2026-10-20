@@ -395,6 +395,7 @@ void ClientWebGLContext::Event_webglcontextrestored() const {
       this);  // TODO: Make context loss non-mutable.
   if (!mutThis->CreateHostContext(requestSize)) {
     mLossStatus = webgl::LossStatus::LostForever;
+    mutThis->MaybeThrowContextCreationError();
     return;
   }
 
@@ -429,6 +430,15 @@ void ClientWebGLContext::ThrowEvent_WebGLContextCreationError(
   event->SetTrusted(true);
 
   target->DispatchEvent(*event);
+}
+
+NS_IMETHODIMP
+ClientWebGLContext::MaybeThrowContextCreationError() {
+  if (!mDeferContextCreationError.empty()) {
+    std::string error = std::move(mDeferContextCreationError);
+    ThrowEvent_WebGLContextCreationError(error);
+  }
+  return NS_OK;
 }
 
 // -------------------------------------------------------------------------
@@ -813,6 +823,7 @@ ClientWebGLContext::SetDimensions(const int32_t signedWidth,
                                   const int32_t signedHeight) {
   const FuncScope funcScope(*this, "<SetDimensions>");
   MOZ_ASSERT(mInitialOptions);
+  MOZ_ASSERT(mDeferContextCreationError.empty());
 
   if (mLossStatus != webgl::LossStatus::Ready) {
     // Attempted resize of a lost context.
@@ -865,6 +876,8 @@ void ClientWebGLContext::ResetBitmap() {
 }
 
 bool ClientWebGLContext::CreateHostContext(const uvec2& requestedSize) {
+  MOZ_ASSERT(mDeferContextCreationError.empty());
+
   const auto pNotLost = MakeRefPtr<webgl::NotLostData>(*this);
   auto& notLost = *pNotLost;
 
@@ -943,7 +956,7 @@ bool ClientWebGLContext::CreateHostContext(const uvec2& requestedSize) {
     notLost.info.error = str;
   }
   if (!notLost.info.error->empty()) {
-    ThrowEvent_WebGLContextCreationError(notLost.info.error);
+    mDeferContextCreationError = notLost.info.error;
     return false;
   }
   mNotLost = pNotLost;

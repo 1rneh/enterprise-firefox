@@ -538,9 +538,9 @@ NS_IMETHODIMP HTMLEditor::SetDocumentCharacterSet(
           [&aCharacterSet](HTMLEditor&, Element& aMetaElement,
                            const EditorDOMPoint&) {
             MOZ_ASSERT(!aMetaElement.IsInComposedDoc());
-            DebugOnly<nsresult> rvIgnored =
-                aMetaElement.SetAttr(kNameSpaceID_None, nsGkAtoms::httpEquiv,
-                                     u"Content-Type"_ns, false);
+            DebugOnly<nsresult> rvIgnored = aMetaElement.SetAttr(
+                kNameSpaceID_None, nsGkAtoms::httpEquiv, u"Content-Type"_ns,
+                false, IsKnownNewAttr::Yes);
             NS_WARNING_ASSERTION(
                 NS_SUCCEEDED(rvIgnored),
                 "Element::SetAttr(nsGkAtoms::httpEquiv, \"Content-Type\", "
@@ -549,7 +549,7 @@ NS_IMETHODIMP HTMLEditor::SetDocumentCharacterSet(
                 aMetaElement.SetAttr(kNameSpaceID_None, nsGkAtoms::content,
                                      u"text/html;charset="_ns +
                                          NS_ConvertASCIItoUTF16(aCharacterSet),
-                                     false);
+                                     false, IsKnownNewAttr::Yes);
             NS_WARNING_ASSERTION(
                 NS_SUCCEEDED(rvIgnored),
                 nsPrintfCString(
@@ -4138,7 +4138,7 @@ HTMLEditor::InsertOrReplaceTextWithTransaction(
   MOZ_ASSERT_IF(aData.ReplaceLength(), aPointToInsert.IsInTextNode());
 
   Result<InsertTextResult, nsresult> insertTextResultOrError =
-      !aData.ReplaceLength()
+      !aData.ReplaceLength() || NS_WARN_IF(!aPointToInsert.IsInTextNode())
           ? InsertTextWithTransaction(aData.mNormalizedString, aPointToInsert,
                                       InsertTextTo::SpecifiedPoint, aPurpose)
           : ReplaceTextWithTransaction(
@@ -4663,9 +4663,9 @@ HTMLEditor::ReplaceContainerWithTransactionInternal(
     MOZ_ASSERT(&aAttribute == nsGkAtoms::_empty);
     CloneAttributesWithTransaction(*newContainer, aOldContainer);
   } else if (&aAttribute != nsGkAtoms::_empty) {
-    nsresult rv = newContainer->SetAttr(kNameSpaceID_None,
-                                        const_cast<nsAtom*>(&aAttribute),
-                                        aAttributeValue, true);
+    nsresult rv = newContainer->SetAttr(
+        kNameSpaceID_None, const_cast<nsAtom*>(&aAttribute), aAttributeValue,
+        true, IsKnownNewAttr::Yes);
     if (NS_FAILED(rv)) {
       NS_WARNING("Element::SetAttr() failed");
       return Err(NS_ERROR_FAILURE);

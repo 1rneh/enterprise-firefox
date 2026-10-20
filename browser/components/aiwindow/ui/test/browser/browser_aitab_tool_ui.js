@@ -276,7 +276,9 @@ describe("AITab ToolUI", () => {
     it("removes the creating card and retains the generation error", async () => {
       await checkFailure(
         "invalid JSON",
-        "The page could not be created: the model did not return valid JSON."
+        "The page could not be created: the model did not return valid JSON. " +
+          "Please surface to the user that there was an internal error, but " +
+          "the user may try again."
       );
     });
 
@@ -288,7 +290,8 @@ describe("AITab ToolUI", () => {
 
       await checkFailure(
         JSON.stringify(SURFACE),
-        "The page could not be created: it could not be saved."
+        "The page could not be created: it could not be saved. Tell the " +
+          "user the page could not be saved. Do not try again."
       );
     });
 

@@ -5647,13 +5647,15 @@ already_AddRefed<Element> ScrollContainerFrame::MakeScrollbar(
 #endif  // DEBUG
 
   if (aVertical) {
-    e->SetAttr(kNameSpaceID_None, nsGkAtoms::vertical, u"true"_ns, false);
+    e->SetAttr(kNameSpaceID_None, nsGkAtoms::vertical, u"true"_ns, false,
+               IsKnownNewAttr::Yes);
   }
 
   if (mIsRoot) {
     e->SetProperty(nsGkAtoms::docLevelNativeAnonymousContent,
                    reinterpret_cast<void*>(true));
-    e->SetAttr(kNameSpaceID_None, nsGkAtoms::root, u"true"_ns, false);
+    e->SetAttr(kNameSpaceID_None, nsGkAtoms::root, u"true"_ns, false,
+               IsKnownNewAttr::Yes);
 
     // Don't bother making style caching take [root] styles into account.
     aKey = AnonymousContentKey::None;
@@ -5783,7 +5785,7 @@ nsresult ScrollContainerFrame::CreateAnonymousContent(
         dir.AssignLiteral("bottom");
         if (!IsScrollbarOnRight()) {
           mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::flip, u""_ns,
-                                   false);
+                                   false, IsKnownNewAttr::Yes);
         }
         break;
       case StyleResize::Both:
@@ -5796,7 +5798,8 @@ nsresult ScrollContainerFrame::CreateAnonymousContent(
       default:
         NS_WARNING("only resizable types should have resizers");
     }
-    mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::dir, dir, false);
+    mResizerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::dir, dir, false,
+                             IsKnownNewAttr::Yes);
     aElements.AppendElement(mResizerContent);
   }
 
@@ -5814,7 +5817,7 @@ nsresult ScrollContainerFrame::CreateAnonymousContent(
           nsGkAtoms::docLevelNativeAnonymousContent,
           reinterpret_cast<void*>(true));
       mScrollCornerContent->SetAttr(kNameSpaceID_None, nsGkAtoms::root,
-                                    u"true"_ns, false);
+                                    u"true"_ns, false, IsKnownNewAttr::Yes);
 
       // Don't bother making style caching take [root="true"] styles into
       // account.

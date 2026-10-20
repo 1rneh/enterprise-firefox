@@ -68,6 +68,7 @@ WebTransportDatagramsWritable::Create(
   }
 
   datagramsWritable->mAlgorithms = algorithms;
+  algorithms->SetOwnerWritable(datagramsWritable.get());
 
   // Set up the WritableStream with our custom algorithms
   datagramsWritable->SetUpNative(aCx, *algorithms, Nothing(), nullptr, aRv);
@@ -107,6 +108,28 @@ void WebTransportDatagramsWritable::SetSendOrder(int64_t aSendOrder) {
   mSendOrder = aSendOrder;
   if (mAlgorithms) {
     mAlgorithms->SetSendOrder(aSendOrder);
+  }
+}
+
+void WebTransportDatagramsWritable::OnDatagramReady(uint64_t aDatagramId) {
+  if (mAlgorithms) {
+    mAlgorithms->OnDatagramReady(aDatagramId);
+  }
+}
+
+bool WebTransportDatagramsWritable::IsConnected() const {
+  return mAlgorithms && mAlgorithms->GetChild();
+}
+
+void WebTransportDatagramsWritable::SetChild(WebTransportChild* aChild) {
+  if (mAlgorithms) {
+    mAlgorithms->SetChild(aChild);
+  }
+}
+
+void WebTransportDatagramsWritable::Cleanup() {
+  if (mAlgorithms) {
+    mAlgorithms->Cleanup();
   }
 }
 

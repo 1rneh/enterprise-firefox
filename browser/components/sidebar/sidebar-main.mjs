@@ -573,7 +573,7 @@ export default class SidebarMain extends MozLitElement {
           case "sidebar-context-menu-hide-sidebar":
             window.SidebarController._maybeAnimate(() => {
               window.SidebarController.hide({ dismissPanel: false });
-              window.SidebarController._state.updateVisibility(false);
+              window.SidebarController._state.userLauncherVisible = false;
               window.SidebarController.updateToolbarButton();
             });
             break;

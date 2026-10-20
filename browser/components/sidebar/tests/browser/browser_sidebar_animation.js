@@ -239,7 +239,7 @@ add_task(async function test_expand_and_collapse_show_only_new_launcher() {
     ],
   });
   await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
-  SidebarController._state.updateVisibility(true, true);
+  SidebarController._state.launcherExpanded = true;
   await SidebarController.waitUntilStable();
 
   const snapshotStyle = which =>
@@ -368,7 +368,7 @@ add_task(async function test_panel_transitions_show_only_new_launcher() {
     ],
   });
   await SidebarTestUtils.waitForTabstripOrientation(window, "vertical");
-  SidebarController._state.updateVisibility(true, true);
+  SidebarController._state.launcherExpanded = true;
   await SidebarController.waitUntilStable();
 
   const inspect = () =>

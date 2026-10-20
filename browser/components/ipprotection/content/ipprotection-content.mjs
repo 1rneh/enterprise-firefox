@@ -307,7 +307,8 @@ export default class IPProtectionContentElement extends MozLitElement {
   }
 
   statusCardTemplate() {
-    let hasExclusion = this.hasSiteExclusion;
+    let hasExclusion =
+      !this.state.isSiteInclusionsEnabled && this.hasSiteExclusion;
 
     return html`
       <ipprotection-status-card
@@ -450,7 +451,7 @@ export default class IPProtectionContentElement extends MozLitElement {
 
     let dataL10nId;
     let imgSrc;
-    let imgClass;
+    let imgId;
 
     // hasSiteRule can be set without a rule that classifies this site, so the
     // rule type has to be resolved before we commit to rendering anything.
@@ -458,12 +459,12 @@ export default class IPProtectionContentElement extends MozLitElement {
       dataL10nId = "site-rules-description-inclusion";
       imgSrc =
         "chrome://browser/content/ipprotection/assets/states/ipprotection-on.svg";
-      imgClass = "ipprotection-on";
+      imgId = "ipprotection-on";
     } else if (this.hasSiteExclusion) {
       dataL10nId = "site-rules-description-exclusion";
       imgSrc =
-        "chrome://browser/content/ipprotection/assets/states/ipprotection-off.svg";
-      imgClass = "ipprotection-off";
+        "chrome://browser/content/ipprotection/assets/states/ipprotection-excluded.svg";
+      imgId = "ipprotection-excluded";
     } else {
       return null;
     }
@@ -477,7 +478,7 @@ export default class IPProtectionContentElement extends MozLitElement {
         ></span>
         <span id="site-rule-description" data-l10n-id=${dataL10nId}></span>
       </div>
-      <img src=${imgSrc} alt="" class=${imgClass} />
+      <img src=${imgSrc} alt="" id=${imgId} />
     </div>`;
   }
 

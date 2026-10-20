@@ -70,11 +70,11 @@ nsresult nsCanvasFrame::CreateAnonymousContent(
     NS_ENSURE_SUCCESS(rv, rv);
 
     mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::_default, u"true"_ns,
-                             false);
+                             false, IsKnownNewAttr::Yes);
     // Set the page attribute so XULTooltipElement::PostHandleEvent will find
     // the text for the tooltip from the currently hovered element.
     mTooltipContent->SetAttr(kNameSpaceID_None, nsGkAtoms::page, u"true"_ns,
-                             false);
+                             false, IsKnownNewAttr::Yes);
 
     mTooltipContent->SetProperty(nsGkAtoms::docLevelNativeAnonymousContent,
                                  reinterpret_cast<void*>(true));

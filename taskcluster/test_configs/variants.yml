@@ -184,19 +184,6 @@ standalone:
             extra-options:
                 - "--restart-between-tests"
 
-geckoview-no-fission:
-    description: "{description} without fission enabled"
-    component: "GeckoView::General"
-    expiration: "2027-03-01"
-    when:
-        <<: *gv_e10s_filter
-    suffix: "nofis"
-    mozinfo: "fission"
-    merge:
-        mozharness:
-            extra-options:
-                - "--disable-fission"
-
 geckoview-fission-isolate-high-value:
     description: "{description} with fission enabled and isolation strategy isolateHighValue"
     component: "GeckoView::General"
@@ -748,16 +735,6 @@ privatebrowsing-inc-origin-init:
         mozharness:
             extra-options:
                 - "--setpref=browser.privatebrowsing.autostart=true"
-
-no-nova:
-    description: "{description} with Nova disabled"
-    component: "Firefox::Theme"
-    expiration: "2026-12-31"
-    suffix: "no-nv"
-    merge:
-        mozharness:
-            extra-options:
-                - "--setpref=browser.nova.enabled=false"
 
 urlbar-ipc:
     description: "{description} with the urlbar actor message-passing path forced on"

@@ -447,7 +447,8 @@ void ImageDocument::OnLoadComplete(imgIRequest* aRequest, nsresult aStatus) {
     nsAutoString errorMsg;
     FormatStringFromName("InvalidImage", formatString, errorMsg);
 
-    mImageContent->SetAttr(kNameSpaceID_None, nsGkAtoms::alt, errorMsg, false);
+    mImageContent->SetAttr(kNameSpaceID_None, nsGkAtoms::alt, errorMsg, false,
+                           IsKnownNewAttr::No);
   }
 
   MaybeSendResultToEmbedder(aStatus);
@@ -578,8 +579,10 @@ nsresult ImageDocument::CreateSyntheticDocument() {
   NS_ConvertUTF8toUTF16 srcString(src);
   // Make sure not to start the image load from here...
   mImageContent->SetLoadingEnabled(false);
-  mImageContent->SetAttr(kNameSpaceID_None, nsGkAtoms::src, srcString, false);
-  mImageContent->SetAttr(kNameSpaceID_None, nsGkAtoms::alt, srcString, false);
+  mImageContent->SetAttr(kNameSpaceID_None, nsGkAtoms::src, srcString, false,
+                         IsKnownNewAttr::Yes);
+  mImageContent->SetAttr(kNameSpaceID_None, nsGkAtoms::alt, srcString, false,
+                         IsKnownNewAttr::Yes);
 
   if (mIsInObjectOrEmbed) {
     SetModeClass(eIsInObjectOrEmbed);

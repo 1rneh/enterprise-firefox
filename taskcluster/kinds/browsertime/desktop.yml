@@ -15,7 +15,7 @@ task-defaults:
     limit-platforms:
         by-app:
             chrome:
-                - .*64.*shippable.*
+                - (?!macosx1470).*64.*shippable.*
             safari:
                 - macosx2700.*shippable.*
             safari-tp:
@@ -102,7 +102,7 @@ browsertime-tp6:
         limit-platforms:
             by-app:
                 chrome:
-                    - .*shippable.*
+                    - (?!macosx1470).*shippable.*
                 safari:
                     - (?!macosx1470).*macos.*shippable.*
                 custom-car:
@@ -218,7 +218,6 @@ browsertime-tp6-essential:
                 chrome:
                     - linux.*shippable.*
                     - windows.*shippable.*
-                    - macosx1470.*shippable.*
                 custom-car:
                     - linux.*shippable.*
                     - windows.*-64.*shippable.*
@@ -317,7 +316,7 @@ browsertime-tp7:
         limit-platforms:
             by-app:
                 chrome:
-                    - .*shippable.*
+                    - (?!macosx1470).*shippable.*
                 safari:
                     - (?!macosx1470).*macos.*shippable.*
                 custom-car:
@@ -363,103 +362,115 @@ browsertime-tp7:
 
 browsertime-benchmark:
     description: Raptor (browsertime) Benchmark tests
+    limit-platforms:
+        by-app:
+            chrome:
+                by-subtest:
+                    media-capabilities:
+                        - .*64.*shippable.*
+                    default:
+                        - (?!macosx1470).*64.*shippable.*
+            safari:
+                - macosx2700.*shippable.*
+            safari-tp:
+                - macosx1400.*
+                - macosx2700.*
+            custom-car:
+                - macosx1500.*shippable.*
+                - linux.*-64.*shippable.*
+                - windows.*-64.*shippable.*
+            default: []
     raptor:
         apps:
             by-test-platform:
                 macosx2700.*: [safari, safari-tp]
                 default: [firefox, chrome, safari, safari-tp, custom-car]
         subtests:
-            by-variant:
-                no-nova:
-                    - [speedometer3, sp3]
-                default:
-                    by-test-platform:
-                        (macosx1400|macosx1500|macosx2700).*shippable.*:
-                            by-app:
-                                safari-tp:
-                                    - [speedometer3, sp3]
-                                    - [jetstream3, js3]
-                                safari:
-                                    - [jetstream3, js3]
-                                    - [speedometer2, sp2]
-                                    - [speedometer3, sp3]
-                                    - [motionmark-1-3, mm-1.3]
-                                    - [motionmark-htmlsuite-1-3, mm-h-1.3]
-                                default:
-                                    - [jetstream3, js3]
-                                    - [speedometer2, sp2]
-                                    - [speedometer3, sp3]
-                                    - [speedometer-experimental, sp-exp]
-                                    - [motionmark-1-3, mm-1.3]
-                                    - [motionmark-htmlsuite-1-3, mm-h-1.3]
-                        windows11-64-.*-hw-ref.*:
-                            by-app:
-                                safari: []
-                                safari-tp: []
-                                default:
-                                    - [speedometer3, sp3]
-                                    - [speedometer-experimental, sp-exp]
+            by-test-platform:
+                (macosx1400|macosx1500|macosx2700).*shippable.*:
+                    by-app:
+                        safari-tp:
+                            - [speedometer3, sp3]
+                            - [jetstream3, js3]
+                        safari:
+                            - [jetstream3, js3]
+                            - [speedometer2, sp2]
+                            - [speedometer3, sp3]
+                            - [motionmark-1-3, mm-1.3]
+                            - [motionmark-htmlsuite-1-3, mm-h-1.3]
                         default:
-                            by-app:
-                                firefox:
-                                    - [assorted-dom, dom]
-                                    - [jetstream3, js3]
-                                    - [matrix-react-bench, mrb]
-                                    - [media-capabilities, mc]
-                                    - [motionmark-1-3, mm-1.3]
-                                    - [motionmark-htmlsuite-1-3, mm-h-1.3]
-                                    - [speedometer2, sp2]
-                                    - [speedometer3, sp3]
-                                    - [speedometer-experimental, sp-exp]
-                                    - [stylebench, sb]
-                                    - [twitch-animation, tw-a]
-                                    - [unity-webgl, ugl]
-                                    - [webaudio, wa]
-                                safari:
-                                    - [assorted-dom, dom]
-                                    - [jetstream3, js3]
-                                    # - [matrix-react-bench, mrb] Perma fails on osx 10.15.x machines (Bug 1807754)
-                                    - [motionmark-1-3, mm-1.3]
-                                    - [motionmark-htmlsuite-1-3, mm-h-1.3]
-                                    - [speedometer2, sp2]
-                                    # - [speedometer3, sp3] Perma fails on osx 10.15.x machines (Bug 1809535)
-                                    - [stylebench, sb]
-                                    # - [unity-webgl, ugl] Almost Perma failing on osx 10.15.x machines (Bug 1888398)
-                                    - [webaudio, wa]
-                                custom-car:
-                                    - [speedometer2, sp2]
-                                    - [speedometer3, sp3]
-                                    - [speedometer-experimental, sp-exp]
-                                    - [motionmark-1-3, mm-1.3]
-                                    - [motionmark-htmlsuite-1-3, mm-h-1.3]
-                                    - [jetstream3, js3]
-                                chrome:
-                                    - [assorted-dom, dom]
-                                    - [jetstream3, js3]
-                                    - [matrix-react-bench, mrb]
-                                    - [media-capabilities, mc]
-                                    - [motionmark-1-3, mm-1.3]
-                                    - [motionmark-htmlsuite-1-3, mm-h-1.3]
-                                    - [speedometer2, sp2]
-                                    - [speedometer3, sp3]
-                                    - [speedometer-experimental, sp-exp]
-                                    - [stylebench, sb]
-                                    - [unity-webgl, ugl]
-                                    - [webaudio, wa]
-                                default:
-                                    - [assorted-dom, dom]
-                                    - [jetstream3, js3]
-                                    - [matrix-react-bench, mrb]
-                                    - [motionmark-1-3, mm-1.3]
-                                    - [motionmark-htmlsuite-1-3, mm-h-1.3]
-                                    - [speedometer2, sp2]
-                                    - [speedometer3, sp3]
-                                    - [stylebench, sb]
-                                    - [unity-webgl, ugl]
-                                    - [webaudio, wa]
+                            - [jetstream3, js3]
+                            - [speedometer2, sp2]
+                            - [speedometer3, sp3]
+                            - [speedometer-experimental, sp-exp]
+                            - [motionmark-1-3, mm-1.3]
+                            - [motionmark-htmlsuite-1-3, mm-h-1.3]
+                windows11-64-.*-hw-ref.*:
+                    by-app:
+                        safari: []
+                        safari-tp: []
+                        default:
+                            - [speedometer3, sp3]
+                            - [speedometer-experimental, sp-exp]
+                default:
+                    by-app:
+                        firefox:
+                            - [assorted-dom, dom]
+                            - [jetstream3, js3]
+                            - [matrix-react-bench, mrb]
+                            - [media-capabilities, mc]
+                            - [motionmark-1-3, mm-1.3]
+                            - [motionmark-htmlsuite-1-3, mm-h-1.3]
+                            - [speedometer2, sp2]
+                            - [speedometer3, sp3]
+                            - [speedometer-experimental, sp-exp]
+                            - [stylebench, sb]
+                            - [twitch-animation, tw-a]
+                            - [unity-webgl, ugl]
+                            - [webaudio, wa]
+                        safari:
+                            - [assorted-dom, dom]
+                            - [jetstream3, js3]
+                            # - [matrix-react-bench, mrb] Perma fails on osx 10.15.x machines (Bug 1807754)
+                            - [motionmark-1-3, mm-1.3]
+                            - [motionmark-htmlsuite-1-3, mm-h-1.3]
+                            - [speedometer2, sp2]
+                            # - [speedometer3, sp3] Perma fails on osx 10.15.x machines (Bug 1809535)
+                            - [stylebench, sb]
+                            # - [unity-webgl, ugl] Almost Perma failing on osx 10.15.x machines (Bug 1888398)
+                            - [webaudio, wa]
+                        custom-car:
+                            - [speedometer2, sp2]
+                            - [speedometer3, sp3]
+                            - [speedometer-experimental, sp-exp]
+                            - [motionmark-1-3, mm-1.3]
+                            - [motionmark-htmlsuite-1-3, mm-h-1.3]
+                            - [jetstream3, js3]
+                        chrome:
+                            - [assorted-dom, dom]
+                            - [jetstream3, js3]
+                            - [matrix-react-bench, mrb]
+                            - [media-capabilities, mc]
+                            - [motionmark-1-3, mm-1.3]
+                            - [motionmark-htmlsuite-1-3, mm-h-1.3]
+                            - [speedometer2, sp2]
+                            - [speedometer3, sp3]
+                            - [speedometer-experimental, sp-exp]
+                            - [stylebench, sb]
+                            - [unity-webgl, ugl]
+                            - [webaudio, wa]
+                        default:
+                            - [assorted-dom, dom]
+                            - [jetstream3, js3]
+                            - [matrix-react-bench, mrb]
+                            - [motionmark-1-3, mm-1.3]
+                            - [motionmark-htmlsuite-1-3, mm-h-1.3]
+                            - [speedometer2, sp2]
+                            - [speedometer3, sp3]
+                            - [stylebench, sb]
+                            - [unity-webgl, ugl]
+                            - [webaudio, wa]
     treeherder-symbol: Btime()
-    variants:
-        - no-nova
     tier:
         by-app:
             firefox:
@@ -935,6 +946,11 @@ browsertime-media-playback:
                     - [mp-2160p30-h264-hw, mp-h264-4k]
                     - [mp-idle, mp-idle]
     description: Raptor (browsertime) media playback power test
+    limit-platforms:
+        by-app:
+            chrome:
+                - .*64.*shippable.*
+            default: []
     max-run-time: 2700
     run-on-projects:
         by-app:
@@ -1170,6 +1186,13 @@ browsertime-video-playback-latency:
                     - vpl-h264
                     - vpl-vp9
     description: Raptor (browsertime) Video playback latency test
+    limit-platforms:
+        by-app:
+            chrome:
+                - .*shippable.*
+            safari:
+                - (?!macosx1470).*macos.*shippable.*
+            default: []
     mozharness:
         extra-options:
             by-test-platform:
@@ -1191,6 +1214,17 @@ browsertime-video-playback-latency:
     treeherder-symbol: Btime(vpl)
 
 browsertime-webcodecs:
+    limit-platforms:
+        by-app:
+            chrome:
+                - .*64.*shippable.*
+            safari:
+                - macosx2700.*shippable.*
+            custom-car:
+                - macosx1500.*shippable.*
+                - linux.*-64.*shippable.*
+                - windows.*-64.*shippable.*
+            default: []
     raptor:
         apps: [firefox, chrome, safari, custom-car]
         test: webcodecs
@@ -1459,7 +1493,7 @@ browsertime-indexeddb:
     limit-platforms:
         by-app:
             chrome:
-                - .*shippable.*
+                - (?!macosx1470).*shippable.*
             custom-car:
                 - macosx1500.*shippable.*
                 - linux.*shippable.*

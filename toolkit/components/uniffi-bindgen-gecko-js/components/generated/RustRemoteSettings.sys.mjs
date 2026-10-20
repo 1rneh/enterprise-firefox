@@ -504,6 +504,7 @@ export class RemoteSettingsContext {
             osVersion= null, 
             formFactor= null, 
             country= null, 
+            distribution= null, 
             customTargettingAttributes= null
         } = {
             channel: undefined, 
@@ -514,6 +515,7 @@ export class RemoteSettingsContext {
             osVersion: undefined, 
             formFactor: undefined, 
             country: undefined, 
+            distribution: undefined, 
             customTargettingAttributes: undefined
         }
     ) {
@@ -582,6 +584,14 @@ export class RemoteSettingsContext {
             throw e;
         }
         try {
+            FfiConverterOptionalString.checkType(distribution)
+        } catch (e) {
+            if (e instanceof UniFFITypeError) {
+                e.addItemDescriptionPart("distribution");
+            }
+            throw e;
+        }
+        try {
             FfiConverterOptionalMapStringString.checkType(customTargettingAttributes)
         } catch (e) {
             if (e instanceof UniFFITypeError) {
@@ -636,6 +646,10 @@ export class RemoteSettingsContext {
          */
         this.country = country;
         /**
+         * @type {?string}
+         */
+        this.distribution = distribution;
+        /**
          * Extra attributes to add to the env for JEXL filtering.
          * 
          * Use this for prototyping / testing new features.  In the long-term, new fields should be
@@ -655,6 +669,7 @@ export class RemoteSettingsContext {
             && this.osVersion == other.osVersion
             && this.formFactor == other.formFactor
             && this.country == other.country
+            && this.distribution == other.distribution
             && this.customTargettingAttributes == other.customTargettingAttributes
         )
     }
@@ -672,6 +687,7 @@ export class FfiConverterTypeRemoteSettingsContext extends FfiConverterArrayBuff
             osVersion: FfiConverterOptionalString.read(dataStream),
             formFactor: FfiConverterOptionalString.read(dataStream),
             country: FfiConverterOptionalString.read(dataStream),
+            distribution: FfiConverterOptionalString.read(dataStream),
             customTargettingAttributes: FfiConverterOptionalMapStringString.read(dataStream),
         });
     }
@@ -684,6 +700,7 @@ export class FfiConverterTypeRemoteSettingsContext extends FfiConverterArrayBuff
         FfiConverterOptionalString.write(dataStream, value.osVersion);
         FfiConverterOptionalString.write(dataStream, value.formFactor);
         FfiConverterOptionalString.write(dataStream, value.country);
+        FfiConverterOptionalString.write(dataStream, value.distribution);
         FfiConverterOptionalMapStringString.write(dataStream, value.customTargettingAttributes);
     }
 
@@ -697,6 +714,7 @@ export class FfiConverterTypeRemoteSettingsContext extends FfiConverterArrayBuff
         totalSize += FfiConverterOptionalString.computeSize(value.osVersion);
         totalSize += FfiConverterOptionalString.computeSize(value.formFactor);
         totalSize += FfiConverterOptionalString.computeSize(value.country);
+        totalSize += FfiConverterOptionalString.computeSize(value.distribution);
         totalSize += FfiConverterOptionalMapStringString.computeSize(value.customTargettingAttributes);
         return totalSize
     }
@@ -767,6 +785,14 @@ export class FfiConverterTypeRemoteSettingsContext extends FfiConverterArrayBuff
         } catch (e) {
             if (e instanceof UniFFITypeError) {
                 e.addItemDescriptionPart(".country");
+            }
+            throw e;
+        }
+        try {
+            FfiConverterOptionalString.checkType(value.distribution);
+        } catch (e) {
+            if (e instanceof UniFFITypeError) {
+                e.addItemDescriptionPart(".distribution");
             }
             throw e;
         }

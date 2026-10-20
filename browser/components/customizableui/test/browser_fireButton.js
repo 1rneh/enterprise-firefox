@@ -311,7 +311,7 @@ add_task(async function test_chooseOpensClearDataDialog() {
     );
     Assert.deepEqual(
       gShowUICalls[0].options,
-      { closeWindowsWithHistory: true },
+      { closeWindowsWithHistory: true, entryPoint: "fire_button" },
       "Clearing history from the dialog also replaces the windows."
     );
     Assert.equal(
@@ -369,7 +369,7 @@ add_task(async function test_directFlowSkipsPanel() {
   );
   Assert.deepEqual(
     gShowUICalls[0].options,
-    { closeWindowsWithHistory: true },
+    { closeWindowsWithHistory: true, entryPoint: "fire_button" },
     "Clearing history from the dialog also replaces the windows."
   );
   Assert.equal(

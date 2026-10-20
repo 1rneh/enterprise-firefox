@@ -1600,6 +1600,29 @@ function getAITabInitiator(conversation, isEdit) {
   return conversation.lastSubmitType == "follow-up" ? "chat_followup" : "chat";
 }
 
+const INTERNAL_ERROR_GUIDANCE =
+  "Please surface to the user that there was an internal error, but the user may try again.";
+
+// What the chat model should do next for each AITab error code. Codes not
+// listed are internal failures.
+const AITAB_ERROR_GUIDANCE = Object.freeze({
+  content_related: "Please surface the error to the user.",
+  no_content:
+    "Call the tool again with the pages or content to build from, or ask the user what the page should be about.",
+  nothing_to_change:
+    "Call the tool again with modify_instructions describing the change, or ask the user what they would like changed.",
+  page_not_found:
+    "Use the slug from an earlier successful page result in this conversation. If there is none, do not guess; create a new page instead or ask the user which page they mean.",
+  conversation_unavailable:
+    "Tell the user this page can no longer be edited, and offer to generate a new page from the same sources.",
+  history_limit:
+    "Tell the user this page has reached its edit limit, and offer to generate a new page instead. Do not try to modify it again.",
+  pages_unreadable:
+    "Tell the user the pages could not be read and suggest trying different pages. Do not retry with the same pages.",
+  canceled:
+    "The user canceled page generation. Do not try again unless they ask.",
+});
+
 /**
  * @param {object} toolParams
  * @param {string[]} [toolParams.url_list]
@@ -1611,7 +1634,7 @@ function getAITabInitiator(conversation, isEdit) {
  * @param {AbortSignal} [signal] - Cancels in-flight page extractions.
  * @returns {Promise<
  *   {success: true,
- *    toolResult: {message: string, aiTab: {uuid: string, slug: string}},
+ *    toolResult: {message: string, page: {slug: string}},
  *    uiData: {uiType: "aitab",
  *      properties: {state: "choose", viewerURL: string, title: string}}} |
  *   {success: false, toolResult: string}
@@ -1644,9 +1667,11 @@ export async function createAITab(
     conversation
   );
   if (result.error) {
+    const guidance =
+      AITAB_ERROR_GUIDANCE[result.code] ?? INTERNAL_ERROR_GUIDANCE;
     return {
       success: false,
-      toolResult: `The page could not be ${action}: ${result.error}.`,
+      toolResult: `The page could not be ${action}: ${result.error}. ${guidance}`,
     };
   }
 
@@ -1659,7 +1684,7 @@ export async function createAITab(
     lazy.console.error("[Tool] Failed to persist page", e.message);
     return {
       success: false,
-      toolResult: `The page could not be ${action}: it could not be saved.`,
+      toolResult: `The page could not be ${action}: it could not be saved. Tell the user the page could not be saved. Do not try again.`,
     };
   }
 
@@ -1685,10 +1710,9 @@ export async function createAITab(
     toolResult: {
       message: `The page was ${action}. Link the user to it as [${title}](§url_token: ${token}§).`,
       // slug addresses the page in its URL and is shared by every version, and
-      // is what modify_slug takes to revise this page on a later turn; uuid pins
-      // the single version this call wrote. Lets a later turn find this page
-      // from the conversation's tool messages.
-      aiTab: { uuid: stored.uuid, slug: stored.slug },
+      // is what modify_slug takes to revise this page on a later turn. Lets a
+      // later turn find this page from the conversation's tool messages.
+      page: { slug: stored.slug },
     },
     uiData: {
       uiType: UI_TYPES.AITAB,

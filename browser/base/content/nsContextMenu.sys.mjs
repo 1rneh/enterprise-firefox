@@ -102,13 +102,6 @@ XPCOMUtils.defineLazyServiceGetter(
   Ci.nsIClipboardHelper
 );
 
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "TEXT_FRAGMENTS_ENABLED",
-  "dom.text_fragments.enabled",
-  false
-);
-
 const PASSWORD_FIELDNAME_HINTS = ["current-password", "new-password"];
 const USERNAME_FIELDNAME_HINT = "username";
 
@@ -425,7 +418,6 @@ export class nsContextMenu {
 
   initTextFragmentItems() {
     const shouldShow =
-      lazy.TEXT_FRAGMENTS_ENABLED &&
       !(
         this.inPDFViewer ||
         this.inFrame ||
@@ -449,9 +441,6 @@ export class nsContextMenu {
   }
 
   async getTextDirective() {
-    if (!lazy.TEXT_FRAGMENTS_ENABLED) {
-      return;
-    }
     this.textFragmentURL = await this.actor.getTextDirective();
 
     // enable menu items when a text fragment can be built

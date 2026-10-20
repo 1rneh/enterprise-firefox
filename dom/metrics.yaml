@@ -163,6 +163,11 @@ perf:
         description: >
           Bitfield of web features in use within this document:
             1 - fetchpriority applied to images
+            2 - navigation was served the response body of a Speculation Rules
+                navigational prefetch
+            4 - a Speculation Rules prefetch candidate covered this navigation,
+                whether or not it was fetched; set in both branches of the
+                prefetch experiment
         type: quantity
         unit: integer
       user_features:

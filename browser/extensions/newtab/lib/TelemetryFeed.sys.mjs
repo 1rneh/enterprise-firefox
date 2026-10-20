@@ -53,6 +53,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   ObliviousHTTP: "resource://gre/modules/ObliviousHTTP.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
   NewTabContentPing: "resource://newtab/lib/NewTabContentPing.sys.mjs",
+  hasScoringFlag:
+    "resource://newtab/lib/SponsoredTopSitesScoreProvider/SponsoredTopSitesScoreProvider.mjs",
   NewTabUtils: "resource://gre/modules/NewTabUtils.sys.mjs",
   NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   MozAdsReportReason:
@@ -76,17 +78,6 @@ export function isAdEligiblePositionSupported(
   version = AppConstants.MOZ_APP_VERSION
 ) {
   return Services.vc.compare(version, "157.0a1") >= 0;
-}
-
-// @backward-compat { version 160 } background, and event_source on
-// topsites.click, were added as extra_keys in 160. glean-core drops the whole
-// event when it sees an unknown extra key, so below 160 background is omitted,
-// and the new top site clicks are not recorded at all: without event_source
-// they could not be told apart from plain clicks.
-export function isBrowserContextMenuClickSupported(
-  version = AppConstants.MOZ_APP_VERSION
-) {
-  return Services.vc.compare(version, "160.0a1") >= 0;
 }
 
 export const PREF_IMPRESSION_ID = "impressionId";
@@ -419,7 +410,7 @@ export class TelemetryFeed {
     if (
       !this.privatePingEnabled ||
       !this.trainhopClickOnlyEnabled ||
-      this.sovEnabled()
+      this.isPlacesInfluenced()
     ) {
       this.gleanSessionType = GleanSessionType.PrivateGleanSession;
       return;
@@ -562,10 +553,6 @@ export class TelemetryFeed {
     );
 
     return unifiedAdsSpocsEnabled && this.SHOW_SPONSORED_STORIES_ENABLED;
-  }
-
-  get canRecordBrowserTopSiteClicks() {
-    return isBrowserContextMenuClickSupported();
   }
 
   get canSendUnifiedAdsTilesCallbacks() {
@@ -1205,10 +1192,12 @@ export class TelemetryFeed {
     );
   }
 
-  sovEnabled() {
+  isPlacesInfluenced() {
     const { values } = this.store?.getState()?.Prefs || {};
-    const trainhopSovEnabled = values?.trainhopConfig?.sov?.enabled;
-    return trainhopSovEnabled;
+    return (
+      !!values?.trainhopConfig?.sov?.enabled ||
+      lazy.hasScoringFlag(values?.adsBackendConfig)
+    );
   }
 
   frecencyBoostedHasExposure() {
@@ -1237,7 +1226,7 @@ export class TelemetryFeed {
         `${source}_${legacyTelemetryPosition}`
       ].add(1);
       if (session) {
-        if (this.sovEnabled()) {
+        if (this.isPlacesInfluenced()) {
           const eventData = {
             advertiser_name,
             is_sponsored: true,
@@ -1273,7 +1262,7 @@ export class TelemetryFeed {
         `${source}_${legacyTelemetryPosition}`
       ].add(1);
       if (session) {
-        if (this.sovEnabled()) {
+        if (this.isPlacesInfluenced()) {
           const eventData = {
             advertiser_name,
             is_sponsored: true,
@@ -1447,11 +1436,7 @@ export class TelemetryFeed {
       case "OPEN_NEW_WINDOW":
       case "OPEN_PRIVATE_WINDOW": {
         const { action_position, source, value } = action.data;
-        if (
-          source !== "TOP_SITES" ||
-          value?.card_type === "search" ||
-          !this.canRecordBrowserTopSiteClicks
-        ) {
+        if (source !== "TOP_SITES" || value?.card_type === "search") {
           break;
         }
         const row = this.store?.getState()?.TopSites?.rows?.[action_position];
@@ -1689,10 +1674,7 @@ export class TelemetryFeed {
               Glean.pocket.click.record({
                 ...this.redactNewTabPing(gleanData, is_sponsored),
                 newtab_visit_id: session.session_id,
-                ...(background !== undefined &&
-                isBrowserContextMenuClickSupported()
-                  ? { background }
-                  : {}),
+                ...(background !== undefined ? { background } : {}),
               });
             }
           );
@@ -2944,7 +2926,7 @@ export class TelemetryFeed {
       // Only log a topsites.dismiss telemetry event if the action came from TopSites section
       if (action.source === "TOP_SITES") {
         const { position, advertiser_name, isSponsoredTopSite } = datum;
-        if (this.sovEnabled() && isSponsoredTopSite) {
+        if (this.isPlacesInfluenced() && isSponsoredTopSite) {
           this.recordOrQueueEvent(
             "topSitesDismiss",
             {
@@ -2973,7 +2955,7 @@ export class TelemetryFeed {
     const { position, advertiser_name } = data;
 
     if (session) {
-      if (this.sovEnabled()) {
+      if (this.isPlacesInfluenced()) {
         if (this.privatePingEnabled) {
           this.newtabContentPing.recordEvent("topSitesShowPrivacyClick", {
             advertiser_name,
@@ -3163,9 +3145,6 @@ export class TelemetryFeed {
     const rows = state?.TopSites?.rows ?? [];
     const position = rows.findIndex(row => row?.url === url);
     if (position !== -1) {
-      if (!this.canRecordBrowserTopSiteClicks) {
-        return;
-      }
       const row = rows[position];
       if (
         row.sponsored_position ||

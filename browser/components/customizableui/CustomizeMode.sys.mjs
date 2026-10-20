@@ -18,6 +18,12 @@ const kDownloadAutohideCheckboxId = "downloads-button-autohide-checkbox";
 const kDownloadAutohidePanelId = "downloads-button-autohide-panel";
 const kDownloadAutoHidePref = "browser.download.autohideButton";
 
+const kSpecialWidgetL10nIds = {
+  toolbarspring: "customize-mode-toolbarspring",
+  toolbarseparator: "customize-mode-toolbarseparator",
+  toolbarspacer: "customize-mode-toolbarspacer",
+};
+
 import { CustomizableUI } from "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
@@ -29,11 +35,6 @@ ChromeUtils.defineESModuleGetters(lazy, {
   DragPositionManager:
     "moz-src:///browser/components/customizableui/DragPositionManager.sys.mjs",
   URILoadingHelper: "resource:///modules/URILoadingHelper.sys.mjs",
-});
-ChromeUtils.defineLazyGetter(lazy, "gWidgetsBundle", function () {
-  const kUrl =
-    "chrome://browser/locale/customizableui/customizableWidgets.properties";
-  return Services.strings.createBundle(kUrl);
 });
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
@@ -1404,9 +1405,9 @@ export class CustomizeMode {
     }
 
     if (CustomizableUI.isSpecialWidget(aNode.id)) {
-      wrapper.setAttribute(
-        "title",
-        lazy.gWidgetsBundle.GetStringFromName(aNode.nodeName + ".label")
+      this.#document.l10n.setAttributes(
+        wrapper,
+        kSpecialWidgetL10nIds[aNode.nodeName]
       );
     }
 

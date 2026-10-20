@@ -1383,6 +1383,8 @@ nsresult nsXMLContentSink::AddAttributes(const char16_t** aAtts,
                                          Element* aContent) {
   // Add tag attributes to the content attributes
   RefPtr<nsAtom> prefix, localName;
+  // Custom element constructors might have set our attributes already.
+  const bool hadAttrs = aContent->HasAttrs();
   while (*aAtts) {
     int32_t nameSpaceID;
     nsContentUtils::SplitExpatName(aAtts[0], getter_AddRefs(prefix),
@@ -1390,7 +1392,8 @@ nsresult nsXMLContentSink::AddAttributes(const char16_t** aAtts,
 
     // Add attribute to content
     aContent->SetAttr(nameSpaceID, localName, prefix,
-                      nsDependentString(aAtts[1]), false);
+                      nsDependentString(aAtts[1]), false,
+                      IsKnownNewAttr(!hadAttrs));
     aAtts += 2;
   }
 

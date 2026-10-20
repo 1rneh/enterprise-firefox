@@ -579,19 +579,23 @@ class HTMLMediaElement::MediaControlKeyListener final
     }
   }
 
-  void SuspendForInterrupt() override {
+  void SuspendForInterrupt(AudioSessionInterruptKind aKind) override {
     MOZ_ASSERT(NS_IsMainThread());
     // Only an audible, playing element yields to an interruption; a paused or
     // inaudible element (muted, volume 0, or no audio track) is left alone.
-    if (!Owner() || Owner()->Paused() || !mIsOwnerAudible) {
-      return;
+    const bool willPause = Owner() && !Owner()->Paused() && mIsOwnerAudible;
+    MEDIACONTROL_LOG("SuspendForInterrupt {}, pause={}",
+                     dom::EnumValueToString(aKind), willPause);
+    if (willPause) {
+      // Pausing clears mSuspendedByInterrupt (see NotifyPaused); set it back
+      // right after our own pause so ResumeFromInterrupt knows this element is
+      // the one the interruption suspended.
+      Owner()->Pause();
+      mSuspendedByInterrupt = true;
     }
-    MEDIACONTROL_LOG("SuspendForInterrupt");
-    // Pausing clears mSuspendedByInterrupt (see NotifyPaused); set it back
-    // right after our own pause so ResumeFromInterrupt knows this element is
-    // the one the interruption suspended.
-    Owner()->Pause();
-    mSuspendedByInterrupt = true;
+    if (aKind == AudioSessionInterruptKind::Permanent) {
+      mSuspendedByInterrupt = false;
+    }
   }
 
   void ResumeFromInterrupt() override {

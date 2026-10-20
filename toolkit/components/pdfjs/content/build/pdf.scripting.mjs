@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.196
- * pdfjsBuild = f73a6986d
+ * pdfjsVersion = 6.5.254
+ * pdfjsBuild = 28e406a46
  */
 /******/ (() => { // webpackBootstrap
 /******/ 	"use strict";
@@ -2464,7 +2464,14 @@ class Doc extends PDFObject {
         break;
       case "WillSave":
         this._disableSaving = true;
-        this._runActions(name);
+        try {
+          this._runActions(name);
+        } catch (error) {
+          this._send(serializeError(error));
+        }
+        this._send({
+          command: "WillSaveFinished"
+        });
         this._disableSaving = false;
         break;
       default:

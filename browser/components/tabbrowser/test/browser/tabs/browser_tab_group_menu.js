@@ -449,10 +449,16 @@ add_task(async function test_saveAndCloseGroup() {
 /**
  * Tests that saving and closing a group via the tab group menu's
  * "Save and close group" button shows the "Tab group saved" confirmation
- * hint, anchored to the List All Tabs button by default.
+ * hint, anchored to the List All Tabs button when the alternate menu is
+ * disabled.
  */
 add_task(async function test_saveAndCloseGroup_showsConfirmationHint() {
-  await SpecialPowers.pushPrefEnv({ set: [[SAVE_HINT_SHOWN_COUNT_PREF, 0]] });
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      [SAVE_HINT_SHOWN_COUNT_PREF, 0],
+      [ALTERNATE_MENU_PREF, false],
+    ],
+  });
   let showSpy = sinon.spy(window.ConfirmationHint, "show");
   let panel = window.ConfirmationHint._panel;
 
@@ -479,7 +485,7 @@ add_task(async function test_saveAndCloseGroup_showsConfirmationHint() {
 
   Assert.ok(
     showSpy.calledOnceWith(
-      document.getElementById("alltabs-button"),
+      sinon.match.same(document.getElementById("alltabs-button")),
       SAVE_HINT_MESSAGE_ID
     ),
     "Confirmation hint was shown once, anchored to the List All Tabs button"
@@ -671,7 +677,7 @@ async function assertSaveAndCloseHintAnchor(expectedAnchorId) {
   );
   Assert.ok(
     showSpy.calledOnceWith(
-      document.getElementById(expectedAnchorId),
+      sinon.match.same(document.getElementById(expectedAnchorId)),
       SAVE_HINT_MESSAGE_ID
     ),
     `Confirmation hint anchors to #${expectedAnchorId}`

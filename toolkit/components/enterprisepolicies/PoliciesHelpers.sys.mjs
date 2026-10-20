@@ -618,7 +618,12 @@ export function removePolicyPermission(origin, permissionName) {
 
   for (let prin of [principal, trailingDotPrincipal(principal)]) {
     if (prin) {
-      Services.perms.removeFromPrincipal(prin, permissionName);
+      Services.perms.addFromPrincipal(
+        prin,
+        permissionName,
+        Ci.nsIPermissionManager.UNKNOWN_ACTION,
+        Ci.nsIPermissionManager.EXPIRE_POLICY
+      );
     }
   }
 }

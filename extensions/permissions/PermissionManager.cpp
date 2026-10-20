@@ -2198,6 +2198,13 @@ nsresult PermissionManager::AddInternal(
     case eOperationChanging: {
       id = entry->GetPermissions()[index].mID;
 
+      // If the existing type is EXPIRE_POLICY, we need to reject attempts to
+      // change the permission.
+      if (entry->GetPermissions()[index].mExpireType == EXPIRE_POLICY) {
+        NS_WARNING("Attempting to modify EXPIRE_POLICY permission");
+        break;
+      }
+
       PermissionEntry oldPermissionEntry = entry->GetPermissions()[index];
 
       // If the new expireType is EXPIRE_SESSION, then we have to keep a

@@ -952,6 +952,12 @@ fn reads_profile_directory() {
 #[ignore = "This test often passes, however it relies on Glean network scheduling, which has been
     found to be unreliable for testing purposes. A more reliable unit test is in the glean module."]
 fn glean_ping_uses_pref() {
+    const PING_URL: &str = if cfg!(feature = "enterprise") {
+        "https://incoming.glean.example.com/submit/firefox-enterprise-crashreporter-mock/crash"
+    } else {
+        "https://incoming.glean.example.com/submit/firefox-crashreporter-mock/crash"
+    };
+
     for pref_value in [false, true] {
         let mut test = GuiTest::new();
         test.enable_glean_pings();
@@ -969,7 +975,7 @@ fn glean_ping_uses_pref() {
         test.mock.set(
             net::http::MockHttp,
             Box::new(cc! { (submitted_glean_ping) move |_request, url| {
-                if url.starts_with("https://incoming.glean.example.com/submit/firefox-crashreporter-mock/crash") {
+                if url.starts_with(PING_URL) {
                     submitted_glean_ping.inc();
                 }
                 Ok(Ok(vec!()))

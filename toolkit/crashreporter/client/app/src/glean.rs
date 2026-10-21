@@ -130,7 +130,10 @@ impl InitOptions {
 
         let app_name = get_app_name(mozbuild::config::MOZ_APP_NAME);
         let app_id = format!(
-            "{app_name}.crashreporter{}",
+            "{app_name}{}.crashreporter{}",
+            cfg!(feature = "enterprise")
+                .then_some(".enterprise")
+                .unwrap_or_default(),
             cfg!(mock).then_some(".mock").unwrap_or_default()
         );
 

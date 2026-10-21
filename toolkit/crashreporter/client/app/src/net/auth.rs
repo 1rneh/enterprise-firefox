@@ -145,7 +145,7 @@ mod test {
 
     const CONSOLE_URL: &str = "https://console.example.com/api/browser/crash-reports/submit";
     const PING_URL: &str =
-        "https://console.example.com/api/browser/telemetry/submit/firefox-crashreporter/crash/1/id";
+        "https://console.example.com/api/browser/telemetry/submit/firefox-enterprise-crashreporter/crash/1/id";
 
     fn run_with_env(value: Option<&str>, url: &str) -> Option<(String, String)> {
         let files = MockFiles::new();

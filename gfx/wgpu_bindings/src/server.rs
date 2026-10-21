@@ -1127,9 +1127,25 @@ pub extern "C" fn wgpu_server_buffer_map_blocking(
     BufferMapAsyncStatus::from(status_result)
 }
 
+/// The result of getting a mapped range.
+///
+/// On success, this returns the range's start address and size, as
+/// well as the [`BufferMapping`] tracking its lifetime. Unmapping or
+/// destroying the buffer will block until the `BufferMapping` is
+/// dropped.
+///
+/// On failure, `core_mapping` and `ptr` are null.
+///
+/// [`BufferMapping`]: wgc::resource::BufferMapping
 #[repr(C)]
-pub struct MappedBufferSlice {
+pub struct BufferMappingResult {
+    /// A `Box<BufferMapping>` as a raw pointer, or `null` if the mapping was cancelled.
+    pub core_mapping: *mut wgc::resource::BufferMapping,
+
+    /// The start of the mapped range, or `null` if the mapping was cancelled.
     pub ptr: *mut u8,
+
+    /// The length of the mapped range in bytes.
     pub length: u64,
 }
 
@@ -1143,11 +1159,12 @@ pub unsafe extern "C" fn wgpu_server_buffer_get_mapped_range(
     buffer_id: id::BufferId,
     start: wgt::BufferAddress,
     size: wgt::BufferAddress,
-) -> MappedBufferSlice {
+) -> BufferMappingResult {
     match global.buffer_get_mapped_range(buffer_id, start, Some(size)) {
-        Ok((ptr, len)) => MappedBufferSlice {
-            ptr: ptr.as_ptr(),
-            length: len,
+        Ok(mapping) => BufferMappingResult {
+            ptr: mapping.ptr().as_ptr(),
+            length: mapping.len(),
+            core_mapping: Box::into_raw(Box::new(mapping)),
         },
         Err(error) => match error {
             // The map may have been cancelled before the caller got here:
@@ -1155,7 +1172,8 @@ pub unsafe extern "C" fn wgpu_server_buffer_get_mapped_range(
             // returns it to the idle state. Report an empty slice so the
             // caller can turn it into a map error.
             BufferAccessError::DestroyedResource(_) | BufferAccessError::NotMapped => {
-                MappedBufferSlice {
+                BufferMappingResult {
+                    core_mapping: core::ptr::null_mut(),
                     ptr: core::ptr::null_mut(),
                     length: 0,
                 }
@@ -1163,6 +1181,22 @@ pub unsafe extern "C" fn wgpu_server_buffer_get_mapped_range(
             _ => panic!("{error}"),
         },
     }
+}
+
+/// # Safety
+///
+/// This function must be passed a valid pointer that was created by
+/// calling `Box::into_raw` on a `Box<wgpu_core::resource::BufferMapping>`.
+/// (`BufferMappingResult::core_mapping`, when non-null, is such a
+/// pointer.)
+#[no_mangle]
+pub unsafe extern "C" fn wgpu_server_buffer_mapping_destroy(
+    mapping: *mut wgc::resource::BufferMapping,
+) {
+    assert!(!mapping.is_null());
+    // Safety: this function's contract requires that `mapping` is
+    // valid and created by `Box::into_raw`.
+    drop(unsafe { Box::from_raw(mapping) });
 }
 
 #[no_mangle]

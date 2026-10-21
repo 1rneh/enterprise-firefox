@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.254
- * pdfjsBuild = 28e406a46
+ * pdfjsVersion = 6.5.260
+ * pdfjsBuild = 33734f1fd
  */
 
 ;// ./src/shared/util.js
@@ -2045,7 +2045,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "61b9e95f-0305-4fde-8776-94de7e46c0a1";
+const INTERNAL_EVT = "ab5663f4-faaf-4567-8756-699708a0797a";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -14411,6 +14411,7 @@ class RendererWorker {
   #pendingMessages = [];
   #pendingRequests = new Set();
   #port = null;
+  #portNames = null;
   #renderTaskId = 0;
   #renderTasks = new Map();
   #terminateEarly = null;
@@ -14477,6 +14478,10 @@ class RendererWorker {
     const id = RendererWorker.#connectionId++;
     const sourceName = `main${id}`;
     const targetName = `renderer${id}`;
+    this.#portNames = {
+      sourceName,
+      targetName
+    };
     const handler = new MessageHandler("main", "renderer", port);
     handler.send("Connect", {
       sourceName: targetName,
@@ -14540,7 +14545,7 @@ class RendererWorker {
         terminateEarly("TypedArray transfer test failed.");
         return;
       }
-      const apiVersion = "6.5.254";
+      const apiVersion = "6.5.260";
       if (apiVersion !== data.workerVersion) {
         terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
         return;
@@ -14558,7 +14563,10 @@ class RendererWorker {
   destroy() {
     this.destroyed = true;
     if (this.#port) {
-      this.#messageHandler?.send("Disconnect", null);
+      if (this.#messageHandler) {
+        this.#closeStrayFrames(this.#port);
+        this.#messageHandler.send("Disconnect", null);
+      }
       RendererWorker.#usedPorts.delete(this.#port);
       this.#port = null;
     }
@@ -14573,6 +14581,29 @@ class RendererWorker {
       reject(new Error("Renderer worker was destroyed."));
     }
     this.#pendingRequests.clear();
+  }
+  #closeStrayFrames(port) {
+    const {
+      sourceName,
+      targetName
+    } = this.#portNames;
+    const ac = new AbortController();
+    const timeoutId = setTimeout(() => ac.abort(), PORT_CONNECTION_TIMEOUT);
+    port.addEventListener("message", ({
+      data
+    }) => {
+      if (data?.targetName !== sourceName || data.sourceName !== targetName) {
+        return;
+      }
+      if (data.action === "RenderFrame") {
+        closeFrame(data.data);
+      } else if (data.action === "Disconnected") {
+        clearTimeout(timeoutId);
+        ac.abort();
+      }
+    }, {
+      signal: ac.signal
+    });
   }
   static create({
     ports = [],
@@ -15148,7 +15179,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.5.254",
+    apiVersion: "6.5.260",
     data,
     password,
     disableAutoFetch,
@@ -16818,8 +16849,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.5.254";
-const build = "28e406a46";
+const version = "6.5.260";
+const build = "33734f1fd";
 
 ;// ./src/display/editor/color_picker.js
 

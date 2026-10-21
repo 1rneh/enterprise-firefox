@@ -1561,6 +1561,16 @@ public class GeckoSession {
         final float renderingScale);
 
     @WrapForJNI(calledFrom = "ui", dispatchTo = "proxy")
+    public native void requestRegionToSurface(
+        GeckoResult<Void> result,
+        final Surface surface,
+        final int x,
+        final int y,
+        final int width,
+        final int height,
+        final float scale);
+
+    @WrapForJNI(calledFrom = "ui", dispatchTo = "proxy")
     public native void requestContentMetrics(
         GeckoResult<ContentMetrics> result, ContentMetrics metrics);
 

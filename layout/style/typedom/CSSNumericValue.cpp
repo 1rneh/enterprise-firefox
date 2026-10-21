@@ -197,10 +197,20 @@ already_AddRefed<CSSNumericValue> CSSNumericValue::Add(
   return Add(std::move(values), aRv);
 }
 
+// https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-sub
 already_AddRefed<CSSNumericValue> CSSNumericValue::Sub(
     const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv) {
-  aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-  return nullptr;
+  nsTArray<RefPtr<CSSNumericValue>> values;
+
+  // Step 1.
+  for (const OwningCSSNumberish& numberish : aValues) {
+    RefPtr<CSSNumericValue> value = CSSNumericValue::Create(mParent, numberish);
+
+    values.AppendElement(value->Negate());
+  }
+
+  // Step 2.
+  return Add(std::move(values), aRv);
 }
 
 already_AddRefed<CSSNumericValue> CSSNumericValue::Mul(
@@ -436,6 +446,31 @@ already_AddRefed<CSSNumericValue> CSSNumericValue::Add(
   RefPtr<CSSMathSum> mathSum =
       CSSMathSum::Create(mParent, std::move(numericType), std::move(aValues));
   return mathSum.forget();
+}
+
+// https://drafts.css-houdini.org/css-typed-om-1/#cssmath-negate-a-cssnumericvalue
+already_AddRefed<CSSNumericValue> CSSNumericValue::Negate() {
+  // Step 1.
+  if (IsCSSMathValue() && GetAsCSSMathValue().IsCSSMathNegate()) {
+    RefPtr<CSSNumericValue> value =
+        GetAsCSSMathValue().GetAsCSSMathNegate().Value();
+    return value.forget();
+  }
+
+  // Step 2.
+  if (IsCSSUnitValue()) {
+    const auto& unitValue = GetAsCSSUnitValue();
+
+    return MakeCSSUnitValue(mParent, unitValue.GetNumericType(),
+                            -unitValue.Value(), unitValue.Unit());
+  }
+
+  // Step 3.
+  auto numericType = MakeUnique<StyleNumericType>(GetNumericType());
+
+  RefPtr<CSSMathNegate> mathNegate =
+      CSSMathNegate::Create(mParent, std::move(numericType), this);
+  return mathNegate.forget();
 }
 
 StyleNumericValue CSSNumericValue::ToStyleNumericValue() const {

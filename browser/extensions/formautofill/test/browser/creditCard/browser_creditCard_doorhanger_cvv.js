@@ -83,10 +83,20 @@ add_task(async function test_save_doorhanger_when_capture_is_off() {
       "credit-card-save-doorhanger-description",
       "The doorhanger says the security code won't be saved"
     );
+
+    const checkbox = content.querySelector("moz-checkbox");
+    ok(checkbox, "The security codes checkbox is shown");
+    await checkbox.updateComplete;
+    ok(!checkbox.checked, "The security codes checkbox is unchecked");
+
+    const prefChanged = TestUtils.waitForPrefChange(ENABLED_PREF);
+    checkbox.click();
+    await prefChanged;
     ok(
-      !content.querySelector("moz-checkbox"),
-      "The security codes checkbox is not shown"
+      Services.prefs.getBoolPref(ENABLED_PREF),
+      "Checking the checkbox turns saving security codes back on"
     );
+
     await clickDoorhangerButton(SECONDARY_BUTTON);
   });
 

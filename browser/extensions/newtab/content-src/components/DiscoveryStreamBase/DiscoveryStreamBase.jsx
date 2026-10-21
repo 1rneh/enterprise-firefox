@@ -26,6 +26,7 @@ import {
   hasSpacesArrows,
   isSpacesArrowsAssigned,
   isSpacesPreviewEnabled,
+  isSpacesPeekAssigned,
   resolveFeatureSpacePreviewImages,
   resolvePopulatedSpaces,
   resolveThematicSpaces,
@@ -524,6 +525,7 @@ export class _DiscoveryStreamBase extends React.PureComponent {
             arrows={hasSpacesArrows(this.props.Prefs.values)}
             tablist={!isSpacesArrowsAssigned(this.props.Prefs.values)}
             preview={isSpacesPreviewEnabled(this.props.Prefs.values)}
+            peek={isSpacesPeekAssigned(this.props.Prefs.values)}
             dispatch={this.props.dispatch}
           />
         ) : (

@@ -983,6 +983,7 @@ function makeNovaWidgetState(widgets, extraPrefs = {}) {
     ...INITIAL_STATE.Prefs.values,
     "nova.enabled": true,
     "widgets.enabled": true,
+    region: "US",
     // Permissive defaults that let the weather widget pass its
     // `weatherData.initialized && showWeather && systemShowWeather`
     // gate when it's enabled by the test. Harmless when it isn't.
@@ -1161,6 +1162,53 @@ describe("<Widgets> extension widget", () => {
     expect(
       container.querySelector('[data-widget-id="extensionWidget"]')
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("<Widgets> on a profile with no resolved region", () => {
+  const REVEALED_BY_ROLLOUT = {
+    region: "",
+    "widgets.lists.enabled": true,
+    "widgets.focusTimer.enabled": true,
+    "widgets.clocks.enabled": true,
+    trainhopConfig: {
+      widgets: {
+        enabled: true,
+        listsEnabled: true,
+        timerEnabled: true,
+        clocksEnabled: true,
+      },
+    },
+  };
+
+  it("renders none of the widgets the rollout reveals", () => {
+    const { container } = renderWidgets(
+      makeNovaWidgetState([], REVEALED_BY_ROLLOUT)
+    );
+    expect(
+      container.querySelector('[data-widget-id="lists"]')
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-widget-id="focusTimer"]')
+    ).not.toBeInTheDocument();
+    expect(
+      container.querySelector('[data-widget-id="clocks"]')
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders them once a region resolves", () => {
+    const { container } = renderWidgets(
+      makeNovaWidgetState([], { ...REVEALED_BY_ROLLOUT, region: "FR" })
+    );
+    expect(
+      container.querySelector('[data-widget-id="lists"]')
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-widget-id="focusTimer"]')
+    ).toBeInTheDocument();
+    expect(
+      container.querySelector('[data-widget-id="clocks"]')
+    ).toBeInTheDocument();
   });
 });
 

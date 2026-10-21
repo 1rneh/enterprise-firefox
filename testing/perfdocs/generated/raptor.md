@@ -531,8 +531,8 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-jetstream3**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 :::
@@ -867,8 +867,8 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-jetstream3**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 :::
@@ -4345,13 +4345,13 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-benchmark-firefox-speedometer3-native-profiling**
   - ❌
-  - ✅
+  - ❌
   - ❌
   - ❌
 :::
@@ -5036,13 +5036,13 @@ Standard benchmarks are third-party tests (i.e. Speedometer) that we have integr
   - mozilla-release
   - mozilla-beta
 * - **browsertime-benchmark-firefox-speedometer3**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-benchmark-firefox-speedometer3-native-profiling**
   - ❌
-  - ✅
+  - ❌
   - ❌
   - ❌
 :::
@@ -31479,8 +31479,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-amazon**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-amazon**
@@ -31867,8 +31867,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-bing-search**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-bing-search**
@@ -32443,8 +32443,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-cnn**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-sheriffed-firefox-cnn**
@@ -34019,8 +34019,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-fandom**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-fandom**
@@ -35233,8 +35233,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-google-slides**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-google-slides**
@@ -36152,8 +36152,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-instagram**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-instagram**
@@ -39626,8 +39626,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-twitter**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-twitter**
@@ -40407,8 +40407,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-wikipedia**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-wikipedia**
@@ -40760,8 +40760,8 @@ Tests for page-load performance. The links direct to the actual websites that ar
   - ❌
   - ❌
 * - **browsertime-tp6-essential-firefox-yahoo-mail**
-  - ✅
-  - ✅
+  - ❌
+  - ❌
   - ❌
   - ❌
 * - **browsertime-tp6-live-firefox-yahoo-mail**

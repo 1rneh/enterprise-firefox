@@ -4681,15 +4681,62 @@ mozilla::ipc::IPCResult ContentChild::RecvStopLoad(
 }
 
 mozilla::ipc::IPCResult ContentChild::RecvDeactivateDocuments(
-    const MaybeDiscarded<BrowsingContext>& aContext) {
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
+    const NavigationType& aNavigationType, const bool aForUnload) {
   if (aContext.IsNullOrDiscarded()) {
     return IPC_OK();
   }
   BrowsingContext* browsingContext = aContext.get();
   MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsTopContent());
 
-  browsingContext->DeactivateDocuments();
+  browsingContext->DeactivateDocuments(aPageSwapTargetInfo.ptrOr(nullptr),
+                                       aNavigationType, aForUnload);
 
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult
+ContentChild::RecvBeginOutboundCrossDocumentViewTransition(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
+    const NavigationType& aNavigationType, const TabId& aSnapshotTargetTab,
+    BeginOutboundCrossDocumentViewTransitionResolver&& aResolver) {
+  if (aContext.IsNullOrDiscarded()) {
+    aResolver(true);
+    return IPC_OK();
+  }
+  BrowsingContext* browsingContext = aContext.get();
+  // Both top-level and subframe navigations can drive an outbound
+  // cross-document view transition.
+  MOZ_DIAGNOSTIC_ASSERT(browsingContext->IsContent());
+  RefPtr<nsDocShell> docShell =
+      nsDocShell::Cast(browsingContext->GetDocShell());
+  if (!docShell) {
+    aResolver(true);
+    return IPC_OK();
+  }
+
+  docShell->BeginDeferredOutboundCrossDocumentViewTransition(
+      aPageSwapTargetInfo.ptrOr(nullptr), aNavigationType,
+      uint64_t(aSnapshotTargetTab),
+      [resolver = std::move(aResolver)] { resolver(true); });
+
+  return IPC_OK();
+}
+
+mozilla::ipc::IPCResult ContentChild::RecvFirePageSwap(
+    const MaybeDiscarded<BrowsingContext>& aContext,
+    const Maybe<SessionHistoryInfo>& aPageSwapTargetInfo,
+    const NavigationType& aNavigationType) {
+  if (aContext.IsNullOrDiscarded()) {
+    return IPC_OK();
+  }
+  if (RefPtr<nsDocShell> docShell =
+          nsDocShell::Cast(aContext.get()->GetDocShell())) {
+    docShell->FirePageSwapWithoutTransition(aPageSwapTargetInfo.ptrOr(nullptr),
+                                            aNavigationType);
+  }
   return IPC_OK();
 }
 

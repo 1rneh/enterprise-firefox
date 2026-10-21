@@ -223,6 +223,16 @@ export class UrlbarParentControllerProxy {
   }
 
   /**
+   * Ships a URL canonization to the parent. The counterpart to the
+   * controller's `recordCanonization()`.
+   */
+  recordCanonization() {
+    this.#port.sendAsyncMessage("RecordCanonization", {
+      instanceId: this.#instanceId,
+    });
+  }
+
+  /**
    * Runs the address bar's single-word keyword URI fixup DNS check parent-side.
    * The counterpart to the controller's `checkKeywordURIFixup()`.
    *

@@ -2693,13 +2693,17 @@ struct hb_scalar_cache_t
     return true;
   }
 
-  HB_ALWAYS_INLINE
-  void set (unsigned i, float value)
+  // Returns the value as actually cached (potentially quantized).
+  // Callers should update their value to this, for consistency with
+  // future calls that simply get the cached value.
+  HB_NODISCARD HB_ALWAYS_INLINE
+  float set (unsigned i, float value)
   {
-    if (unlikely (i >= length)) return;
+    if (unlikely (i >= length)) return value;
     auto *values = &static_values[0];
     auto *cached_value = &values[i];
     *cached_value = roundf(value * MULTIPLIER);
+    return *cached_value * DIVISOR;
   }
 
   public:
@@ -2749,7 +2753,7 @@ struct VarRegionList
     v = evaluate_impl (region_index, coords, coord_len);
 
     if (cache)
-      cache->set (region_index, v);
+      v = cache->set (region_index, v);
     return v;
   }
 
@@ -2967,7 +2971,7 @@ struct SparseVarRegionList
 
     v = region.evaluate (coords, coord_len);
     if (cache)
-      cache->set (region_index, v);
+      v = cache->set (region_index, v);
 
     return v;
   }

@@ -101,6 +101,9 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // `urlMinPicks` into a use_count threshold.
   ["autoFill.adaptiveHistory.urlPicksAgeDays", 14],
 
+  // The number of times URL canonization has been used in non-private windows.
+  ["canonizedURLCount", 0],
+
   // Feature gate pref for clipboard suggestions in the urlbar.
   ["clipboard.featureGate", false],
 
@@ -351,40 +354,6 @@ const PREF_URLBAR_DEFAULTS = /** @type {PreferenceDefinition[]} */ ([
   // Whether or not use the Nova icon size for AMP suggestion.
   // Otherwise, use standard rich-suggestion size.
   ["quicksuggest.ampTopPickUseNovaIconSize", false],
-
-  // Whether the Firefox Suggest data collection opt-in result is enabled.
-  ["quicksuggest.contextualOptIn", false],
-
-  // The last time (as seconds) the user dismissed the Firefox Suggest contextual
-  // opt-in result.
-  ["quicksuggest.contextualOptIn.lastDismissedTime", 0],
-
-  // Number that the user dismissed the Firefox Suggest contextual opt-in result.
-  ["quicksuggest.contextualOptIn.dismissedCount", 0],
-
-  // Period until reshow the Firefox Suggest contextual opt-in result when first dismissed.
-  ["quicksuggest.contextualOptIn.firstReshowAfterPeriodDays", 7],
-
-  // Period until reshow the Firefox Suggest contextual opt-in result when second dismissed.
-  ["quicksuggest.contextualOptIn.secondReshowAfterPeriodDays", 14],
-
-  // Period until reshow the Firefox Suggest contextual opt-in result when third dismissed.
-  ["quicksuggest.contextualOptIn.thirdReshowAfterPeriodDays", 60],
-
-  // Number of impression for the Firefox Suggest contextual opt-in result.
-  ["quicksuggest.contextualOptIn.impressionCount", 0],
-
-  // Limit for impression to dismiss the Firefox Suggest contextual opt-in
-  // result.
-  ["quicksuggest.contextualOptIn.impressionLimit", 20],
-
-  // The first impression time (seconds) for the Firefox Suggest contextual
-  // opt-in result.
-  ["quicksuggest.contextualOptIn.firstImpressionTime", 0],
-
-  // Days until dismiss the Firefox Suggest contextual opt-in result after first
-  // impression.
-  ["quicksuggest.contextualOptIn.impressionDaysLimit", 5],
 
   // Comma-separated list of Suggest dynamic suggestion types to enable.
   ["quicksuggest.dynamicSuggestionTypes", ""],

@@ -257,6 +257,9 @@ void PdfStructTreeBuilder::BuildStructSubtree(Accessible* aAcc,
     return;
   }
   aPdf.fNodeId = GeneratePdfId(aAcc);
+  // Per ISO 32000-2 14.8.6.1, every MathML element must have the MathML
+  // namespace.
+  const char kNamespaceMathMl[] = "http://www.w3.org/1998/Math/MathML";
   switch (accRole) {
     case roles::ARTICLE:
       aPdf.fTypeString = "Art";
@@ -298,6 +301,9 @@ void PdfStructTreeBuilder::BuildStructSubtree(Accessible* aAcc,
       break;
     case roles::DOCUMENT:
       aPdf.fTypeString = "Document";
+      // PDF/UA-2 requires the root Document element to be explicitly in the
+      // PDF 2.0 namespace, rather than the default PDF 1.7 namespace.
+      aPdf.fNamespace = "http://iso.org/pdf2/ssn";
       break;
     case roles::EMPHASIS:
       aPdf.fTypeString = "Em";
@@ -357,6 +363,7 @@ void PdfStructTreeBuilder::BuildStructSubtree(Accessible* aAcc,
       break;
     case roles::MATHML_CELL:
       aPdf.fTypeString = "mtd";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_EMPTY_GROUP:
     case roles::MATHML_ROW:
@@ -366,110 +373,137 @@ void PdfStructTreeBuilder::BuildStructSubtree(Accessible* aAcc,
       nsAutoString tagName;
       aAcc->TagName()->ToString(tagName);
       aPdf.fTypeString = SkString(NS_ConvertUTF16toUTF8(tagName).get());
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     }
     case roles::MATHML_ENCLOSED:
       aPdf.fTypeString = "menclose";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: notation
       break;
     case roles::MATHML_ERROR:
       aPdf.fTypeString = "merror";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_FRACTION:
       aPdf.fTypeString = "mfrac";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: bevelled, linethickness
       break;
     case roles::MATHML_GLYPH:
       aPdf.fTypeString = "mglyph";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_IDENTIFIER:
       aPdf.fTypeString = "mi";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_LABELED_ROW:
       aPdf.fTypeString = "mlabeledtr";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_LINK:
       aPdf.fTypeString = "a";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_LONG_DIVISION:
       aPdf.fTypeString = "mlongdiv";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: longdivstyle
       break;
     case roles::MATHML_MATH:
       aPdf.fTypeString = "math";
-      // We only specify the namespace on the math element, since an unspecified
-      // namespace inherits from the parent.
-      aPdf.fNamespace = "http://www.w3.org/1998/Math/MathML";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_MULTISCRIPTS:
       aPdf.fTypeString = "mmultiscripts";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_NUMBER:
       aPdf.fTypeString = "mn";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_OPERATOR:
       aPdf.fTypeString = "mo";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: accent, fence, separator, largeop
       break;
     case roles::MATHML_OVER:
       aPdf.fTypeString = "mover";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: accent, align
       break;
     case roles::MATHML_ROOT:
       aPdf.fTypeString = "mroot";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_SQUARE_ROOT:
       aPdf.fTypeString = "msqrt";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_STACK:
       aPdf.fTypeString = "mstack";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: align, position
       break;
     case roles::MATHML_STACK_CARRIES:
       aPdf.fTypeString = "mscarries";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: location, position
       break;
     case roles::MATHML_STACK_CARRY:
       aPdf.fTypeString = "mscarry";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: crossout
       break;
     case roles::MATHML_STACK_GROUP:
       aPdf.fTypeString = "msgroup";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: position, shift
       break;
     case roles::MATHML_STACK_LINE:
       aPdf.fTypeString = "msline";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: position
       break;
     case roles::MATHML_STACK_ROW:
       aPdf.fTypeString = "msrow";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: position
       break;
     case roles::MATHML_STYLE:
       aPdf.fTypeString = "mstyle";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_SUB:
       aPdf.fTypeString = "msub";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_SUB_SUP:
       aPdf.fTypeString = "msubsup";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_SUP:
       aPdf.fTypeString = "msup";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_TABLE:
       aPdf.fTypeString = "mtable";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: align, columnlines, rowlines
       break;
     case roles::MATHML_TABLE_ROW:
       aPdf.fTypeString = "mtr";
+      aPdf.fNamespace = kNamespaceMathMl;
       break;
     case roles::MATHML_UNDER:
       aPdf.fTypeString = "munder";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: accentunder, align
       break;
     case roles::MATHML_UNDER_OVER:
       aPdf.fTypeString = "munderover";
+      aPdf.fNamespace = kNamespaceMathMl;
       // XXX Expose attributes: accent, accentunder, align
       break;
     case roles::PARAGRAPH:

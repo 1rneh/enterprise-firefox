@@ -6,6 +6,7 @@
 
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/FocusModel.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/dom/BindContext.h"
 #include "mozilla/dom/Document.h"
 #include "mozilla/dom/HTMLAnchorElementBinding.h"
@@ -182,8 +183,17 @@ void HTMLAnchorElement::AfterSetAttr(int32_t aNamespaceID, nsAtom* aName,
     }
   }
 
-  return nsGenericHTMLElement::AfterSetAttr(
-      aNamespaceID, aName, aValue, aOldValue, aSubjectPrincipal, aNotify);
+  nsGenericHTMLElement::AfterSetAttr(aNamespaceID, aName, aValue, aOldValue,
+                                     aSubjectPrincipal, aNotify);
+
+  // https://html.spec.whatwg.org/#link-type-expect
+  // A changed name can change the target of a rel=expect link. Do this after
+  // nsGenericHTMLElement::AfterSetAttr, which updates HasName(). Only an
+  // element in the document tree can be a target.
+  if (aNamespaceID == kNameSpaceID_None && aName == nsGkAtoms::name &&
+      IsInUncomposedDoc() && StaticPrefs::dom_element_blocking_enabled()) {
+    OwnerDoc()->ProcessInternalResourceLinksWhenSafe();
+  }
 }
 
 void HTMLAnchorElement::AddSizeOfExcludingThis(nsWindowSizes& aSizes,

@@ -36,6 +36,7 @@ ChromeUtils.defineESModuleGetters(lazy, {
   UrlbarChildController:
     "chrome://browser/content/urlbar/UrlbarChildController.mjs",
   UrlbarPrefs: "moz-src:///browser/components/urlbar/UrlbarPrefs.sys.mjs",
+  UrlbarResult: "chrome://browser/content/urlbar/UrlbarResult.mjs",
   UrlbarSearchUtils:
     "moz-src:///browser/components/urlbar/UrlbarSearchUtils.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
@@ -113,6 +114,33 @@ export class UrlbarInputBaseTestUtils {
       this.EventUtils = null;
       this.SimpleTest = null;
     });
+  }
+
+  /**
+   * Registers a TestProvider that returns one URL result for empty searches,
+   * so the view opens on an empty string.
+   *
+   * @param {UrlbarSapName} [sap]
+   *   The SAP to register the provider for.
+   */
+  registerZeroPrefixProvider(sap = "urlbar") {
+    let provider = new this.TestProvider({
+      priority: Infinity,
+      results: [
+        new lazy.UrlbarResult({
+          type: UrlbarShared.RESULT_TYPE.URL,
+          source: UrlbarShared.RESULT_SOURCE.OTHER_LOCAL,
+          payload: { url: "https://example.com/" },
+        }),
+      ],
+    });
+    provider.isActive = async context =>
+      !context.searchString && !context.searchMode;
+    let providersManager = lazy.ProvidersManager.getInstanceForSap(sap);
+    providersManager.registerProvider(provider);
+    this.registerCleanupFunction(() =>
+      providersManager.unregisterProvider(provider)
+    );
   }
 
   /**

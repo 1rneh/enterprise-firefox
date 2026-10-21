@@ -287,6 +287,7 @@ let JSWINDOWACTORS = {
         "moz-src:///browser/components/aiwindow/ui/actors/AITabChild.sys.mjs",
       events: {
         "AITab:GetPage": { wantUntrusted: true },
+        "AITab:GetHeadingFont": { wantUntrusted: true },
         "AITab:DeletePage": { wantUntrusted: true },
         "AITab:OpenLink": { wantUntrusted: true },
         "AITab:RecordView": { wantUntrusted: true },

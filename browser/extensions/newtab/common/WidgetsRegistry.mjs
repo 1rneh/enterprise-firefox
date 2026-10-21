@@ -38,9 +38,6 @@
  *                        null means the sidebar placement is not overridable via trainhop
  *   requiresHistory    — when true, the widget is hidden entirely on profiles that
  *                        record no history (see isWidgetDataUnavailable)
- *   requiresWidgetSearchSap — when true, the widget is hidden entirely on hosts whose
- *                        search code is too old to generate accurate partner codes
- *                        (see isWidgetDataUnavailable)
  *
  * SIZE PRIORITY
  * sizePref defaults to "" (empty string) in PREFS_CONFIG. An empty value
@@ -203,7 +200,6 @@ export const PREF_WIDGETS_SYSTEM_SOLITAIRE_ENABLED =
  * @property {string} widgetsSettingsVisibleKey - Key in trainhopConfig.widgetsSettings.* that additively reveals this widget's toggle in the Customize menu, and Weather's standalone row in about:preferences#home (does not enable the widget).
  * @property {string} widgetsSettingsEnabledKey - Key in trainhopConfig.widgetsSettings.* that overrides this widget's default enabled value (written to the pref default branch; an explicit user toggle still wins).
  * @property {boolean} [requiresHistory] - When true, the widget is hidden entirely on profiles that record no history. See isWidgetDataUnavailable.
- * @property {boolean} [requiresWidgetSearchSap] - When true, the widget is hidden entirely on hosts whose search code is too old to generate accurate partner codes. See isWidgetDataUnavailable.
  * @property {boolean} [retired] - When true the widget never renders and gets no settings or devtools toggle, whatever its prefs and trainhopConfig say.
  * @property {boolean} [skipNightlyDefault] - When true, the widget opts out of being on everywhere in Nightly. See skipsNightlyDefault in lib/ActivityStream.sys.mjs.
  * @property {string|null} [trainhopNamespace] - When set, the widget ships its whole config in one dedicated object at trainhopConfig.<namespace>. Its `enabled` overrides the default value of enabledPref on the default branch (user toggle still wins, like widgetsSettings.*Enabled); `visible` reveals the widget (isWidgetAddable) without writing a pref; `size` is read by resolveWidgetSize. All widgets define this today.
@@ -388,9 +384,6 @@ export const WIDGET_REGISTRY = [
     widgetsSettingsVisibleKey: "recentSearchesVisible",
     widgetsSettingsEnabledKey: "recentSearchesEnabled",
     trainhopNamespace: "widgetRecentSearches",
-    // @backward-compat { version 157 } See isWidgetSearchSapHostSupported in
-    // PrefsFeed.sys.mjs.
-    requiresWidgetSearchSap: true,
   },
   {
     id: "horoscopes",
@@ -491,26 +484,28 @@ export function resolveWidgetOrder(prefs) {
 }
 
 /**
+ * Returns true once the profile's region is known and false
+ * for a region-less profile.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {boolean}
+ */
+export function isRegionResolved(prefs) {
+  return Boolean(prefs.region);
+}
+
+/**
  * Returns true if the widget needs history and this profile records none, so it
  * could only ever render an empty state (Bug 2063207). An absent
  * `recordsHistory` counts as available, so a missing PrefsFeed broadcast cannot
  * hide a working widget.
- *
- * @backward-compat { version 157 }
- * The recent searches widget requires the `newtab_search_widget` registered
- * in BrowserSearchTelemetry.sys.mjs and no partner code configuration which
- * was added to ConfigSearchEngine.sys.mjs in 157. The `requiresWidgetSearchSap`
- * check can be removed once 157 hits release.
  *
  * @param {object} widget - a WIDGET_REGISTRY entry
  * @param {object} prefs - current pref values from the Redux store
  * @returns {boolean}
  */
 export function isWidgetDataUnavailable(widget, prefs) {
-  return Boolean(
-    (widget.requiresHistory && prefs.recordsHistory === false) ||
-    (widget.requiresWidgetSearchSap && prefs.supportsWidgetSearchSap === false)
-  );
+  return Boolean(widget.requiresHistory && prefs.recordsHistory === false);
 }
 
 /**
@@ -565,12 +560,17 @@ export function isWidgetAddable(widget, prefs) {
   if (widget.retired || isWidgetDataUnavailable(widget, prefs)) {
     return false;
   }
+  if (prefs[widget.systemEnabledPref]) {
+    return true;
+  }
+  if (!isRegionResolved(prefs)) {
+    return false;
+  }
   return Boolean(
     (widget.trainhopNamespace &&
       prefs.trainhopConfig?.[widget.trainhopNamespace]?.visible) ||
     prefs.trainhopConfig?.widgets?.[widget.trainhopEnabledKey] ||
-    prefs.trainhopConfig?.widgetsSettings?.[widget.widgetsSettingsVisibleKey] ||
-    prefs[widget.systemEnabledPref]
+    prefs.trainhopConfig?.widgetsSettings?.[widget.widgetsSettingsVisibleKey]
   );
 }
 
@@ -630,9 +630,13 @@ export function isWeatherAvailable(prefs) {
  * @returns {boolean}
  */
 export function isWidgetsContainerVisible(prefs) {
+  if (prefs["widgets.system.enabled"] || prefs.widgetsConfig?.enabled) {
+    return true;
+  }
+  if (!isRegionResolved(prefs)) {
+    return false;
+  }
   return Boolean(
-    prefs["widgets.system.enabled"] ||
-    prefs.widgetsConfig?.enabled ||
     prefs.trainhopConfig?.widgets?.enabled ||
     prefs.trainhopConfig?.widgetsSettings?.enabled
   );

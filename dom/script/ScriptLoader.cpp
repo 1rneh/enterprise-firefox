@@ -1574,6 +1574,11 @@ bool ScriptLoader::ProcessExternalScript(nsIScriptElement* aElement,
     return false;
   }
 
+  // https://html.spec.whatwg.org/#prepare-the-script-element
+  // Step 33.7. If el is potentially render-blocking, then block rendering on
+  // el.
+  mDocument->MaybeBlockRendering(*aScriptContent->AsElement());
+
   nsString nonce = nsContentSecurityUtils::GetIsElementNonceableNonce(
       *aScriptContent->AsElement());
   SRIMetadata sriMetadata;
@@ -1608,6 +1613,8 @@ bool ScriptLoader::ProcessExternalScript(nsIScriptElement* aElement,
       // Probably plans have changed; even though the preload was allowed seems
       // like the actual load is not; let's cancel the preload request.
       request->Cancel();
+      // The script never loads, so nothing else unblocks rendering for it.
+      mDocument->UnblockRendering(*aScriptContent->AsElement());
       return false;
     }
 
@@ -1672,6 +1679,8 @@ bool ScriptLoader::ProcessExternalScript(nsIScriptElement* aElement,
     nsresult rv = StartLoad(request);
     if (NS_FAILED(rv)) {
       ReportErrorToConsole(request, rv);
+      // The script never loads, so nothing else unblocks rendering for it.
+      mDocument->UnblockRendering(*aScriptContent->AsElement());
 
       // If this is a script element that with an https URL scheme would block
       // the parser, we need to block the parser.
@@ -1873,6 +1882,13 @@ bool ScriptLoader::ProcessInlineScript(nsIScriptElement* aElement,
                             &nsIScriptElement::FireErrorEvent));
       return false;
     }
+  }
+
+  // https://html.spec.whatwg.org/#prepare-the-script-element
+  // Step 34.2, the "module" case, step 2: if el is potentially
+  // render-blocking, block rendering on el.
+  if (aScriptKind == ScriptKind::eModule) {
+    mDocument->MaybeBlockRendering(*element);
   }
 
   // Inline classic scripts ignore their CORS mode and are always CORS_NONE.

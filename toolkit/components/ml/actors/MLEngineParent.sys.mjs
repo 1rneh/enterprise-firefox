@@ -1421,11 +1421,20 @@ export class MLEngine {
         break;
       }
       case "EnginePort:RunResponse": {
-        const { response, error, requestId, resourcesBefore, resourcesAfter } =
-          data;
+        const {
+          response,
+          error,
+          errorDetails,
+          requestId,
+          resourcesBefore,
+          resourcesAfter,
+        } = data;
         const request = this.#requests.get(requestId);
         if (request) {
           if (error) {
+            if (errorDetails && typeof error === "object") {
+              Object.assign(error, errorDetails);
+            }
             this.telemetry.recordRunInferenceFailure(error);
             request.reject(error);
           } else if (response) {

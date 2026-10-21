@@ -2074,8 +2074,13 @@ bool nsPresContext::FlushPendingMediaFeatureValuesChanged() {
 
   // MediumFeaturesChanged updates the applied rules, so it always gets called.
   if (mPresShell) {
-    change.mRestyleHint |=
+    const RestyleHint rulesHint =
         mPresShell->StyleSet()->MediumFeaturesChanged(change.mReason);
+    change.mRestyleHint |= rulesHint;
+    // A @view-transition rule in a @media rule can start or stop matching.
+    if (rulesHint) {
+      mDocument->OutboundViewTransitionRulesChanged();
+    }
   }
 
   const bool changedStyle = change.mRestyleHint || change.mChangeHint;

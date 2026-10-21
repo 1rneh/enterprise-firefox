@@ -989,8 +989,6 @@ skip-if = [
 ]
 
 
-["test_unsupported_mkv.html"]
-
 ["test_videoPlaybackQuality_totalFrames.html"]
 skip-if = [
   "os == 'win'", # bug 1374189

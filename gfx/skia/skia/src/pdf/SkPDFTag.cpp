@@ -683,6 +683,16 @@ SkPDFIndirectReference SkPDFStructTree::emitStructTreeRoot(SkPDFDocument* doc) c
     SkPDFStructElem::ContentSpan rootContentSpan;
     structTreeRoot.insertRef("K", fRoot->emitStructElem(*this, structTreeRootRef, &idTree, doc,
                                                         rootContentSpan));
+
+    // Namespace dictionaries referenced by a StructElem's NS entry must also be listed here.
+    if (!fNamespaceRefForURI.empty()) {
+        auto namespaces = SkPDFMakeArray();
+        fNamespaceRefForURI.foreach([&namespaces](const SkString&, const SkPDFIndirectReference& ref) {
+            namespaces->appendRef(ref);
+        });
+        structTreeRoot.insertObject("Namespaces", std::move(namespaces));
+    }
+
     structTreeRoot.insertInt("ParentTreeNextKey", fParentTree.size());
 
     // Build the parent tree, a number tree which consists of two things:

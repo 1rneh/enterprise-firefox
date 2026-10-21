@@ -622,6 +622,11 @@ IPCResult WindowGlobalParent::RecvUpdateDocumentHasLoaded(
   return IPC_OK();
 }
 
+IPCResult WindowGlobalParent::RecvSetMayHaveViewTransitionOptIn(bool aMayHave) {
+  mMayHaveViewTransitionOptIn = aMayHave;
+  return IPC_OK();
+}
+
 IPCResult WindowGlobalParent::RecvUpdateDocumentHasUserInteracted(
     bool aDocumentHasUserInteracted) {
   mDocumentHasUserInteracted = aDocumentHasUserInteracted;

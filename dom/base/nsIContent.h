@@ -481,9 +481,10 @@ class nsIContent : public nsINode {
   static inline bool RequiresDoneAddingChildren(int32_t aNamespace,
                                                 nsAtom* aName) {
     return (aNamespace == kNameSpaceID_XHTML &&
-            (aName == nsGkAtoms::select || aName == nsGkAtoms::textarea ||
-             aName == nsGkAtoms::head || aName == nsGkAtoms::title ||
-             aName == nsGkAtoms::object || aName == nsGkAtoms::output)) ||
+            (aName == nsGkAtoms::select || aName == nsGkAtoms::option ||
+             aName == nsGkAtoms::textarea || aName == nsGkAtoms::head ||
+             aName == nsGkAtoms::title || aName == nsGkAtoms::object ||
+             aName == nsGkAtoms::output)) ||
            (aNamespace == kNameSpaceID_SVG && aName == nsGkAtoms::title) ||
            (aNamespace == kNameSpaceID_XUL && aName == nsGkAtoms::linkset);
   }

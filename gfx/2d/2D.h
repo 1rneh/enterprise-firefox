@@ -2008,6 +2008,13 @@ class DrawTarget : public external::AtomicRefCounted<DrawTarget> {
                                                      SurfaceFormat aFormat) = 0;
 
   /**
+   * Create a similar DrawTarget in the same space as this DrawTarget, covering
+   * aRect in device space.
+   */
+  virtual RefPtr<DrawTarget> CreateClippedDrawTargetForRect(
+      const IntRect& aRect, SurfaceFormat aFormat);
+
+  /**
    * Create a similar draw target, but if the draw target is not backed by a
    * raster backend (for example, it is capturing or recording), force it to
    * create a raster target instead. This is intended for code that wants to

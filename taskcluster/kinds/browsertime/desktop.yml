@@ -8,6 +8,14 @@ task-defaults:
             .*-qr/.*: 2400
             default: 1800
     suite: raptor
+    dependencies:
+        by-app:
+            firefox:
+                by-test-platform:
+                    macosx(1500|2700)-aarch64(-vms)?-shippable/.*:
+                        build: build-macosx64-aarch64-shippable/opt
+                    default: {}
+            default: {}
     run-on-projects:
         by-test-platform:
             linux.*shippable.*: [mozilla-central]
@@ -19,7 +27,6 @@ task-defaults:
             safari:
                 - macosx2700.*shippable.*
             safari-tp:
-                - macosx1400.*
                 - macosx2700.*
             custom-car:
                 - macosx1500.*shippable.*
@@ -238,11 +245,7 @@ browsertime-tp6-essential:
         raptor:
             apps: [firefox, chrome, custom-car]
             test: tp6
-            run-visual-metrics:
-                by-test-platform:
-                    macosx1400.*shippable.*: false
-                    # Bug 1845014 Resolve osx 1300 vismet permafails
-                    default: true
+            run-visual-metrics: true
             subtests:
                 - amazon
                 - [bing-search, bing]
@@ -257,7 +260,7 @@ browsertime-tp6-essential:
             by-app:
                 firefox:
                     by-test-platform:
-                        .*64(?!.*nightlyasrelease).*shippable.*: [trunk]
+                        (?!macosx1470).*64(?!.*nightlyasrelease).*shippable.*: [trunk]
                         default: []
                 default: []
         tier:
@@ -373,7 +376,6 @@ browsertime-benchmark:
             safari:
                 - macosx2700.*shippable.*
             safari-tp:
-                - macosx1400.*
                 - macosx2700.*
             custom-car:
                 - macosx1500.*shippable.*
@@ -387,7 +389,7 @@ browsertime-benchmark:
                 default: [firefox, chrome, safari, safari-tp, custom-car]
         subtests:
             by-test-platform:
-                (macosx1400|macosx1500|macosx2700).*shippable.*:
+                (macosx1500|macosx2700).*shippable.*:
                     by-app:
                         safari-tp:
                             - [speedometer3, sp3]
@@ -496,7 +498,6 @@ browsertime-benchmark:
                         by-test-platform:
                             windows11-64-24h2-shippable/opt: [trunk-only]
                             linux.*shippable.*: [trunk-only]
-                            macosx1470.*shippable.*: [trunk-only]
                             macosx1500.*shippable.*: [trunk-only]
                             default: []
                     default: []
@@ -508,14 +509,11 @@ browsertime-benchmark:
                             windows11-64-shippable(-qr)?/opt: [trunk]
                             windows11-64-24h2-shippable/opt: [trunk]
                             linux.*shippable.*: [trunk]
-                            macosx1470.*shippable.*: [trunk]
-                            macosx1400.*shippable.*: [trunk]
                             macosx1500.*shippable.*: [trunk]
                             .*nightlyasrelease.*: [autoland, mozilla-central]
                             default: []
                     safari-tp:
                         by-test-platform:
-                            macosx1400.*: [mozilla-central]
                             macosx2700.*: [mozilla-central]
                             default: []
                     default: []
@@ -546,8 +544,7 @@ browsertime-benchmark:
                 by-app:
                     firefox:
                         by-test-platform:
-                            (?!macosx1400|macosx1500).*64.*shippable.*/.*: [trunk]
-                            macosx1400.*shippable.*: [mozilla-central]
+                            (?!macosx1500).*64.*shippable.*/.*: [trunk]
                             macosx1500.*shippable.*: [mozilla-central]
                             default: []
                     default: []
@@ -555,8 +552,7 @@ browsertime-benchmark:
                 by-app:
                     firefox:
                         by-test-platform:
-                            (?!macosx1400|macosx1500).*64.*shippable.*/.*: [trunk]
-                            macosx1400.*shippable.*: [mozilla-central]
+                            (?!macosx1500).*64.*shippable.*/.*: [trunk]
                             macosx1500.*shippable.*: [mozilla-central]
                             default: []
                     default: []
@@ -564,8 +560,7 @@ browsertime-benchmark:
                 by-app:
                     firefox:
                         by-test-platform:
-                            (?!macosx1400|macosx1500).*64.*shippable.*/.*: [trunk]
-                            macosx1400.*shippable.*: [mozilla-central]
+                            (?!macosx1500).*64.*shippable.*/.*: [trunk]
                             macosx1500.*shippable.*: [mozilla-central]
                             default: []
                     default: []
@@ -582,7 +577,6 @@ browsertime-benchmark:
             unity-webgl: 2400
             speedometer3:
                 by-test-platform:
-                    macosx1400.*shippable.*: 4200
                     macosx1500.*shippable.*: 4200
                     macosx1500.*nightlyasrelease.*: 4200
                     default: 2100
@@ -598,8 +592,6 @@ browsertime-benchmark:
             by-subtest:
                 jetstream3:
                     by-test-platform:
-                        macosx1400.*shippable.*:
-                            - --page-timeout=900000
                         macosx1500.*shippable.*:
                             - --page-timeout=900000
                         default: []
@@ -621,9 +613,6 @@ browsertime-benchmark:
                             - --extra-profiler-run
                 default:
                     by-test-platform:
-                        macosx1400.*shippable.*:
-                            - --extra-profiler-run
-                            - --page-timeout=900000
                         macosx1500.*shippable.*:
                             - --extra-profiler-run
                             - --page-timeout=900000

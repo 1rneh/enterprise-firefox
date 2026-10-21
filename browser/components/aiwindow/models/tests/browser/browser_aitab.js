@@ -61,11 +61,12 @@ const MODIFIED_TITLE = "Where To Stay In Lisbon, Cheaply";
 // Content handed to the tool directly, as another tool's result would be.
 const RAW_CONTENT = "Hostel Bairro Alto, 22 euros a night.";
 
-// Mirrors MAX_INSTRUCTION_CHARS and MAX_HISTORY_CHARS in AITab.sys.mjs. Both
-// are limits the model is never told about, so they are pinned here rather
-// than read back from the module.
+// Mirrors MAX_INSTRUCTION_CHARS, MAX_HISTORY_CHARS and SOURCE_TEXT_BUDGET in
+// AITab.sys.mjs. All are limits the model is never told about, so they are
+// pinned here rather than read back from the module.
 const MAX_INSTRUCTION_CHARS = 1500;
 const MAX_HISTORY_CHARS = 100000;
+const SOURCE_TEXT_BUDGET = 10000;
 
 // Appended past a cap, so an assertion can tell "cut here" from "cut at all".
 const OVERFLOW = "OVER-THE-CAP";
@@ -998,6 +999,55 @@ add_task(async function test_modify_instructions_are_capped() {
     Assert.ok(!userTurn.includes(OVERFLOW), "Everything past it is dropped.");
 
     const page = await lazy.AITabStore.getBySlug(created.page.slug);
+    await lazy.ConversationStore.deleteConversationById(page.toolConvId);
+  });
+});
+
+/**
+ * Source text is budgeted by its length once URLs are tokenized, so long URLs
+ * don't crowd out the text around them.
+ */
+add_task(async function test_source_budget_counts_urls_as_tokens() {
+  await withAITab(async ({ conversation, runWith }) => {
+    const items = Array.from(
+      { length: 300 },
+      (_, i) =>
+        `https://www.example.com/travel/europe/portugal/lisbon/where-to-stay-${i}` +
+        `?utm_source=newsletter&utm_medium=email word${i}.`
+    );
+    const { messages } = await runWith({
+      raw_content: items.join(" "),
+      focus: FOCUS,
+    });
+
+    const userTurn = messages.at(-1).content;
+    Assert.ok(
+      userTurn.includes("§url_token:"),
+      "URLs reach the model as tokens."
+    );
+
+    const included = items.findLastIndex((_, i) =>
+      userTurn.includes(` word${i}.`)
+    );
+    const tokenizedLength = count =>
+      new lazy.UrlTokenizer().tokenizeText(items.slice(0, count).join(" "))
+        .length;
+    Assert.lessOrEqual(
+      tokenizedLength(included + 1),
+      SOURCE_TEXT_BUDGET,
+      "The section stays within the budget once tokenized."
+    );
+    Assert.greater(
+      tokenizedLength(included + 2),
+      SOURCE_TEXT_BUDGET,
+      "The section fills the budget rather than stopping well short of it."
+    );
+    Assert.equal(
+      userTurn.match(/§url_token:[^§]*§/g).length,
+      included + 1,
+      "No URL is cut off at the budget."
+    );
+    const [page] = await lazy.AITabStore.getAITabPagesByConvId(conversation.id);
     await lazy.ConversationStore.deleteConversationById(page.toolConvId);
   });
 });

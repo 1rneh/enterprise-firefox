@@ -349,6 +349,7 @@ export class PictureOfTheDayFeed {
       case PREF_WIDGETS_ENABLED:
       case PREF_ENABLED:
       case PREF_SYSTEM_ENABLED:
+      case "region":
       case "trainhopConfig": {
         const enabled = this.isEnabled();
         if (enabled && !this.loaded) {

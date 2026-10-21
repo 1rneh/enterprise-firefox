@@ -264,6 +264,10 @@ class WindowGlobalParent final : public WindowContext,
 
   bool DocumentHasLoaded() { return mDocumentHasLoaded; }
 
+  bool MayHaveViewTransitionOptIn() const {
+    return mMayHaveViewTransitionOptIn;
+  }
+
   bool DocumentHasUserInteracted() { return mDocumentHasUserInteracted; }
 
   uint32_t SandboxFlags() { return mSandboxFlags; }
@@ -328,6 +332,7 @@ class WindowGlobalParent final : public WindowContext,
   mozilla::ipc::IPCResult RecvUpdatePrincipalPartitioning(
       bool aPartitionStoragePrincipal);
   mozilla::ipc::IPCResult RecvUpdateDocumentHasLoaded(bool aDocumentHasLoaded);
+  mozilla::ipc::IPCResult RecvSetMayHaveViewTransitionOptIn(bool aMayHave);
   mozilla::ipc::IPCResult RecvUpdateDocumentHasUserInteracted(
       bool aDocumentHasUserInteracted);
   mozilla::ipc::IPCResult RecvUpdateSandboxFlags(uint32_t aSandboxFlags);
@@ -580,6 +585,7 @@ class WindowGlobalParent final : public WindowContext,
 
   bool mDocumentHasLoaded;
   bool mDocumentHasUserInteracted;
+  bool mMayHaveViewTransitionOptIn = false;
   bool mDocumentTreeWouldPreloadResources = false;
   bool mBlockAllMixedContent;
   bool mUpgradeInsecureRequests;

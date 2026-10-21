@@ -2,10 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import React from "react";
+import React, { useContext } from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react";
 import { actionTypes as at } from "common/Actions.mjs";
 import { Spaces } from "content-src/components/Spaces/Spaces";
+import { SpaceActiveContext } from "content-src/lib/SpaceActiveContext";
 
 const SPACES = [
   { id: "stories", content: <div data-testid="stories-content" /> },
@@ -62,6 +63,31 @@ describe("Spaces", () => {
     expect(panels[0].hasAttribute("inert")).toBe(false);
     expect(panels[1].getAttribute("aria-hidden")).toBe("true");
     expect(panels[1].hasAttribute("inert")).toBe(true);
+  });
+
+  it("tells only the active space's content that it is active", () => {
+    function ActiveFlag({ id }) {
+      return (
+        <div data-testid={id} data-active={useContext(SpaceActiveContext)} />
+      );
+    }
+    const { container, getByTestId } = setup([
+      { id: "stories", content: <ActiveFlag id="stories-flag" /> },
+      { id: "widgets", content: <ActiveFlag id="widgets-flag" /> },
+    ]);
+    expect(getByTestId("stories-flag").dataset.active).toBe("true");
+    expect(getByTestId("widgets-flag").dataset.active).toBe("false");
+
+    fireEvent.click(container.querySelector("#spaces-tab-widgets"));
+
+    expect(getByTestId("stories-flag").dataset.active).toBe("false");
+    expect(getByTestId("widgets-flag").dataset.active).toBe("true");
+  });
+
+  it("does not peek outside the peek variant", () => {
+    const { container } = setup();
+    expect(container.querySelector(".spaces-peek-box")).toBeNull();
+    expect(container.querySelector(".space.peeking")).toBeNull();
   });
 
   it("offsets each space from the active one, so only one is in view", () => {
@@ -634,5 +660,93 @@ describe("Spaces with preview", () => {
       previous_space: "stories",
       method: "preview_tab",
     });
+  });
+});
+
+describe("Spaces with peek", () => {
+  // Opens on the middle space, which has a neighbour on each side.
+  function setupPeek() {
+    const dispatch = jest.fn();
+    const utils = render(
+      <Spaces
+        spaces={SPACES}
+        defaultId="widgets"
+        peek={true}
+        dispatch={dispatch}
+      />
+    );
+    const peekBox = side =>
+      utils.container.querySelector(`.spaces-peek-box.${side}`);
+    const peekSides = () =>
+      [...utils.container.querySelectorAll(".spaces-peek-box")].map(el =>
+        el.classList.contains("prev") ? "prev" : "next"
+      );
+    const peeking = side =>
+      [...utils.container.querySelectorAll(`.space.peeking-${side}`)].map(
+        el => el.id
+      );
+    const tab = id => utils.container.querySelector(`#spaces-tab-${id}`);
+    const hoverClass = () =>
+      [...utils.container.querySelector(".spaces-container").classList].find(
+        name => name.startsWith("peek-hover")
+      );
+    return {
+      dispatch,
+      peekBox,
+      peekSides,
+      peeking,
+      tab,
+      hoverClass,
+      ...utils,
+    };
+  }
+
+  it("peeks at each neighbour, on the side it sits", () => {
+    const { peekSides, peeking, tab } = setupPeek();
+    expect(peekSides()).toEqual(["prev", "next"]);
+    expect(peeking("prev")).toEqual(["spaces-panel-stories"]);
+    expect(peeking("next")).toEqual(["spaces-panel-activity"]);
+
+    fireEvent.click(tab("stories"));
+    expect(peekSides()).toEqual(["next"]);
+    expect(peeking("next")).toEqual(["spaces-panel-widgets"]);
+
+    fireEvent.click(tab("activity"));
+    expect(peekSides()).toEqual(["prev"]);
+    expect(peeking("prev")).toEqual(["spaces-panel-widgets"]);
+  });
+
+  it("records a peek switch", () => {
+    const { dispatch, peekBox } = setupPeek();
+    fireEvent.click(peekBox("prev"));
+    expect(switchData(dispatch)).toEqual({
+      space: "stories",
+      previous_space: "widgets",
+      method: "peek",
+    });
+  });
+
+  it("slides a peek in while it or its tab is hovered", () => {
+    const { peekBox, tab, hoverClass } = setupPeek();
+
+    fireEvent.mouseEnter(peekBox("prev"));
+    expect(hoverClass()).toBe("peek-hover-prev");
+    fireEvent.mouseLeave(peekBox("prev"));
+    expect(hoverClass()).toBeUndefined();
+
+    fireEvent.mouseEnter(tab("activity"));
+    expect(hoverClass()).toBe("peek-hover-next");
+    fireEvent.mouseLeave(tab("activity"));
+
+    // The active space's tab has no peek to slide.
+    fireEvent.mouseEnter(tab("widgets"));
+    expect(hoverClass()).toBeUndefined();
+  });
+
+  it("clears the hover slide effect after a switch", () => {
+    const { peekBox, hoverClass } = setupPeek();
+    fireEvent.mouseEnter(peekBox("next"));
+    fireEvent.click(peekBox("next"));
+    expect(hoverClass()).toBeUndefined();
   });
 });

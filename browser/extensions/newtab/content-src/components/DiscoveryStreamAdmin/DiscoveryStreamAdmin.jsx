@@ -191,6 +191,12 @@ const PAGE_LAYOUTS_INFO = {
       "Buttons at the bottom, where each tab previews its space's first " +
       "medium story card, else its first widget or Recent activity card.",
   },
+  [PAGE_LAYOUT_VARIANTS.SPACES_PEEK]: {
+    label: "Spaces (Peek)",
+    description:
+      "Buttons at the bottom, plus a preview of the spaces on either side in " +
+      "the page margins. Clicking one navigates there.",
+  },
   // @experiment(remove) { bug 2069496 }
   [PAGE_LAYOUT_VARIANTS.WIDGETS_AD_LARGE]: {
     label: "Widgets row ad (large)",

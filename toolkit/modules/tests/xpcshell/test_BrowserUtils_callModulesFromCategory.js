@@ -141,9 +141,9 @@ add_task(async function test_callModulesFromCategory() {
   Services.catMan.deleteCategory(CATEGORY);
 });
 
-// With idleDispatch, a consumer whose jsGlobal is a window that has closed by
-// the time the idle task runs should be dropped, so we don't initialize (and
-// leak) a closing window.
+// With idleDispatch set to a window, the consumers should be queued with that
+// window's requestIdleCallback, and dropped if it has closed by the time the
+// idle task runs, so we don't initialize (and leak) a closing window.
 add_task(
   async function test_callModulesFromCategory_idleDispatch_closed_window() {
     const CATEGORY = "test-js-global-catman-closed-window";
@@ -161,20 +161,36 @@ add_task(
 
     let sandbox = sinon.createSandbox();
 
+    let fakeWindow = closed => ({
+      closed,
+      requestIdleCallback: sandbox.spy(cb => ChromeUtils.idleDispatch(cb)),
+      FakeObj: { doThing: sandbox.spy() },
+    });
+
     // A window that has closed: its consumer should be dropped.
-    let closedWindow = { closed: true, FakeObj: { doThing: sandbox.spy() } };
+    let closedWindow = fakeWindow(true);
     await BrowserUtils.callModulesFromCategory(
-      { categoryName: CATEGORY, idleDispatch: true, jsGlobal: closedWindow },
+      {
+        categoryName: CATEGORY,
+        idleDispatch: closedWindow,
+        jsGlobal: closedWindow,
+      },
       "win"
     );
+    sinon.assert.calledOnce(closedWindow.requestIdleCallback);
     sinon.assert.notCalled(closedWindow.FakeObj.doThing);
 
     // A window that is still open: its consumer should run as usual.
-    let openWindow = { closed: false, FakeObj: { doThing: sandbox.spy() } };
+    let openWindow = fakeWindow(false);
     await BrowserUtils.callModulesFromCategory(
-      { categoryName: CATEGORY, idleDispatch: true, jsGlobal: openWindow },
+      {
+        categoryName: CATEGORY,
+        idleDispatch: openWindow,
+        jsGlobal: openWindow,
+      },
       "win"
     );
+    sinon.assert.calledOnce(openWindow.requestIdleCallback);
     sinon.assert.calledOnce(openWindow.FakeObj.doThing);
     sinon.assert.calledWithExactly(openWindow.FakeObj.doThing, "win");
 

@@ -1116,7 +1116,7 @@ bool nsGenericHTMLElement::ParseAttribute(int32_t aNamespaceID,
                                           const nsAString& aValue,
                                           nsIPrincipal* aMaybeScriptedPrincipal,
                                           nsAttrValue& aResult) {
-  if (aNamespaceID == kNameSpaceID_None) {
+  if (aAttribute->IsStatic() && aNamespaceID == kNameSpaceID_None) {
     if (aAttribute == nsGkAtoms::dir) {
       return aResult.ParseEnumValue(aValue, kDirTable, false);
     }

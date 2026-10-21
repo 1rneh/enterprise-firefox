@@ -18,6 +18,7 @@
 #include "mozilla/RefPtr.h"
 #include "mozilla/ResultVariant.h"
 #include "mozilla/ScopeExit.h"
+#include "mozilla/StaticPrefs_dom.h"
 #include "mozilla/StaticPrefs_extensions.h"
 #include "mozilla/StaticPrefs_fission.h"
 #include "mozilla/StaticPrefs_privacy.h"
@@ -31,6 +32,7 @@
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/ContentProcessManager.h"
 #include "mozilla/dom/Element.h"
+#include "mozilla/dom/NavigationUtils.h"
 #include "mozilla/dom/ParentProcessChannelHandle.h"
 #include "mozilla/dom/PrefetchLog.h"
 #include "mozilla/dom/ProcessIsolation.h"
@@ -1256,6 +1258,7 @@ auto DocumentLoadListener::Open(nsDocShellLoadState* aLoadState,
   mLoadStateExternalLoadFlags = aLoadState->LoadFlags();
   mLoadStateInternalLoadFlags = aLoadState->InternalLoadFlags();
   mLoadStateLoadType = aLoadState->LoadType();
+  mLoadStatePageSwapFired = aLoadState->PageSwapFired();
   mSrcdocData = aLoadState->SrcdocData();
   mBaseURI = aLoadState->BaseURI();
   mOriginalUriString = aLoadState->GetOriginalURIString();
@@ -3205,11 +3208,111 @@ nsresult DocumentLoadListener::DoOnStartRequest(nsIRequest* aRequest) {
     }
   }
 
+  if (!silentErrorLoad &&
+      StaticPrefs::dom_viewTransitions_cross_document_enabled() &&
+      MaybeBeginOutboundViewTransition()) {
+    return NS_OK;
+  }
+  return ContinueDoOnStartRequestCommit(silentErrorLoad);
+}
+
+bool DocumentLoadListener::MaybeBeginOutboundViewTransition() {
+  if (mLoadStatePageSwapFired) {
+    return false;
+  }
+  auto* browsingContext = GetDocumentBrowsingContext();
+  if (!browsingContext) {
+    return false;
+  }
+  RefPtr<WindowGlobalParent> wgp = browsingContext->GetCurrentWindowGlobal();
+  if (!wgp) {
+    return false;
+  }
+
+  // Pageswap fires only in content processes.
+  RefPtr<ContentParent> contentParent = browsingContext->GetContentParent();
+  if (!contentParent) {
+    return false;
+  }
+  Maybe<NavigationType> navigationType =
+      NavigationUtils::NavigationTypeFromLoadType(mLoadStateLoadType);
+  if (!navigationType) {
+    return false;
+  }
+
+  nsCOMPtr<nsIPrincipal> resultPrincipal;
+  MOZ_ALWAYS_SUCCEEDS(
+      nsContentUtils::GetSecurityManager()->GetChannelResultPrincipal(
+          mChannel, getter_AddRefs(resultPrincipal)));
+  const bool sameOrigin =
+      resultPrincipal && wgp->DocumentPrincipal()->Equals(resultPrincipal);
+
+  // Delay the commit only if the old document opted in with @view-transition.
+  if (!wgp->MayHaveViewTransitionOptIn() ||
+      !NavigationUtils::CanInitiateOutboundCrossDocumentViewTransition(
+          mLoadStateLoadType, sameOrigin, mChannel)) {
+    // Still fire pageswap: the new document can load in another process, where
+    // nothing else fires it. Messages to this process arrive in order, so it
+    // runs before the old document is deactivated. The activation follows
+    // https://html.spec.whatwg.org/#fire-the-pageswap-event step 4.
+    Maybe<SessionHistoryInfo> targetInfo;
+    if (mLoadingSessionHistoryInfo && sameOrigin &&
+        !NavigationUtils::HasCrossOriginRedirect(mChannel)) {
+      targetInfo.emplace(mLoadingSessionHistoryInfo->mInfo);
+    }
+    (void)contentParent->SendFirePageSwap(browsingContext, targetInfo,
+                                          *navigationType);
+    return false;
+  }
+
+  Maybe<SessionHistoryInfo> targetInfo;
+  if (mLoadingSessionHistoryInfo) {
+    targetInfo.emplace(mLoadingSessionHistoryInfo->mInfo);
+  }
+  RefPtr<DocumentLoadListener> self = this;
+  // There is no snapshot target tab (TabId 0), because the new document does
+  // not exist yet. ViewTransition::CreateCrossDocument moves the snapshots to
+  // its bridge if needed.
+  contentParent
+      ->SendBeginOutboundCrossDocumentViewTransition(
+          browsingContext, targetInfo, *navigationType, TabId(0))
+      ->Then(GetMainThreadSerialEventTarget(), __func__,
+             [self](const ContentParent::
+                        BeginOutboundCrossDocumentViewTransitionPromise::
+                            ResolveOrRejectValue&) {
+               self->ContinueDoOnStartRequestCommit(false);
+             });
+  return true;
+}
+
+nsresult DocumentLoadListener::ContinueDoOnStartRequestCommit(
+    bool aSilentErrorLoad) {
+  // Script can have run while the old document captured its state, and it
+  // can have stopped this load. Then resume the channel that DoOnStartRequest
+  // suspended, so that the pump can call OnStopRequest, which breaks the
+  // reference cycle between DocumentLoadListener and ParentChannelListener.
+  if (!mChannel) {
+    return NS_OK;
+  }
+  if (mOpenPromiseResolved) {
+    mChannel->Resume();
+    return NS_OK;
+  }
+
+  // Script can also have discarded the browsing context.
+  auto* loadingContext = GetLoadingBrowsingContext();
+  if (!loadingContext || loadingContext->IsDiscarded()) {
+    Cancel(NS_ERROR_UNEXPECTED, "No valid LoadingBrowsingContext."_ns);
+    mChannel->Resume();
+    return NS_ERROR_UNEXPECTED;
+  }
+  RefPtr<nsHttpChannel> httpChannel = do_QueryObject(mChannel);
+
   // Determine if a new process needs to be spawned. If it does, this will
   // trigger a cross process switch, and we should hold off on redirecting to
   // the real channel.
   bool willBeRemote = false;
-  if (silentErrorLoad || !MaybeTriggerProcessSwitch(&willBeRemote)) {
+  if (aSilentErrorLoad || !MaybeTriggerProcessSwitch(&willBeRemote)) {
     // We're not going to be doing a process switch, so redirect to the real
     // channel within our current process.
     nsTArray<StreamFilterRequest> streamFilterRequests =

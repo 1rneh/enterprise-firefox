@@ -211,6 +211,8 @@ const AFTER = [
 ];
 
 add_task(async function () {
+  await pushPref("layout.css.display-grid-lanes.enabled", true);
+
   await addTab("data:text/html;charset=utf-8," + encodeURIComponent(TEST_URI));
   const { inspector, view } = await openRuleView();
 

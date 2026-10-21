@@ -73,6 +73,9 @@ MOZ_DEFINE_ENUM_CLASS_WITH_TOSTRING(
                             // doesn't support inputs higher than 8-bit. ONLY
                             // SUPPORTED BY DAV1DDecoder and FFmpegVideoDecoder.
 
+     AssertCanInstantiate,  // Assert that a wrapping decoder can instantiate
+                            // its underlying decoder up front.
+
      SENTINEL  // one past the last valid value
      ));
 

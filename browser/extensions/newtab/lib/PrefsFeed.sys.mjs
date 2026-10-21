@@ -82,17 +82,6 @@ function recordsHistory() {
   );
 }
 
-/**
- * @backward-compat { version 157 }
- * The recent searches widget requires the `newtab_search_widget` registered
- * in BrowserSearchTelemetry.sys.mjs and no partner code configuration which
- * was added to ConfigSearchEngine.sys.mjs in 157.
- * Remove this guard once 157 reaches Release.
- */
-function isWidgetSearchSapHostSupported() {
-  return Services.vc.compare(AppConstants.MOZ_APP_VERSION, "157.0a1") >= 0;
-}
-
 const PREF_DEFAULTS = [
   { type: "bool", key: "logowordmark.alwaysVisible", defaultValue: false },
   { type: "bool", key: "feeds.section.topstories", defaultValue: false },
@@ -773,9 +762,6 @@ export class PrefsFeed {
     for (const pref of RECORDS_HISTORY_PREFS) {
       Services.prefs.addObserver(pref, this);
     }
-
-    // @backward-compat { version 157 } See isWidgetSearchSapHostSupported
-    values.supportsWidgetSearchSap = isWidgetSearchSapHostSupported();
 
     // Add experiment values and default values
     values.featureConfig = lazy.NimbusFeatures.newtab.getAllVariables() || {};

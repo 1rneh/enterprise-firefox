@@ -616,6 +616,39 @@ static bool ReadRawFont(const OpAddRawFont& aOp, wr::ShmSegmentsReader& aReader,
   return true;
 }
 
+already_AddRefed<WebRenderBridgeParent>
+WebRenderBridgeParent::FindSnapshotSourceBridge(
+    const wr::IdNamespace& aNamespace) {
+  // The source namespace is this bridge's own, so no lookup is needed.
+  if (aNamespace == mLateInit->mIdNamespace) {
+    return do_AddRef(this);
+  }
+  RefPtr<WebRenderBridgeParent> source;
+  bool done = false;
+  CompositorBridgeParent::WithIndirectLayerTreesLock(
+      [&](const StaticMonitorAutoLock& aLock) {
+        CompositorBridgeParent::ForEachLayerTreeStateUnderLock(
+            aLock,
+            [&](LayersId, CompositorBridgeParent::LayerTreeState& aState) {
+              WebRenderBridgeParent* bridge = aState.mWrBridge;
+              if (done || !bridge || bridge == this || !bridge->mLateInit ||
+                  !(bridge->mLateInit->mIdNamespace == aNamespace)) {
+                return;
+              }
+              // Namespaces are unique, so no other bridge can match.
+              done = true;
+              // Unlike pids, child ids are never reused. Each WebRender window
+              // has its own resource cache.
+              if (bridge->OtherChildID() == OtherChildID() &&
+                  bridge->mLateInit->mApi->GetId() ==
+                      mLateInit->mApi->GetId()) {
+                source = bridge;
+              }
+            });
+      });
+  return source.forget();
+}
+
 bool WebRenderBridgeParent::UpdateResources(
     const nsTArray<OpUpdateResource>& aResourceUpdates,
     const nsTArray<RefCountedShmem>& aSmallShmems,
@@ -632,6 +665,10 @@ bool WebRenderBridgeParent::UpdateResources(
       break;
     }
   }
+
+  // The snapshots of one adoption come from one bridge. Find it only once.
+  Maybe<wr::IdNamespace> adoptSourceNamespace;
+  bool adoptSourceFound = false;
 
   bool success = true;
   for (const auto& cmd : aResourceUpdates) {
@@ -721,6 +758,33 @@ bool WebRenderBridgeParent::UpdateResources(
           break;
         }
         aUpdates.AddSnapshotImage(op.key());
+        break;
+      }
+      case OpUpdateResource::TOpAdoptSnapshotImage: {
+        const auto& op = cmd.get_OpAdoptSnapshotImage();
+        if (NS_WARN_IF(!MatchesNamespace(wr::AsImageKey(op.key())))) {
+          break;
+        }
+        const wr::IdNamespace fromNamespace =
+            wr::AsImageKey(op.fromKey()).mNamespace;
+        if (adoptSourceNamespace != Some(fromNamespace)) {
+          adoptSourceNamespace = Some(fromNamespace);
+          RefPtr<WebRenderBridgeParent> source =
+              FindSnapshotSourceBridge(fromNamespace);
+          adoptSourceFound = !!source;
+          // The transaction that captured the snapshots can still wait in
+          // the queue of the source bridge, for example for remote textures.
+          // Send it to WebRender before the adoption.
+          if (source && source != this) {
+            source->FlushPendingWrTransactionEventsWithWait();
+          }
+        }
+        // The source bridge can already be gone if the old document was torn
+        // down before the restored document adopted the snapshots.
+        if (NS_WARN_IF(!adoptSourceFound)) {
+          break;
+        }
+        aUpdates.AdoptSnapshotImage(op.fromKey(), op.key());
         break;
       }
       case OpUpdateResource::TOpDeleteSnapshotImage: {

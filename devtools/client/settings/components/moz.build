@@ -4,5 +4,6 @@
 
 DevToolsModules(
     "devtools-settings-pref.mjs",
+    "devtools-settings.css",
     "devtools-settings.mjs",
 )

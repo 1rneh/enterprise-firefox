@@ -775,6 +775,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_autofill_checksum_method_store_get_passport(
     ): Int
+    external fun uniffi_autofill_checksum_method_store_list_credit_card_candidates(
+    ): Int
     external fun uniffi_autofill_checksum_method_store_register_with_sync_manager(
     ): Int
     external fun uniffi_autofill_checksum_method_store_run_maintenance(
@@ -931,6 +933,8 @@ internal object UniffiLib {
     external fun uniffi_autofill_fn_method_store_get_credit_card(`ptr`: Long,`guid`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_autofill_fn_method_store_get_passport(`ptr`: Long,`guid`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_autofill_fn_method_store_list_credit_card_candidates(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_autofill_fn_method_store_register_with_sync_manager(`ptr`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
@@ -2389,6 +2393,14 @@ public interface StoreInterface {
     
     fun `getPassport`(`guid`: kotlin.String): Passport
     
+    /**
+     * Every stored credit card without its encrypted fields. Unlike
+     * `get_all_credit_cards` this never touches the key, so listing cannot
+     * prompt for a primary password; read the one card that needs its
+     * secrets with `get_credit_card`.
+     */
+    fun `listCreditCardCandidates`(): List<CreditCardCandidate>
+    
     fun `registerWithSyncManager`()
     
     /**
@@ -2930,6 +2942,26 @@ open class Store: Disposable, AutoCloseable, StoreInterface
     }
     
 
+    
+    /**
+     * Every stored credit card without its encrypted fields. Unlike
+     * `get_all_credit_cards` this never touches the key, so listing cannot
+     * prompt for a primary password; read the one card that needs its
+     * secrets with `get_credit_card`.
+     */
+    @Throws(AutofillApiException::class)override fun `listCreditCardCandidates`(): List<CreditCardCandidate> {
+            return FfiConverterSequenceTypeCreditCardCandidate.lift(
+    callWithHandle {
+    uniffiRustCallWithError(AutofillApiException) { _status ->
+    UniffiLib.uniffi_autofill_fn_method_store_list_credit_card_candidates(
+        it,
+        _status)
+}
+    }
+    )
+    }
+    
+
     override fun `registerWithSyncManager`()
         = 
     callWithHandle {
@@ -3457,6 +3489,96 @@ public object FfiConverterTypeCreditCard: FfiConverterRustBuffer<CreditCard> {
             FfiConverterString.write(value.`ccNumber`, buf)
             FfiConverterOptionalString.write(value.`ccCvv`, buf)
             FfiConverterString.write(value.`ccNumberLast4`, buf)
+            FfiConverterLong.write(value.`ccExpMonth`, buf)
+            FfiConverterLong.write(value.`ccExpYear`, buf)
+            FfiConverterString.write(value.`ccType`, buf)
+            FfiConverterLong.write(value.`timeCreated`, buf)
+            FfiConverterOptionalLong.write(value.`timeLastUsed`, buf)
+            FfiConverterLong.write(value.`timeLastModified`, buf)
+            FfiConverterLong.write(value.`timesUsed`, buf)
+    }
+}
+
+
+
+/**
+ * A credit card stored in the database, minus the encrypted fields.
+ *
+ * Reading these never needs the encryption key, so consumers listing cards by name,
+ * last four digits and expiry can do so without forcing the user to authenticate.
+ * See `list_credit_card_candidates()`.
+ */
+data class CreditCardCandidate (
+    var `guid`: kotlin.String
+    , 
+    var `ccName`: kotlin.String
+    , 
+    var `ccNumberLast4`: kotlin.String
+    , 
+    var `hasCvv`: kotlin.Boolean
+    , 
+    var `ccExpMonth`: kotlin.Long
+    , 
+    var `ccExpYear`: kotlin.Long
+    , 
+    var `ccType`: kotlin.String
+    , 
+    var `timeCreated`: kotlin.Long
+    , 
+    var `timeLastUsed`: kotlin.Long?
+    , 
+    var `timeLastModified`: kotlin.Long
+    , 
+    var `timesUsed`: kotlin.Long
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeCreditCardCandidate: FfiConverterRustBuffer<CreditCardCandidate> {
+    override fun read(buf: ByteBuffer): CreditCardCandidate {
+        return CreditCardCandidate(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterOptionalLong.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: CreditCardCandidate) = (
+            FfiConverterString.allocationSize(value.`guid`) +
+            FfiConverterString.allocationSize(value.`ccName`) +
+            FfiConverterString.allocationSize(value.`ccNumberLast4`) +
+            FfiConverterBoolean.allocationSize(value.`hasCvv`) +
+            FfiConverterLong.allocationSize(value.`ccExpMonth`) +
+            FfiConverterLong.allocationSize(value.`ccExpYear`) +
+            FfiConverterString.allocationSize(value.`ccType`) +
+            FfiConverterLong.allocationSize(value.`timeCreated`) +
+            FfiConverterOptionalLong.allocationSize(value.`timeLastUsed`) +
+            FfiConverterLong.allocationSize(value.`timeLastModified`) +
+            FfiConverterLong.allocationSize(value.`timesUsed`)
+    )
+
+    override fun write(value: CreditCardCandidate, buf: ByteBuffer) {
+            FfiConverterString.write(value.`guid`, buf)
+            FfiConverterString.write(value.`ccName`, buf)
+            FfiConverterString.write(value.`ccNumberLast4`, buf)
+            FfiConverterBoolean.write(value.`hasCvv`, buf)
             FfiConverterLong.write(value.`ccExpMonth`, buf)
             FfiConverterLong.write(value.`ccExpYear`, buf)
             FfiConverterString.write(value.`ccType`, buf)
@@ -4670,6 +4792,34 @@ public object FfiConverterSequenceTypeCreditCard: FfiConverterRustBuffer<List<Cr
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeCreditCard.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeCreditCardCandidate: FfiConverterRustBuffer<List<CreditCardCandidate>> {
+    override fun read(buf: ByteBuffer): List<CreditCardCandidate> {
+        val len = buf.getInt()
+        return List<CreditCardCandidate>(len) {
+            FfiConverterTypeCreditCardCandidate.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<CreditCardCandidate>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeCreditCardCandidate.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<CreditCardCandidate>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeCreditCardCandidate.write(it, buf)
         }
     }
 }

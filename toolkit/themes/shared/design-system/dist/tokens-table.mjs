@@ -2187,10 +2187,6 @@ export const tokensTable = {
     },
     { value: { default: "0px" }, name: "--message-bar-icon-container-padding" },
     {
-      value: { default: "0px" },
-      name: "--message-bar-icon-container-padding-offset",
-    },
-    {
       value: { default: "var(--message-bar-icon-container-padding)" },
       name: "--message-bar-icon-container-padding-block-start",
     },
@@ -5209,7 +5205,6 @@ export const variableLookupTable = {
   },
   "message-bar-icon-container-margin-block-start-offset": { default: "2px" },
   "message-bar-icon-container-padding": { default: "0px" },
-  "message-bar-icon-container-padding-offset": { default: "0px" },
   "message-bar-icon-container-padding-block-start": {
     default: "var(--message-bar-icon-container-padding)",
   },

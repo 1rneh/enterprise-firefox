@@ -1653,10 +1653,7 @@ newtab:
       space:
         description: >
           The space navigated to. One of stories, widgets or activity in the
-          spaces-buttons-top, spaces-buttons-bottom, spaces-floating-arrows,
-          spaces-preview-kit, spaces-preview-illustrated and
-          spaces-preview-cards variants, or a
-          thematic space id configured via Nimbus in spaces-thematic-v1.
+          V1 spaces variants, or a thematic space id configured via Nimbus.
         type: string
       previous_space:
         description: >
@@ -1667,8 +1664,9 @@ newtab:
           Which control was used: tab (the segmented control), keyboard (arrow
           keys on the segmented control), swipe (horizontal wheel, shift plus
           wheel, or a touch drag), arrow (the edge arrows in
-          spaces-floating-arrows) or preview_tab (a tab, in the
-          spaces-preview variants or a thematic config with the preview on).
+          spaces-floating-arrows), preview_tab (a tab, in the spaces-preview
+          variants or a thematic config with the preview on) or peek (the
+          neighbouring space's preview in spaces-peek).
         type: string
     send_in_pings:
       - newtab
@@ -1825,6 +1823,7 @@ newtab:
       belongs to no single newtab visit.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2062393
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2075757
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2062393
     data_sensitivity:
@@ -2943,10 +2942,13 @@ newtab_content:
       options in the context menu.
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1956331
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2075757
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1956331
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=2075757
     data_sensitivity:
       - interaction
+      - web_activity
     notification_emails:
       - mcrawford@mozilla.cocm
     expires: never
@@ -2985,6 +2987,32 @@ newtab_content:
       variant_id: *variant_id
       source_section_id: *source_section_id
       layout_name: *layout_name
+      dwell_time:
+        description: >
+          Active dwell time on the opened story, in milliseconds, multiplied by
+          1 + Laplace(b) noise, rounded, and limited to between 0 and 60000. A
+          value of 60000 means 60 seconds or more. The scale b is 0.05 unless
+          set otherwise through Nimbus. Recorded for organic story clicks only.
+
+          A story the user was still reading when the ping was submitted
+          reports the time read so far, and is not distinguished from one the
+          user had left.
+
+          Absent when the dwell time feature is off, when the story was never
+          looked at (opened in a background tab and closed, or not yet switched
+          to when the ping was submitted), when it was opened in a private
+          window, and when the click could not be matched to a page that
+          loaded, which covers failed loads and opens that never produce a
+          content browser.
+
+          A click dropped by the daily or weekly organic cap takes its dwell
+          time with it, so the dwell time is missing non-uniformly for users
+          who click a lot.
+
+          When the click's story was replaced by a random one from the feed,
+          the dwell time is still the time spent on the story actually opened,
+          reported against the replacement's corpus_item_id.
+        type: quantity
     send_in_pings:
       - newtab-content
 

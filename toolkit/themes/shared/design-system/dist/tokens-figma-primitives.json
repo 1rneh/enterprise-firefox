@@ -195,7 +195,6 @@
   "message-bar/icon/container/margin/block/start": "{Primitives$space/small}",
   "message-bar/icon/container/margin/block/start/offset": 2,
   "message-bar/icon/container/padding": 0,
-  "message-bar/icon/container/padding/offset": 0,
   "message-bar/icon/size": "{Primitives$icon/size}",
   "message-bar/message/margin/inline-end": "{Primitives$space/xsmall}",
   "message-bar/text/container/gap": "{Primitives$space/xsmall} {Primitives$space/small}",

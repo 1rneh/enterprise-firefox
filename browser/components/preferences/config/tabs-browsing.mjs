@@ -478,11 +478,21 @@ function availableHighlightToSearchActions() {
 }
 
 /**
+ * @param {string} action
+ * @param {boolean} enabled
+ * @param {string} [source]
+ */
+function recordHighlightToSearchToggle(action, enabled, source = "settings") {
+  Glean.selectionMenu.optionToggled.record({ action, enabled, source });
+}
+
+/**
  * @param {boolean} checked
  */
 function onHighlightToSearchActionChange(checked) {
   if (!checked && !availableHighlightToSearchActions().some(a => a.value)) {
     Preferences.getSetting("highlightToSearchEnabled").value = false;
+    recordHighlightToSearchToggle("master", false, "uncheck_all");
   }
 }
 
@@ -497,6 +507,7 @@ Preferences.addSetting({
   visible: ({ highlightToSearchFeatureGate }) =>
     highlightToSearchFeatureGate.value,
   onUserChange(checked) {
+    recordHighlightToSearchToggle("master", checked);
     const actions = availableHighlightToSearchActions();
     if (checked && !actions.some(action => action.value)) {
       for (const action of actions) {
@@ -512,7 +523,10 @@ Preferences.addSetting({
   visible: ({ aiControlDefault, aiControlSidebarChatbot }) =>
     window.canShowAiFeature(aiControlSidebarChatbot, aiControlDefault) &&
     lazy.GenAI.canOfferChatbot,
-  onUserChange: onHighlightToSearchActionChange,
+  onUserChange(checked) {
+    recordHighlightToSearchToggle("ai", checked);
+    onHighlightToSearchActionChange(checked);
+  },
   getControlConfig(config, { chatbotProvider }) {
     const provider = lazy.GenAI.chatProviders.get(chatbotProvider.value)?.name;
     return provider
@@ -528,12 +542,8 @@ Preferences.addSetting({
   id: "highlightToSearchSearch",
   pref: "browser.highlightToSearch.search.enabled",
   onUserChange(checked) {
+    recordHighlightToSearchToggle("search", checked);
     onHighlightToSearchActionChange(checked);
-    Glean.selectionMenu.optionToggled.record({
-      action: "search",
-      enabled: checked,
-      source: "settings",
-    });
   },
 });
 

@@ -1260,71 +1260,43 @@ bool AccessibleCaretManager::RestrictCaretDraggingOffsets(
     return false;
   }
 
-  // Move one character (in the direction of dir) from the inactive caret's
-  // position. This is the limit for the active caret's new position.
-  PeekOffsetStruct limit(
-      eSelectCluster, dir,
-      static_cast<int32_t>(frameAndOffset.mOffsetInFrameContent), nsPoint(0, 0),
-      {PeekOffsetOption::JumpLines, PeekOffsetOption::StopAtScroller});
-  nsresult rv = frameAndOffset->PeekOffset(&limit);
-  if (NS_FAILED(rv)) {
-    limit.mResultContent = content;
-    limit.mContentOffset = offsetInContent;
-  }
-
-  // Compare the active caret's new position (aOffsets) to the limit.
-  NS_ASSERTION(limit.mContentOffset >= 0,
-               "limit.mContentOffset should not be negative");
-  const Maybe<int32_t> cmpToLimit =
-      nsContentUtils::ComparePoints_AllowNegativeOffsets<
-          TreeKind::ShadowIncludingDOM>(
-          aOffsets.content, aOffsets.StartOffset(), limit.mResultContent,
-          limit.mContentOffset);
-  if (NS_WARN_IF(!cmpToLimit)) {
-    // Potentially handle this properly when Selection across Shadow DOM
-    // boundary is implemented
-    // (https://bugzilla.mozilla.org/show_bug.cgi?id=1607497).
-    return false;
-  }
-
-  auto SetOffsetsToLimit = [&aOffsets, &limit]() {
-    aOffsets.content = limit.mResultContent;
-    aOffsets.offset = limit.mContentOffset;
-    aOffsets.secondaryOffset = limit.mContentOffset;
-  };
-
-  if (!StaticPrefs::
-          layout_accessiblecaret_allow_dragging_across_other_caret()) {
-    if ((mActiveCaret == mCarets.GetFirst() && *cmpToLimit == 1) ||
-        (mActiveCaret == mCarets.GetSecond() && *cmpToLimit == -1)) {
-      // The active caret's position is past the limit, which we don't allow
-      // here. So set it to the limit, resulting in one character being
-      // selected.
-      SetOffsetsToLimit();
+  switch (*cmpToInactiveCaretPos) {
+    case 0: {
+      // The active caret's position is the same as the position of the
+      // inactive caret. So move it one character (in the direction of dir)
+      // away from the inactive caret to prevent the selection from being
+      // collapsed, resulting in one character being selected.
+      PeekOffsetStruct limit(
+          eSelectCluster, dir,
+          static_cast<int32_t>(frameAndOffset.mOffsetInFrameContent),
+          nsPoint(0, 0),
+          {PeekOffsetOption::JumpLines, PeekOffsetOption::StopAtScroller});
+      nsresult rv = frameAndOffset->PeekOffset(&limit);
+      if (NS_FAILED(rv)) {
+        limit.mResultContent = content;
+        limit.mContentOffset = offsetInContent;
+      }
+      NS_ASSERTION(limit.mContentOffset >= 0,
+                   "limit.mContentOffset should not be negative");
+      aOffsets.content = limit.mResultContent;
+      aOffsets.offset = limit.mContentOffset;
+      aOffsets.secondaryOffset = limit.mContentOffset;
+      break;
     }
-  } else {
-    switch (*cmpToInactiveCaretPos) {
-      case 0:
-        // The active caret's position is the same as the position of the
-        // inactive caret. So set it to the limit to prevent the selection from
-        // being collapsed, resulting in one character being selected.
-        SetOffsetsToLimit();
-        break;
-      case 1:
-        if (mActiveCaret == mCarets.GetFirst()) {
-          // First caret was moved across the second caret. After making change
-          // to the selection, the user will drag the second caret.
-          mActiveCaret = mCarets.GetSecond();
-        }
-        break;
-      case -1:
-        if (mActiveCaret == mCarets.GetSecond()) {
-          // Second caret was moved across the first caret. After making change
-          // to the selection, the user will drag the first caret.
-          mActiveCaret = mCarets.GetFirst();
-        }
-        break;
-    }
+    case 1:
+      if (mActiveCaret == mCarets.GetFirst()) {
+        // First caret was moved across the second caret. After making change
+        // to the selection, the user will drag the second caret.
+        mActiveCaret = mCarets.GetSecond();
+      }
+      break;
+    case -1:
+      if (mActiveCaret == mCarets.GetSecond()) {
+        // Second caret was moved across the first caret. After making change
+        // to the selection, the user will drag the first caret.
+        mActiveCaret = mCarets.GetFirst();
+      }
+      break;
   }
 
   return true;
@@ -1477,30 +1449,6 @@ nsPoint AccessibleCaretManager::AdjustDragBoundary(
       boundary.Deflate(kBoundaryAppUnits);
 
       adjustedPoint = boundary.ClampPoint(adjustedPoint);
-    }
-  }
-
-  if (GetCaretMode() == CaretMode::Selection &&
-      !StaticPrefs::
-          layout_accessiblecaret_allow_dragging_across_other_caret()) {
-    // Bug 1068474: Adjust the Y-coordinate so that the carets won't be in tilt
-    // mode when a caret is being dragged surpass the other caret.
-    //
-    // For example, when dragging the second caret, the horizontal boundary
-    // (lower bound) of its Y-coordinate is the logical position of the first
-    // caret. Likewise, when dragging the first caret, the horizontal boundary
-    // (upper bound) of its Y-coordinate is the logical position of the second
-    // caret.
-    if (mActiveCaret == mCarets.GetFirst()) {
-      nscoord dragDownBoundaryY = mCarets.GetSecond()->LogicalPosition().y;
-      if (dragDownBoundaryY > 0 && adjustedPoint.y > dragDownBoundaryY) {
-        adjustedPoint.y = dragDownBoundaryY;
-      }
-    } else {
-      nscoord dragUpBoundaryY = mCarets.GetFirst()->LogicalPosition().y;
-      if (adjustedPoint.y < dragUpBoundaryY) {
-        adjustedPoint.y = dragUpBoundaryY;
-      }
     }
   }
 

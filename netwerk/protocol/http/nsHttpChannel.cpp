@@ -8427,7 +8427,8 @@ nsresult nsHttpChannel::BeginConnect() {
     // Only the initial document resets the pool, and only for connections
     // sharing this channel's origin attributes.
     if (mLoadFlags & LOAD_INITIAL_DOCUMENT_URI) {
-      gHttpHandler->AltServiceCache()->ClearAltServiceMappings();
+      gHttpHandler->AltServiceCache()->ClearAltServiceMappingsMatchingOA(
+          mConnectionInfo->GetOriginAttributes());
       rv = gHttpHandler->DoShiftReloadConnectionCleanupWithConnInfo(
           mConnectionInfo);
       if (NS_FAILED(rv)) {

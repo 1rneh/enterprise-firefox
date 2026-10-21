@@ -801,10 +801,12 @@ export var BrowserUtils = {
    * @param {object} options
    * @param {string} options.categoryName
    *        What category's consumers to call.
-   * @param {boolean} [options.idleDispatch=false]
-   *        If set to true, call each consumer in an idle task. If jsGlobal is a
-   *        window that has closed by the time the idle task runs, the consumer
-   *        is dropped, so we don't initialize (and leak) a closing window.
+   * @param {boolean|Window} [options.idleDispatch=false]
+   *        If set, call each consumer in an idle task. If set to a window, the
+   *        tasks are queued with that window's requestIdleCallback, so that
+   *        pending tasks are dropped with the window instead of keeping it
+   *        alive, and a consumer is skipped if the window has closed by the time
+   *        its task runs, so we don't initialize (and leak) a closing window.
    * @param {string} [options.profilerMarker=""]
    *        If specified, will create a profiler marker with the provided
    *        identifier for each consumer.
@@ -871,6 +873,7 @@ export var BrowserUtils = {
     };
 
     let allTasks = [];
+    let idleWindow = idleDispatch === true ? null : idleDispatch;
 
     for (let listener of lazy.CatManListenerManager.getListeners(
       categoryName
@@ -878,15 +881,20 @@ export var BrowserUtils = {
       if (idleDispatch) {
         allTasks.push(
           new Promise(resolve => {
-            ChromeUtils.idleDispatch(() => {
+            let task = () => {
               // Drop the task if it targets a window that has closed in the
               // meantime, to avoid initializing (and leaking) a closing window.
-              if (jsGlobal?.closed) {
+              if (idleWindow?.closed) {
                 resolve();
                 return;
               }
               resolve(callSingleListener(listener));
-            });
+            };
+            if (idleWindow) {
+              idleWindow.requestIdleCallback(task);
+            } else {
+              ChromeUtils.idleDispatch(task);
+            }
           })
         );
       } else {

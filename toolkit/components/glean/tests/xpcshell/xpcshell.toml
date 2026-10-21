@@ -64,6 +64,7 @@ skip-if = [
 ["test_OHTTP.js"]
 skip-if = [
   "os == 'android'", # FOG isn't responsible for monitoring prefs and controlling upload on Android
+  "enterprise", # Glean pings are sent to the console without OHTTP on enterprise builds
 ]
 
 ["test_ProfilerMarkers.js"]

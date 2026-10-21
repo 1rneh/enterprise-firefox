@@ -260,7 +260,7 @@ export const GenAI = {
       },
     ],
     [
-      "https://scout.yahoo.com",
+      "https://search.yahoo.com/ays/ff?fr=firefox_widget",
       {
         iconUrl: "chrome://browser/content/genai/assets/brands/scout.svg",
         id: "scout",

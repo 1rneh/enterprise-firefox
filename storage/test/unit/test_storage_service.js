@@ -172,7 +172,15 @@ function test_read_baddb() {
 
 function test_busy_telemetry() {
   let profileDir = do_get_profile();
-  do_get_file("goodDB.sqlite").copyTo(profileDir, "goodDB.sqlite");
+  // obfsvfs rejects the plaintext fixture, so start from an empty database.
+  if (
+    !Services.prefs.getBoolPref(
+      "security.storage.encryption.sqlite.enabled",
+      false
+    )
+  ) {
+    do_get_file("goodDB.sqlite").copyTo(profileDir, "goodDB.sqlite");
+  }
   let file = profileDir.clone();
   file.append("goodDB.sqlite");
   let conn1 = Services.storage.openUnsharedDatabase(file);

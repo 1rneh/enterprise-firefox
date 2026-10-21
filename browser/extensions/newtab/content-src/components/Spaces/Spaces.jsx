@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { SPACE_IDS } from "common/PageLayoutVariants.mjs";
+import { SpaceActiveContext } from "content-src/lib/SpaceActiveContext";
 
 // Tab label and icon per space. The section inside keeps its own heading.
 const SPACE_META = {
@@ -97,6 +98,8 @@ function isRtl() {
  *   to: of the next space until the first interaction with the tablist, then
  *   of whichever tab is hovered. The space's previewImage if it has one, else
  *   its first item, and nothing for a space with neither. Needs the tablist.
+ * @param {boolean} [props.peek] - preview the spaces on either side of the
+ *   active one in the page margins
  * @param {Function} props.dispatch - Redux dispatch, for switch telemetry
  */
 export function Spaces({
@@ -105,6 +108,7 @@ export function Spaces({
   arrows,
   tablist = !arrows,
   preview,
+  peek,
   dispatch,
 }) {
   // By id, not index: turning a space off shifts the indices after it.
@@ -116,6 +120,8 @@ export function Spaces({
   );
   // Hydration is itself a change of translate, so animate from the second render.
   const [animate, setAnimate] = useState(false);
+  // The side whose peek is hovered, "prev" or "next".
+  const [peekHover, setPeekHover] = useState(null);
   const tablistRef = useRef(null);
   const containerRef = useRef(null);
   // Keyboard switches move focus to the new tab; pointer clicks do not.
@@ -235,6 +241,7 @@ export function Spaces({
       }
       setActiveId(spaces[index].id);
       setPreviewInteracted(true);
+      setPeekHover(null);
       dispatch(
         ac.OnlyToMain({
           type: at.SPACES_USER_EVENT,
@@ -377,9 +384,37 @@ export function Spaces({
     );
   };
 
+  // The spaces on either side of the active one show a peek.
+  const peekSideOf = index =>
+    (peek && { [-1]: "prev", 1: "next" }[index - activeIndex]) || null;
+  // Hovering a peek or its tab slides that peek in.
+  const peekHoverHandlers = side => ({
+    onMouseEnter: () => setPeekHover(side),
+    onMouseLeave: () => setPeekHover(null),
+  });
+
+  // The peeked spaces show through in the margins, inert. These boxes over
+  // them handle hover and click.
+  const peekBoxes = spaces.map((space, index) => {
+    const side = peekSideOf(index);
+    return (
+      side && (
+        // Keyboard users switch with the tablist; this is a pointer shortcut.
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+        <div
+          key={side}
+          className={`spaces-peek-box ${side}`}
+          aria-hidden="true"
+          onClick={() => switchTo(index, "peek")}
+          {...peekHoverHandlers(side)}
+        />
+      )
+    );
+  });
+
   return (
     <div
-      className="spaces-container"
+      className={`spaces-container${peekHover ? ` peek-hover-${peekHover}` : ""}`}
       ref={containerRef}
       onWheel={onWheel}
       onTouchStart={onTouchStart}
@@ -392,6 +427,7 @@ export function Spaces({
         </>
       )}
       <div className="spaces-frame">
+        {peekBoxes}
         {/* A real tablist, so arrow-key traversal comes with the pattern. */}
         {tablist && (
           <div className="spaces-tablist-slot">
@@ -405,6 +441,7 @@ export function Spaces({
             >
               {spaces.map((space, index) => {
                 const isActive = index === activeIndex;
+                const peekSide = peekSideOf(index);
                 return (
                   <button
                     key={space.id}
@@ -431,6 +468,7 @@ export function Spaces({
                     onClick={() =>
                       switchTo(index, preview ? "preview_tab" : "tab")
                     }
+                    {...(peekSide ? peekHoverHandlers(peekSide) : {})}
                   >
                     {/* A thematic space carries its own label and icon from
                   the layout config; SPACE_META covers the V1 spaces, whose
@@ -470,11 +508,12 @@ export function Spaces({
         <div className={`spaces-track${animate ? " animate" : ""}`}>
           {spaces.map((space, index) => {
             const isActive = index === activeIndex;
+            const peekSide = peekSideOf(index);
             return (
               <div
                 key={space.id}
                 id={`spaces-panel-${space.id}`}
-                className={`space${isActive ? " active" : ""}`}
+                className={`space${isActive ? " active" : ""}${peekSide ? ` peeking peeking-${peekSide}` : ""}`}
                 style={{ "--space-offset": index - activeIndex }}
                 // Without the tablist there are no tabs to label the panels.
                 role={tablist ? "tabpanel" : undefined}
@@ -482,7 +521,9 @@ export function Spaces({
                 aria-hidden={isActive ? undefined : "true"}
                 inert={!isActive}
               >
-                {space.content}
+                <SpaceActiveContext.Provider value={isActive}>
+                  {space.content}
+                </SpaceActiveContext.Provider>
               </div>
             );
           })}

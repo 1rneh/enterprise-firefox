@@ -23,6 +23,8 @@ XPCOMUtils.defineLazyPreferenceGetter(
 // Events to register after shortcuts are shown
 const HIDE_EVENTS = ["pagehide", "resize", "scroll"];
 
+const DRAG_THRESHOLD_PX = 3;
+
 /**
  * JSWindowActor to detect content page events to send GenAI related data.
  */
@@ -30,6 +32,8 @@ export class GenAIChild extends JSWindowActorChild {
   mouseUpTimeout = null;
   downSelection = null;
   downTimeStamp = 0;
+  downX = 0;
+  downY = 0;
   pendingHide = false;
   #compositionActive = false;
 
@@ -72,6 +76,8 @@ export class GenAIChild extends JSWindowActorChild {
       case "mousedown":
         this.downSelection = this.getSelectionInfo().selection;
         this.downTimeStamp = event.timeStamp;
+        this.downX = event.pageX;
+        this.downY = event.pageY;
         sendHide();
         break;
       case "mouseup": {
@@ -91,7 +97,13 @@ export class GenAIChild extends JSWindowActorChild {
           this.contentWindow.clearTimeout(this.mouseUpTimeout);
         }
 
-        const { screenX, screenY } = event;
+        const { screenX, screenY, pageX, pageY, detail } = event;
+        // A page can select text itself on click, so only a drag or a double
+        // or triple click counts as the user making the selection.
+        const userSelected =
+          detail >= 2 ||
+          Math.abs(pageX - this.downX) + Math.abs(pageY - this.downY) >
+            DRAG_THRESHOLD_PX;
 
         this.mouseUpTimeout = this.contentWindow.setTimeout(() => {
           if (this.#isDestroyed) {
@@ -104,7 +116,8 @@ export class GenAIChild extends JSWindowActorChild {
           // Only send a message if there's a new selection or a long press
           if (
             (selectionInfo.selection &&
-              selectionInfo.selection !== this.downSelection) ||
+              selectionInfo.selection !== this.downSelection &&
+              userSelected) ||
             delay > lazy.shortcutsDelay
           ) {
             this.sendAsyncMessage("GenAI:ShowShortcuts", {

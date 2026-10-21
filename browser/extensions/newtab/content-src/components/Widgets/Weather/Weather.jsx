@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useContext, useEffect, useRef } from "react";
 import { useSelector, batch } from "react-redux";
 import { actionCreators as ac, actionTypes as at } from "common/Actions.mjs";
 import { PREF_WEATHER_SIZE, WIDGET_REGISTRY } from "common/WidgetsRegistry.mjs";
@@ -11,6 +11,7 @@ import { SizeSubmenu } from "../SizeSubmenu";
 import { WidgetMenuButton } from "../WidgetMenuButton";
 import { WidgetMenuFooter } from "../WidgetMenuFooter";
 import { useWidgetTelemetry } from "../useWidgetTelemetry";
+import { SpaceActiveContext } from "content-src/lib/SpaceActiveContext";
 
 const USER_ACTION_TYPES = {
   CHANGE_LOCATION: "change_location",
@@ -110,8 +111,11 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
     [recordError]
   );
 
+  // Bug 2083119: in the spaces-peek layout a peeked space is visible without
+  // being active, so the error waits until its space is.
+  const spaceActive = useContext(SpaceActiveContext);
   useEffect(() => {
-    if (errorRef.current && !errorTelemetrySent.current) {
+    if (spaceActive && errorRef.current && !errorTelemetrySent.current) {
       const observer = new IntersectionObserver(handleErrorIntersection);
       observer.observe(errorRef.current);
       return () => {
@@ -119,7 +123,7 @@ function Weather({ dispatch, size, widgetEnabledMap }) {
       };
     }
     return undefined;
-  }, [handleErrorIntersection, hasError]);
+  }, [handleErrorIntersection, hasError, spaceActive]);
 
   // Must be declared before the early return to satisfy React's Rules of Hooks.
   const handleOptInLocationSelected = useCallback(() => {

@@ -249,7 +249,9 @@ class ErrorSummaryFormatter(BaseFormatter):
             "stackwalk_stderr": item.get("stackwalk_stderr"),
         }
 
-        if item.get("test"):
+        if item.get("group"):
+            data["group"] = item["group"]
+        elif item.get("test"):
             data["group"] = self.test_to_group.get(
                 self._clean_test_name(item["test"]), ""
             )
@@ -258,6 +260,7 @@ class ErrorSummaryFormatter(BaseFormatter):
                 if self._clean_test_name(item["test"]) in self.groups:
                     data["group"] = self._clean_test_name(item["test"])
 
+        if "group" in data:
             # unlike test group summary, if we crash expect error unless expected
             # or logged quietly (e.g. the test will be retried)
             if item.get("quiet"):

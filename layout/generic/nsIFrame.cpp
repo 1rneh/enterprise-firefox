@@ -2104,6 +2104,24 @@ nscoord nsIFrame::GetLogicalBaseline(
   return result;
 }
 
+nscoord nsIFrame::GetCaretBaseline() const {
+  const WritingMode wm = GetWritingMode();
+  const BaselineSharingGroup group = GetDefaultBaselineSharingGroup();
+  const nscoord result =
+      GetNaturalBaselineBOffset(wm, group, BaselineExportContext::LineLayout)
+          .valueOrFrom([this, wm, group]() {
+            // The synthesized caret baseline is placed at the frame's edge
+            // at the default baseline for the writing mode.
+            return Baseline::SynthesizeBOffsetFromMarginBox(
+                this, wm, group,
+                Baseline::DefaultAlignmentBaselineForWritingMode(wm));
+          });
+  if (group == BaselineSharingGroup::Last) {
+    return BSize(wm) - result;
+  }
+  return result;
+}
+
 const nsFrameList& nsIFrame::GetChildList(ChildListID aListID) const {
   if (IsAbsoluteContainer()) {
     if (aListID == FrameChildListID::Absolute) {

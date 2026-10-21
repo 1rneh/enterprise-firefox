@@ -77,6 +77,14 @@ object BrowserPageSelectors : SelectorContainer {
             description = "Snackbar container",
         )
 
+    // The summarize sheet's drag handle, present for every outcome (summary, error, or sign-in prompt).
+    val SUMMARIZE_BOTTOM_SHEET =
+        Selector(
+            strategy = SelectorStrategy.COMPOSE_BY_TAG,
+            value = "shake.to.summarize.bottom.sheet.drag.handle",
+            description = "the Summarize bottom sheet",
+        )
+
     val MAIN_MENU_BUTTON =
         Selector(
             strategy = SelectorStrategy.UIAUTOMATOR_WITH_DESCRIPTION_CONTAINS,
@@ -565,6 +573,14 @@ object BrowserPageSelectors : SelectorContainer {
                     appName,
                 ),
             description = "Open link in '$appName' app prompt",
+        )
+
+    val PDF_DOWNLOAD_BUTTON =
+        Selector(
+            strategy = SelectorStrategy.UIAUTOMATOR_WITH_RAW_RES_ID_CONTAINING_TEXT,
+            value = "download",
+            secondaryValue = "Download",
+            description = "PDF viewer download button",
         )
 
     val SHAKE_TO_SUMMARIZE_CFR_DISMISS_BUTTON =

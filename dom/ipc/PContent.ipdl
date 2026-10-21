@@ -1073,11 +1073,29 @@ child:
     async Reload(MaybeDiscardedBrowsingContext aContext, uint32_t aReloadFlags);
     async StopLoad(MaybeDiscardedBrowsingContext aContext, uint32_t aStopFlags);
 
-    async DeactivateDocuments(MaybeDiscardedBrowsingContext aContext);
+    async DeactivateDocuments(MaybeDiscardedBrowsingContext aContext,
+                              SessionHistoryInfo? aPageSwapTargetInfo,
+                              NavigationType aNavigationType, bool aForUnload);
+
+    // Fires pageswap with an outbound view transition in the old document and
+    // captures its state in the next rendering update. The reply comes after
+    // the capture, or right away if there is nothing to capture.
+    // aSnapshotTargetTab is the tab of a document restored from BFCache that
+    // takes the snapshots, or 0.
+    async BeginOutboundCrossDocumentViewTransition(
+        MaybeDiscardedBrowsingContext aContext,
+        SessionHistoryInfo? aPageSwapTargetInfo,
+        NavigationType aNavigationType,
+        TabId aSnapshotTargetTab) returns (bool unused);
     async ReactivateDocuments(MaybeDiscardedBrowsingContext aContext,
                               SessionHistoryInfo? aReactivatedEntry,
                               SessionHistoryInfo[] aNewSHEs,
                               PreviousSessionHistoryInfo? aPreviousEntryForActivation);
+    // Fires pageswap without a view transition, for a navigation that does not
+    // use BeginOutboundCrossDocumentViewTransition.
+    async FirePageSwap(MaybeDiscardedBrowsingContext aContext,
+                       SessionHistoryInfo? aPageSwapTargetInfo,
+                       NavigationType aNavigationType);
 
     async OnAllowAccessFor(MaybeDiscardedBrowsingContext aParentContext,
                            nsCString aTrackingOrigin,

@@ -1421,25 +1421,9 @@ var gMainPane = {
     // The next time the dialog is opened, a new gBrowserLanguagesDialog is created.
     let { selected } = this.gBrowserLanguagesDialog;
 
-    this.gBrowserLanguagesDialog.recordTelemetry(
-      selected ? "accept" : "cancel"
-    );
-
     if (!selected) {
       // No locales were selected. Cancel the operation.
       return;
-    }
-
-    // Track how often locale fallback order is changed.
-    // Drop the first locale and filter to only include the overlapping set
-    const prevLocales = Services.locale.requestedLocales.filter(
-      lc => selected.indexOf(lc) > 0
-    );
-    const newLocales = selected.filter(
-      (lc, i) => i > 0 && prevLocales.includes(lc)
-    );
-    if (prevLocales.some((lc, i) => newLocales[i] != lc)) {
-      this.gBrowserLanguagesDialog.recordTelemetry("setFallback");
     }
 
     switch (Multilingual.getTransitionType(selected)) {

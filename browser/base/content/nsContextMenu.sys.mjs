@@ -7,6 +7,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  AIWindowMenu:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
   BrowserSearchTelemetry:
     "moz-src:///browser/components/search/BrowserSearchTelemetry.sys.mjs",
   BrowserUtils: "resource://gre/modules/BrowserUtils.sys.mjs",
@@ -64,13 +66,6 @@ XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
   "TEXT_RECOGNITION_ENABLED",
   "dom.text-recognition.enabled",
-  false
-);
-
-XPCOMUtils.defineLazyPreferenceGetter(
-  lazy,
-  "AITAB_ENABLED",
-  "browser.smartwindow.aitab.enabled",
   false
 );
 
@@ -938,9 +933,7 @@ export class nsContextMenu {
     });
     this.showItem(
       "context-create-aitab",
-      lazy.AITAB_ENABLED &&
-        lazy.AIWindow.isAIWindowActiveAndEnabled(this.window) &&
-        ["http", "https"].includes(this.browser.currentURI.scheme)
+      lazy.AIWindowMenu.canShowAITabMenu(this.window, [this.browser.currentURI])
     );
 
     // srcdoc cannot be opened separately due to concerns about web
@@ -2887,13 +2880,13 @@ export class nsContextMenu {
 
     if (!menuItemPrivate.hidden) {
       let otherEngine = engineName != privateEngineName;
-      let accessKey = "contextMenuPrivateSearch.accesskey";
+      let accessKey = "contextMenuPrivateSearch2.accesskey";
       if (otherEngine) {
         menuItemPrivate.label = gNavigatorBundle.getFormattedString(
           "contextMenuPrivateSearchOtherEngine",
           [privateEngineName]
         );
-        accessKey = "contextMenuPrivateSearchOtherEngine.accesskey";
+        accessKey = "contextMenuPrivateSearchOtherEngine2.accesskey";
       } else {
         menuItemPrivate.label = gNavigatorBundle.getString(
           "contextMenuPrivateSearch"

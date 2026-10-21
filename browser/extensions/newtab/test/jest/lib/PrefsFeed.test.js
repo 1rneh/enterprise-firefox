@@ -59,7 +59,7 @@ describe("PrefsFeed", () => {
       ["baz", { value: 1, skipBroadcast: true }],
       ["qux", { value: 1, skipBroadcast: true, alsoToPreloaded: true }],
     ]);
-    services = mockServices(["prefs", "obs", "vc"]);
+    services = mockServices(["prefs", "obs"]);
     nimbusFeatures = mockNimbusFeatures();
     region = { home: "US", REGION_TOPIC: "browser-region-updated" };
     selectableProfileService = {
@@ -275,6 +275,12 @@ describe("PrefsFeed", () => {
     feed.init();
     expect(feed.geo).toBe("US");
   });
+  it("should leave region out of the initial values when it is unresolved", () => {
+    region.home = "";
+    feed.onAction({ type: at.INIT });
+    const [[{ data }]] = feed.store.dispatch.mock.calls;
+    expect(data.region).toBeUndefined();
+  });
   it("should add region observer on init", () => {
     region.home = "";
     feed.init();
@@ -331,19 +337,6 @@ describe("PrefsFeed", () => {
           data: { name: "browserNovaEnabled", value: false },
         })
       );
-    });
-  });
-  describe("supportsWidgetSearchSap", () => {
-    it("is true in the initial values on a host that knows the access point", () => {
-      feed.onAction({ type: at.INIT });
-      const [[{ data }]] = feed.store.dispatch.mock.calls;
-      expect(data.supportsWidgetSearchSap).toBe(true);
-    });
-    it("is false in the initial values on a host older than 157", () => {
-      services.vc.compare.mockReturnValue(-1);
-      feed.onAction({ type: at.INIT });
-      const [[{ data }]] = feed.store.dispatch.mock.calls;
-      expect(data.supportsWidgetSearchSap).toBe(false);
     });
   });
   describe("recordsHistory", () => {
@@ -1778,6 +1771,17 @@ describe("PrefsFeed", () => {
     it("should call dispatch from observe", () => {
       feed.observe(undefined, region.REGION_TOPIC);
       expect(feed.store.dispatch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should broadcast the resolved region to content", () => {
+      region.home = "FR";
+      feed.observe(undefined, region.REGION_TOPIC);
+      expect(feed.store.dispatch).toHaveBeenCalledWith(
+        ac.BroadcastToContent({
+          type: at.PREF_CHANGED,
+          data: { name: "region", value: region.home },
+        })
+      );
     });
   });
   describe("#_setStringPref", () => {

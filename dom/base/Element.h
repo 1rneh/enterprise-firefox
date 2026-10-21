@@ -85,7 +85,6 @@ class nsIDOMXULControlElement;
 class nsIDOMXULMenuListElement;
 class nsIDOMXULMultiSelectControlElement;
 class nsIDOMXULRadioGroupElement;
-class nsIDOMXULRelatedElement;
 class nsIDOMXULSelectControlElement;
 class nsIDOMXULSelectControlItemElement;
 class nsIFrame;
@@ -214,8 +213,12 @@ enum : uint32_t {
   // https://w3c.github.io/edit-context
   ELEMENT_HAS_EDIT_CONTEXT = ELEMENT_FLAG_BIT(10),
 
+  // Set while this element is on the HTML parser's stack of open elements.
+  // Used for rel=expect.
+  ELEMENT_ON_PARSER_STACK = ELEMENT_FLAG_BIT(11),
+
   // Remaining bits are for subclasses
-  ELEMENT_TYPE_SPECIFIC_BITS_OFFSET = NODE_TYPE_SPECIFIC_BITS_OFFSET + 11
+  ELEMENT_TYPE_SPECIFIC_BITS_OFFSET = NODE_TYPE_SPECIFIC_BITS_OFFSET + 12
 };
 
 #undef ELEMENT_FLAG_BIT
@@ -1733,6 +1736,15 @@ class Element : public FragmentOrElement {
   virtual bool IsPotentiallyRenderBlocking() { return false; }
   bool BlockingContainsRender() const;
 
+  // Unblocks rendering on this element if it is no longer potentially
+  // render-blocking, for example after an attribute change.
+  void UnblockRenderingIfNotPotentiallyRenderBlocking();
+
+  // Unblocks rendering when the element becomes browsing-context disconnected,
+  // which an atomic move does not do.
+  // https://html.spec.whatwg.org/#render-blocking-mechanism
+  void RenderBlockingElementUnbindFromTree(UnbindContext&);
+
   // Shadow DOM v1
   enum class ShadowRootDeclarative : bool { No, Yes };
 
@@ -2141,6 +2153,13 @@ class Element : public FragmentOrElement {
     return HasServoData() && Servo_Element_IsDisplayContents(this);
   }
 
+  /**
+   * A unique value for the element to use in the generation of random base
+   * values for element-scoped CSS `random()` functions.
+   * https://drafts.csswg.org/css-values-5/#random-caching
+   */
+  uintptr_t GetRandomSeed() const;
+
   /*
    * https://html.spec.whatwg.org/#being-rendered
    *
@@ -2359,7 +2378,6 @@ class Element : public FragmentOrElement {
   already_AddRefed<nsIDOMXULMultiSelectControlElement>
   AsXULMultiSelectControl();
   already_AddRefed<nsIDOMXULRadioGroupElement> AsXULRadioGroup();
-  already_AddRefed<nsIDOMXULRelatedElement> AsXULRelated();
   already_AddRefed<nsIDOMXULSelectControlElement> AsXULSelectControl();
   already_AddRefed<nsIDOMXULSelectControlItemElement> AsXULSelectControlItem();
   already_AddRefed<nsIBrowser> AsBrowser();

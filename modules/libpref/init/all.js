@@ -3991,12 +3991,10 @@ pref("devtools.policy.disabled", false);
 // Enable deprecation warnings.
 pref("devtools.errorconsole.deprecation_warnings", true);
 
-#ifdef NIGHTLY_BUILD
-  // Don't show the Browser Toolbox prompt on local builds / nightly.
-  pref("devtools.debugger.prompt-connection", false, sticky);
-#else
-  pref("devtools.debugger.prompt-connection", true, sticky);
-#endif
+// Enable the DevTools remote debugging connection prompt.
+// Typically displayed when using the Browser Toolbox or about:debugging's
+// remote debugging.
+pref("devtools.debugger.prompt-connection", true, sticky);
 
 #ifdef MOZILLA_OFFICIAL
   // Disable debugging chrome.

@@ -711,6 +711,7 @@ describe("<DiscoveryStreamAdminUI> Layouts", () => {
     "spaces-buttons-bottom",
     "spaces-buttons-top",
     "spaces-floating-arrows",
+    "spaces-peek",
     "spaces-preview-cards",
     "spaces-preview-illustrated",
     "spaces-preview-kit",

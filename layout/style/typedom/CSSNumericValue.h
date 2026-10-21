@@ -76,6 +76,7 @@ class CSSNumericValue : public CSSStyleValue {
   already_AddRefed<CSSNumericValue> Add(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
+  // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-sub
   already_AddRefed<CSSNumericValue> Sub(
       const Sequence<OwningCSSNumberish>& aValues, ErrorResult& aRv);
 
@@ -174,6 +175,9 @@ class CSSNumericValue : public CSSStyleValue {
   // https://drafts.css-houdini.org/css-typed-om-1/#dom-cssnumericvalue-add
   already_AddRefed<CSSNumericValue> Add(
       nsTArray<RefPtr<CSSNumericValue>> aValues, ErrorResult& aRv);
+
+  // https://drafts.css-houdini.org/css-typed-om-1/#cssmath-negate-a-cssnumericvalue
+  already_AddRefed<CSSNumericValue> Negate();
 
   StyleNumericValue ToStyleNumericValue() const;
 

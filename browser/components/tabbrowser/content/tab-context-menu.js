@@ -889,13 +889,11 @@ var TabContextMenu = {
       );
     }
 
-    document.getElementById("context_createAITab").hidden = !(
-      TabContextMenu.AITAB_ENABLED &&
-      TabContextMenu.AIWindow.isAIWindowActiveAndEnabled(window) &&
-      this.contextTabs.some(tab =>
-        ["http", "https"].includes(tab.linkedBrowser.currentURI.scheme)
-      )
-    );
+    document.getElementById("context_createAITab").hidden =
+      !TabContextMenu.AIWindowMenu.canShowAITabMenu(
+        window,
+        this.contextTabs.map(tab => tab.linkedBrowser.currentURI)
+      );
 
     // Move Tab items
     let contextMoveTabOptions = document.getElementById(
@@ -1510,16 +1508,11 @@ XPCOMUtils.defineLazyPreferenceGetter(
   false
 );
 
-XPCOMUtils.defineLazyPreferenceGetter(
-  TabContextMenu,
-  "AITAB_ENABLED",
-  "browser.smartwindow.aitab.enabled",
-  false
-);
-
 ChromeUtils.defineESModuleGetters(TabContextMenu, {
   AIWindow:
     "moz-src:///browser/components/aiwindow/ui/modules/AIWindow.sys.mjs",
+  AIWindowMenu:
+    "moz-src:///browser/components/aiwindow/ui/modules/AIWindowMenu.sys.mjs",
   GenAI: "moz-src:///browser/components/genai/GenAI.sys.mjs",
   MenuSectionLayout: "resource:///modules/MenuSectionLayout.sys.mjs",
   MiniWindowManager:

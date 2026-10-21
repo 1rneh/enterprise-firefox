@@ -32,6 +32,7 @@ export const PAGE_LAYOUT_VARIANTS = {
   SPACES_PREVIEW_KIT: "spaces-preview-kit",
   SPACES_PREVIEW_ILLUSTRATED: "spaces-preview-illustrated",
   SPACES_PREVIEW_CARDS: "spaces-preview-cards",
+  SPACES_PEEK: "spaces-peek",
   // @experiment(remove) { bug 2066527 }
   AUTO_MINIMIZE_WIDGETS: "auto-minimize-widgets",
   // @experiment(remove) { bug 2069496 }
@@ -181,6 +182,11 @@ const SPACES_CLASSES = {
   [PAGE_LAYOUT_VARIANTS.SPACES_PREVIEW_CARDS]: [
     "spaces",
     "spaces-buttons-bottom",
+  ],
+  [PAGE_LAYOUT_VARIANTS.SPACES_PEEK]: [
+    "spaces",
+    "spaces-buttons-bottom",
+    "spaces-peek",
   ],
 };
 
@@ -438,6 +444,16 @@ export function isSpacesArrowsAssigned(prefs) {
     resolvePageLayoutVariant(prefs) ===
     PAGE_LAYOUT_VARIANTS.SPACES_FLOATING_ARROWS
   );
+}
+
+/**
+ * Whether the peek variant is assigned, populated or not.
+ *
+ * @param {object} prefs - current pref values from the Redux store
+ * @returns {boolean}
+ */
+export function isSpacesPeekAssigned(prefs) {
+  return resolvePageLayoutVariant(prefs) === PAGE_LAYOUT_VARIANTS.SPACES_PEEK;
 }
 
 /**

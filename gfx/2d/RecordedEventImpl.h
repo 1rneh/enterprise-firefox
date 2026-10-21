@@ -145,11 +145,11 @@ class RecordedCreateSimilarDrawTarget
 class RecordedCreateClippedDrawTarget
     : public RecordedEventDerived<RecordedCreateClippedDrawTarget> {
  public:
-  RecordedCreateClippedDrawTarget(ReferencePtr aRefPtr, const Rect& aBounds,
+  RecordedCreateClippedDrawTarget(ReferencePtr aRefPtr, const IntRect& aRect,
                                   SurfaceFormat aFormat)
       : RecordedEventDerived(CREATECLIPPEDDRAWTARGET),
         mRefPtr(aRefPtr),
-        mBounds(aBounds),
+        mRect(aRect),
         mFormat(aFormat) {}
 
   bool PlayEvent(Translator* aTranslator) const override;
@@ -162,7 +162,8 @@ class RecordedCreateClippedDrawTarget
   std::string GetName() const override { return "CreateClippedDrawTarget"; }
 
   ReferencePtr mRefPtr;
-  Rect mBounds;
+  // In device space of the recording.
+  IntRect mRect;
   SurfaceFormat mFormat;
 
  private:
@@ -715,7 +716,7 @@ class RecordedRemoveAllClips
 class RecordedPushLayer : public RecordedEventDerived<RecordedPushLayer> {
  public:
   RecordedPushLayer(bool aOpaque, Float aOpacity, SourceSurface* aMask,
-                    const Matrix& aMaskTransform, const IntRect& aBounds,
+                    const Matrix& aMaskTransform, const Rect& aBounds,
                     bool aCopyBackground)
       : RecordedEventDerived(PUSHLAYER),
         mOpaque(aOpaque),
@@ -743,7 +744,7 @@ class RecordedPushLayer : public RecordedEventDerived<RecordedPushLayer> {
   Float mOpacity = 1.0f;
   ReferencePtr mMask;
   Matrix mMaskTransform;
-  IntRect mBounds;
+  Rect mBounds;
   bool mCopyBackground = false;
 };
 
@@ -751,9 +752,8 @@ class RecordedPushLayerWithBlend
     : public RecordedEventDerived<RecordedPushLayerWithBlend> {
  public:
   RecordedPushLayerWithBlend(bool aOpaque, Float aOpacity, SourceSurface* aMask,
-                             const Matrix& aMaskTransform,
-                             const IntRect& aBounds, bool aCopyBackground,
-                             CompositionOp aCompositionOp)
+                             const Matrix& aMaskTransform, const Rect& aBounds,
+                             bool aCopyBackground, CompositionOp aCompositionOp)
       : RecordedEventDerived(PUSHLAYERWITHBLEND),
         mOpaque(aOpaque),
         mOpacity(aOpacity),
@@ -782,7 +782,7 @@ class RecordedPushLayerWithBlend
   Float mOpacity = 1.0f;
   ReferencePtr mMask;
   Matrix mMaskTransform;
-  IntRect mBounds;
+  Rect mBounds;
   bool mCopyBackground = false;
   CompositionOp mCompositionOp = CompositionOp::OP_OVER;
 };
@@ -2441,6 +2441,15 @@ inline bool RecordedCreateDrawTargetForFilter::PlayEvent(
   return true;
 }
 
+// Layer bounds are recorded in user space, see DrawTargetRecording::PushLayer.
+static inline IntRect UserToDeviceLayerBounds(DrawTarget* aDT,
+                                              const Rect& aBounds) {
+  if (aBounds.IsEmpty()) {
+    return IntRect();
+  }
+  return RoundedOut(aDT->GetTransform().TransformBounds(aBounds));
+}
+
 inline bool RecordedCreateClippedDrawTarget::PlayEvent(
     Translator* aTranslator) const {
   DrawTarget* dt = aTranslator->GetCurrentDrawTarget();
@@ -2448,7 +2457,25 @@ inline bool RecordedCreateClippedDrawTarget::PlayEvent(
     return false;
   }
 
-  RefPtr<DrawTarget> newDT = dt->CreateClippedDrawTarget(mBounds, mFormat);
+  IntRect rect = mRect;
+  // Ensure the clip rect doesn't exceed our own DT. This can happen on blobs
+  // with massive scale transforms or so.
+  {
+    if (dt == aTranslator->GetReferenceDrawTarget()) {
+      Matrix toRecording = aTranslator->GetReferenceDrawTargetTransform();
+      if (toRecording.Invert()) {
+        rect = rect.Intersect(
+            RoundedOut(toRecording.TransformBounds(Rect(dt->GetRect()))));
+      }
+    } else {
+      rect = rect.Intersect(dt->GetRect());
+    }
+    if (rect.IsEmpty()) {
+      rect.SizeTo(1, 1);
+    }
+  }
+
+  RefPtr<DrawTarget> newDT = dt->CreateClippedDrawTargetForRect(rect, mFormat);
 
   // If we couldn't create a DrawTarget this will probably cause us to crash
   // with nullptr later in the playback, so return false to abort.
@@ -2463,7 +2490,7 @@ inline bool RecordedCreateClippedDrawTarget::PlayEvent(
 template <class S>
 void RecordedCreateClippedDrawTarget::Record(S& aStream) const {
   WriteElement(aStream, mRefPtr);
-  WriteElement(aStream, mBounds);
+  WriteElement(aStream, mRect);
   WriteElement(aStream, mFormat);
 }
 
@@ -2471,7 +2498,7 @@ template <class S>
 RecordedCreateClippedDrawTarget::RecordedCreateClippedDrawTarget(S& aStream)
     : RecordedEventDerived(CREATECLIPPEDDRAWTARGET) {
   ReadElement(aStream, mRefPtr);
-  ReadElement(aStream, mBounds);
+  ReadElement(aStream, mRect);
   ReadElementConstrained(aStream, mFormat, SurfaceFormat::B8G8R8A8,
                          SurfaceFormat::UNKNOWN);
 }
@@ -3136,8 +3163,8 @@ inline bool RecordedPushLayer::PlayEvent(Translator* aTranslator) const {
 
   SourceSurface* mask =
       mMask ? aTranslator->LookupSourceSurface(mMask) : nullptr;
-  dt->PushLayer(mOpaque, mOpacity, mask, mMaskTransform, mBounds,
-                mCopyBackground);
+  dt->PushLayer(mOpaque, mOpacity, mask, mMaskTransform,
+                UserToDeviceLayerBounds(dt, mBounds), mCopyBackground);
   return true;
 }
 
@@ -3177,8 +3204,9 @@ inline bool RecordedPushLayerWithBlend::PlayEvent(
 
   SourceSurface* mask =
       mMask ? aTranslator->LookupSourceSurface(mMask) : nullptr;
-  dt->PushLayerWithBlend(mOpaque, mOpacity, mask, mMaskTransform, mBounds,
-                         mCopyBackground, mCompositionOp);
+  dt->PushLayerWithBlend(mOpaque, mOpacity, mask, mMaskTransform,
+                         UserToDeviceLayerBounds(dt, mBounds), mCopyBackground,
+                         mCompositionOp);
   return true;
 }
 

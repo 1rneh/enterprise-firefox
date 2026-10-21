@@ -549,6 +549,7 @@
 
     &.ipprotection-included {
       list-style-image: url("chrome://browser/content/ipprotection/assets/states/ipprotection-included.svg");
+      fill: var(--icon-color-success);
       stroke: var(--icon-color-success);
     }
 

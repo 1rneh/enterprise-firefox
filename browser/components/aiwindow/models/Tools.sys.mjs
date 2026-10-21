@@ -49,6 +49,8 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AITab: "moz-src:///browser/components/aiwindow/models/aitab/AITab.sys.mjs",
   AITabStore:
     "moz-src:///browser/components/aiwindow/ui/modules/AITabStore.sys.mjs",
+  getHeadingFont:
+    "moz-src:///browser/components/aiwindow/ui/modules/AITabHeadingFont.sys.mjs",
   setTimeout: "resource://gre/modules/Timer.sys.mjs",
   MemoriesManager:
     "moz-src:///browser/components/aiwindow/models/memories/MemoriesManager.sys.mjs",
@@ -1624,6 +1626,18 @@ const AITAB_ERROR_GUIDANCE = Object.freeze({
 });
 
 /**
+ * Whether the modify_slug field in the tool params is configured
+ * for an AITab modification
+ *
+ * @param {string} modify_slug
+ *
+ * @returns {boolean}
+ */
+export function isAITabModification(modify_slug) {
+  return typeof modify_slug == "string" && !!modify_slug.trim();
+}
+
+/**
  * @param {object} toolParams
  * @param {string[]} [toolParams.url_list]
  * @param {string} [toolParams.focus]
@@ -1649,10 +1663,17 @@ export async function createAITab(
     "[Tool] aiTab",
     JSON.stringify({ url_list, focus, modify_slug })
   );
+  // Fetch the heading font while the page generates, so it is usually
+  // installed by the time the page opens.
+  lazy
+    .getHeadingFont()
+    .catch(error =>
+      lazy.console.error("[Tool] Failed to prefetch the heading font", error)
+    );
   // Whether this call revises an existing page or writes a new one, so every
   // message the model gets back names what actually happened.
   // Matches how generateAITab reads modify_slug, so a blank one is a create.
-  const isModification = typeof modify_slug == "string" && !!modify_slug.trim();
+  const isModification = isAITabModification(modify_slug);
   const action = isModification ? "updated" : "created";
   const result = await lazy.AITab.generateAITab(
     {

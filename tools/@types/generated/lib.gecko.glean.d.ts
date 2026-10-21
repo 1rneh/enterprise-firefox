@@ -1040,17 +1040,11 @@ interface GleanImpl {
   }
 
   intlUiBrowserLanguage: {
-    acceptDialog: GleanEventWithExtras<{ value?: string }>;
     addDialog: GleanEventWithExtras<{ installId?: string, value?: string }>;
     applyMain: GleanEventNoExtras;
-    cancelDialog: GleanEventWithExtras<{ value?: string }>;
     manageMain: GleanEventWithExtras<{ value?: string }>;
-    removeDialog: GleanEventWithExtras<{ value?: string }>;
-    reorderDialog: GleanEventWithExtras<{ value?: string }>;
     reorderMain: GleanEventNoExtras;
-    searchDialog: GleanEventWithExtras<{ value?: string }>;
     searchMain: GleanEventWithExtras<{ value?: string }>;
-    setFallbackDialog: GleanEventWithExtras<{ value?: string }>;
   }
 
   networkProxySettings: {

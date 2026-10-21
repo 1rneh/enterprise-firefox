@@ -2937,6 +2937,13 @@
   value: false
   mirror: always
 
+# The implementation-defined timeout of
+# https://html.spec.whatwg.org/#render-blocked, in milliseconds.
+- name: dom.element.blocking.timeout-ms
+  type: uint32_t
+  value: 5000
+  mirror: always
+
 - name: dom.template-for.enabled
   type: RelaxedAtomicBool
 #ifdef FUZZING
@@ -5850,6 +5857,13 @@
   mirror: always
   rust: true
 
+# How long a pageswap event handler may block before the outbound
+# cross-document view transition is skipped instead of capturing a stale frame.
+- name: dom.viewTransitions.cross-document.pageswap-timeout-ms
+  type: uint32_t
+  value: 4000
+  mirror: always
+
 # Timeout for view transitions.
 # TODO(emilio): Figure out the right time-out, Blink uses between 4 and 15
 # seconds.
@@ -7853,6 +7867,19 @@
   value: false
   mirror: once
 
+# Disable reuse decoder device even when it is required, e.g. on AMD.
+- name: gfx.direct3d11.reuse-decoder-device-force-disabled
+  type: bool
+  value: false
+  mirror: once
+
+# Whether to use D3D11 fences for D3D11 textures when the device supports them.
+# This does not affect fences created by WebGPU or DirectComposition.
+- name: gfx.direct3d11.fences-enabled
+  type: bool
+  value: true
+  mirror: once
+
 - name: gfx.direct3d11.allow-keyed-mutex
   type: RelaxedAtomicBool
   value: true
@@ -8451,12 +8478,6 @@
 # <image> elements with opacity are drawn with the opacity folded into the
 # WebRender image's color multiplier instead of being rasterized in a blob.
 - name: gfx.webrender.svg-images.opacity
-  type: RelaxedAtomicBool
-  value: false
-  mirror: always
-
-# <image> elements can be drawn with WebRender under a non-uniform scale.
-- name: gfx.webrender.svg-images.non-uniform-scale
   type: RelaxedAtomicBool
   value: false
   mirror: always
@@ -10856,13 +10877,6 @@
 - name: layout.accessiblecaret.script_change_update_mode
   type: int32_t
   value: 0
-  mirror: always
-
-# Allow one caret to be dragged across the other caret without any limitation.
-# This matches the built-in convention for all desktop platforms.
-- name: layout.accessiblecaret.allow_dragging_across_other_caret
-  type: bool
-  value: true
   mirror: always
 
 # Optionally provide haptic feedback on long-press selection events.

@@ -914,14 +914,72 @@ add_task(function test_categorizeError() {
   const withStatus = (msg, status) => Object.assign(new Error(msg), { status });
   Assert.equal(
     categorizeError(withStatus("MLPA request failed", 429)),
-    "rate_limit",
-    "429 status is categorized as rate limit regardless of message"
+    "model_error",
+    "A 429 without a subcode is categorized as a model error"
   );
   Assert.equal(
     categorizeError(new Error("Request failed: 429 status code")),
-    "rate_limit",
-    "A 429 encoded in the message text is categorized as rate limit"
+    "model_error",
+    "A 429 encoded in the message without a subcode is a model error"
   );
+  const mlpaErrors = [
+    [429, 1, "budget_exceeded"],
+    [429, 2, "rate_limit"],
+    [413, 3, "request_too_large"],
+    [403, 4, "max_users_reached"],
+    [429, 5, "upstream_rate_limit"],
+    [429, 6, "fastly_rate_limit"],
+    [406, 7, "request_blocked"],
+    [400, 8, "invalid_model"],
+    [400, 9, "invalid_request"],
+    [429, 10, "global_budget_exceeded"],
+    [500, 10, "global_budget_exceeded"],
+    [429, 11, "guest_budget_exceeded"],
+    [403, 12, "max_guests_reached"],
+    [429, 99, "model_error"],
+    [429, "1", "model_error"],
+  ];
+  for (const [httpStatus, code, expected] of mlpaErrors) {
+    for (const status of [httpStatus, undefined]) {
+      Assert.equal(
+        categorizeError(
+          Object.assign(withStatus(`${httpStatus} status code`, status), {
+            error: code,
+          })
+        ),
+        expected,
+        `HTTP ${httpStatus} with subcode ${JSON.stringify(code)} is categorized as ${expected} with status ${status}`
+      );
+    }
+  }
+  for (const [status, code, expected] of [
+    [400, undefined, "invalid_request"],
+    [400, 8, "invalid_model"],
+    [400, 9, "invalid_request"],
+    [406, undefined, "request_blocked"],
+    [406, 7, "request_blocked"],
+    [413, undefined, "request_too_large"],
+    [413, 3, "request_too_large"],
+    [401, 1, "auth_error"],
+    [403, 1, "auth_error"],
+    [408, 2, "timeout"],
+    [429, 3, "model_error"],
+    [429, 8, "model_error"],
+    [500, 2, "model_error"],
+    [503, 4, "model_error"],
+    [503, 12, "model_error"],
+    [200, 1, "unknown_error"],
+  ]) {
+    Assert.equal(
+      categorizeError(
+        Object.assign(withStatus("MLPA request failed", status), {
+          error: code,
+        })
+      ),
+      expected,
+      `HTTP ${status} with subcode ${code} is categorized as ${expected}`
+    );
+  }
   Assert.equal(
     categorizeError(withStatus("MLPA request failed", 401)),
     "auth_error",
@@ -973,7 +1031,18 @@ add_task(function test_categorizeError() {
   const validCodes = [
     "network_error",
     "timeout",
+    "budget_exceeded",
     "rate_limit",
+    "request_too_large",
+    "max_users_reached",
+    "upstream_rate_limit",
+    "fastly_rate_limit",
+    "request_blocked",
+    "invalid_model",
+    "invalid_request",
+    "global_budget_exceeded",
+    "guest_budget_exceeded",
+    "max_guests_reached",
     "auth_error",
     "content_extraction_error",
     "interrupted",

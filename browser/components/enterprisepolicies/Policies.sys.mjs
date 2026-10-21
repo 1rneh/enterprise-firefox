@@ -1476,6 +1476,8 @@ export var Policies = {
   // It skipped any local policy provider (policies.json, Windows GPO and macOS plist)
   DisableLocalPolicies: {},
 
+  DisableMacOSUserPolicies: {},
+
   DisableMasterPasswordCreation: {
     onBeforeUIStartup(manager, param) {
       if (param) {

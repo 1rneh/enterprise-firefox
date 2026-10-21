@@ -1311,9 +1311,22 @@ void BrowsingContext::SetIsEnteringBFCache(bool aIsEnteringBFCache) {
   mIsEnteringBFCache = aIsEnteringBFCache;
 }
 
-void BrowsingContext::DeactivateDocuments() {
+// https://html.spec.whatwg.org/#deactivate-a-document-for-a-cross-document-navigation
+void BrowsingContext::DeactivateDocuments(
+    const SessionHistoryInfo* aPageSwapTargetInfo,
+    NavigationType aNavigationType, bool aForUnload) {
   MOZ_RELEASE_ASSERT(mozilla::BFCacheInParent());
   MOZ_DIAGNOSTIC_ASSERT(IsTop());
+
+  if (aForUnload) {
+    // The old document can't enter BFCache. Only fire pageswap, since
+    // Destroy() unloads the document right after.
+    if (mDocShell) {
+      nsDocShell::Cast(mDocShell)->MaybeFirePageSwapOnDeactivate(
+          aPageSwapTargetInfo, aNavigationType);
+    }
+    return;
+  }
 
   if (XRE_IsContentProcess() && mDocShell) {
     nsDocShell::Cast(mDocShell)->MaybeDisconnectChildListenersOnPageHide();
@@ -1324,7 +1337,11 @@ void BrowsingContext::DeactivateDocuments() {
     aContext->SetIsEnteringBFCache(/* aIsEnteringBFCache */ true);
 
     if (shell) {
-      nsDocShell::Cast(shell)->FirePageHideShowNonRecursive(false);
+      // Only the top document fires pageswap.
+      const bool isTop = aContext == this;
+      nsDocShell::Cast(shell)->FirePageHideShowNonRecursive(
+          false, isTop ? aPageSwapTargetInfo : nullptr,
+          isTop ? aNavigationType : NavigationType::Push);
     }
   });
 

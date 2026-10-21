@@ -441,7 +441,11 @@ export const AutoTabGroupingSuggestions = {
           model,
         }),
       ]);
-    conversation.setSystemMessage(systemPrompt);
+    conversation.setSystemMessage(
+      lazy.renderPrompt(systemPrompt, {
+        locale: Services.locale.appLocaleAsBCP47,
+      })
+    );
     conversation.addUserMessage(lazy.renderPrompt(userTemplate, { titles }));
     const response = await conversation.run({ fxAccountToken });
     const raw = response?.finalOutput?.trim() || "";

@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.254
- * pdfjsBuild = 28e406a46
+ * pdfjsVersion = 6.5.260
+ * pdfjsBuild = 33734f1fd
  */
 
 ;// ./src/shared/util.js
@@ -58559,7 +58559,7 @@ class XRef {
           if (offsetByte === -1) {
             throw new FormatError("Invalid XRef byteWidths 'offset'.");
           }
-          offset = offset << 8 | offsetByte;
+          offset = offset * 256 + offsetByte;
         }
         for (let j = 0; j < generationFieldWidth; ++j) {
           const generationByte = stream.getByte();
@@ -64527,7 +64527,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.5.254";
+    const workerVersion = "6.5.260";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match the Worker version "${workerVersion}".`);
     }

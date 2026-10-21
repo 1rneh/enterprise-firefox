@@ -97,9 +97,21 @@ document.addEventListener(
           case "cmd_toggleMute":
             gBrowser.toggleMuteAudioOnMultiSelectedTabs(gBrowser.selectedTab);
             break;
-          case "cmd_CustomizeToolbars":
-            gCustomizeMode.enter();
+          case "cmd_CustomizeToolbars": {
+            let source = event.sourceEvent?.target;
+            let entryPoint = "other";
+            if (source?.id == "appmenu-moreTools-button") {
+              entryPoint = "app_menu";
+            } else if (source?.id == "overflowMenu-customize-button") {
+              entryPoint = "overflow_menu";
+            } else if (source?.id == "menu_customizeToolbars") {
+              entryPoint = "menu_bar";
+            } else if (source?.closest("#customizationPanelItemContextMenu")) {
+              entryPoint = "toolbar_context_menu";
+            }
+            gCustomizeMode.enter(entryPoint);
             break;
+          }
           case "cmd_toggleOfflineStatus":
             BrowserOffline.toggleOfflineStatus();
             break;

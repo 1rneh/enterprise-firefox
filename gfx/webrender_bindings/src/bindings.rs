@@ -2905,6 +2905,15 @@ pub extern "C" fn wr_resource_updates_delete_snapshot_image(txn: &mut Transactio
 }
 
 #[no_mangle]
+pub extern "C" fn wr_resource_updates_adopt_snapshot_image(
+    txn: &mut Transaction,
+    from: SnapshotImageKey,
+    to: SnapshotImageKey,
+) {
+    txn.adopt_snapshot_image(from, to);
+}
+
+#[no_mangle]
 pub extern "C" fn wr_api_send_transaction(dh: &mut DocumentHandle, transaction: &mut Transaction, is_async: bool) {
     if transaction.is_empty() {
         return;

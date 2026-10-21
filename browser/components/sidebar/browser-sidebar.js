@@ -59,6 +59,10 @@ var SidebarController = {
 
     let switcherMenuitem;
     sidebar._updateMenus = () => {
+      // The pref observer outlives the window.
+      if (this.uninitializing) {
+        return;
+      }
       const { visible } = sidebar;
       // Hide the sidebar if it is open and should not be visible,
       // and unset the current command and lastOpenedId so they do not
@@ -2008,6 +2012,9 @@ var SidebarController = {
     const switcherMenu = document.getElementById(sidebar.switcherMenuId);
     if (switcherMenu) {
       updateAttributes(switcherMenu, sidebar);
+    }
+    if (this.panelHeader) {
+      this.panelHeader.heading = label;
     }
     if (this.initialized && this.currentID === commandID) {
       // Update the sidebar title if this extension is the current sidebar.

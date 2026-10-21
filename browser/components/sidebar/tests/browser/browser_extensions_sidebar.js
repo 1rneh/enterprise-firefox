@@ -52,6 +52,14 @@ add_task(async function test_extension_sidebar_actions() {
   await sendMessage(extension, "set-title", "Updated Title");
   await sidebar.updateComplete;
   is(button.title, "Updated Title", "Extension has updated title.");
+  await BrowserTestUtils.waitForMutationCondition(
+    SidebarController.panelHeader.shadowRoot.querySelector(
+      ".sidebar-panel-title"
+    ),
+    { characterData: true },
+    ({ textContent }) => textContent.includes("Updated Title"),
+    { msg: "Panel header shows updated title." }
+  );
 
   sidebar.expanded = false;
   await sidebar.updateComplete;

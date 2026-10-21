@@ -1476,7 +1476,8 @@ void nsBlockFrame::ReflowAbsoluteDescendantsInInlineFrame(
     // were pushed from a previous fragmentainer.
     AddOrRemoveStateBits(
         NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT,
-        prev->HasAnyStateBits(NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT));
+        foundAbspos ||
+            prev->HasAnyStateBits(NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT));
   } else if (!foundAbspos) {
     // We are a first-in-flow. Remove NS_BLOCK_HAS_INLINE_ABSPOS_DESCENDANT bit
     // if we didn't find any abspos descendants after a full walk over all our
@@ -1773,28 +1774,33 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
   // Return a BalanceTarget record representing the position at which line-clamp
   // will take effect for the current line list. Only to be used when there are
   // enough lines that the clamp will apply.
-  auto getClampPosition = [&](uint32_t aClampCount) -> BalanceTarget {
-    if (NS_WARN_IF(aClampCount >= mLines.size())) {
+  auto getClampPosition = [&]() -> BalanceTarget {
+    if ((!HasLineClampEllipsis() && !HasLineClampEllipsisDescendant()) ||
+        LineClampIsClampedToZero()) {
       return BalanceTarget{};
     }
-    auto iter = mLines.begin();
-    for (uint32_t i = 0; i < aClampCount; i++) {
-      ++iter;
+    for (LineClampLineIterator iter(this, this);
+         nsLineBox* line = iter.GetCurrentLine(); iter.Next()) {
+      // LineClampLineIterator is used to mimic the traversal behaviour of
+      // FindLineClamp*Target(). We skip over empty lines as they are not
+      // counted for numbered line-clamp.
+      if (line->IsEmpty()) {
+        continue;
+      }
+      if (line->HasLineClampEllipsis()) {
+        // The balance target should be the first line past the clamp point.
+        iter.Next();
+        line = iter.GetCurrentLine();
+
+        nsIFrame* firstChild = line->mFirstChild;
+        if (firstChild && firstChild->IsTextFrame()) {
+          auto* textFrame = static_cast<nsTextFrame*>(firstChild);
+          return BalanceTarget{textFrame->GetContent(),
+                               textFrame->GetContentOffset(), line->BStart()};
+        }
+      }
     }
-    nsIFrame* firstChild = iter->mFirstChild;
-    if (!firstChild) {
-      return BalanceTarget{};
-    }
-    nsIContent* content = firstChild->GetContent();
-    if (!content) {
-      return BalanceTarget{};
-    }
-    int32_t offset = 0;
-    if (firstChild->IsTextFrame()) {
-      auto* textFrame = static_cast<nsTextFrame*>(firstChild);
-      offset = textFrame->GetContentOffset();
-    }
-    return BalanceTarget{content, offset, iter.get()->BStart()};
+    return BalanceTarget{};
   };
 
   // "balancing" is implemented by shortening the effective inline-size of the
@@ -1840,18 +1846,14 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
       trialState.ResetForBalance(balanceStep);
       balanceStep /= 2;
 
-      // If -webkit-line-clamp is in effect, then we need to maintain the
+      // If line-clamp is in effect, then we need to maintain the
       // content location at which clamping occurs, rather than the total
       // number of lines in the block.
       if (StaticPrefs::layout_css_text_wrap_balance_after_clamp_enabled() &&
           IsLineClampRoot(this)) {
-        uint32_t lineClampCount =
-            GetLineClampMaxLines(aReflowInput.mStyleDisplay->mWebkitLineClamp);
-        if (uint32_t(balanceTarget.mOffset) > lineClampCount) {
-          auto t = getClampPosition(lineClampCount);
-          if (t.mContent) {
-            balanceTarget = t;
-          }
+        BalanceTarget lineClampBalanceTarget = getClampPosition();
+        if (lineClampBalanceTarget != BalanceTarget{}) {
+          balanceTarget = lineClampBalanceTarget;
         }
       }
 
@@ -1867,8 +1869,7 @@ void nsBlockFrame::Reflow(nsPresContext* aPresContext, ReflowOutput& aMetrics,
         return false;
       }
       if (balanceTarget.mContent) {
-        auto t = getClampPosition(
-            GetLineClampMaxLines(aReflowInput.mStyleDisplay->mWebkitLineClamp));
+        auto t = getClampPosition();
         return t == balanceTarget;
       }
       int32_t numLines =

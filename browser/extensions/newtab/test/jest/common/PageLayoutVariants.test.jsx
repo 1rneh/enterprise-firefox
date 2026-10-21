@@ -42,6 +42,7 @@ const STORIES_ON = {
 };
 // The container being on is not enough: something has to actually be in it.
 const WIDGETS_ON = {
+  region: "US",
   "widgets.system.enabled": true,
   "widgets.enabled": true,
   "widgets.system.lists.enabled": true,

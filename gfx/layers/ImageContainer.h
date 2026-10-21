@@ -874,20 +874,24 @@ std::ostream& operator<<(std::ostream& aOut, const PlanarYCbCrData& aData);
  *
  * mYSkip, mCbSkip, mCrSkip are added to support various output
  * formats from hardware decoder. They are per-pixel skips in the
- * source image.
+ * source image: the number of samples skipped between adjacent samples
+ * in a row, such as the other channels' samples in an interleaved
+ * format. Planar data has skips of 0. Rows start a stride apart, so
+ * any padding after the row data follows from the stride and the
+ * width, not from the skip.
  *
- * For example when image width is 640, mYStride is 670, mYSkip is 2,
+ * For example when image width is 200, mYStride is 670, mYSkip is 2,
  * the mYChannel buffer looks like:
  *
- * |<----------------------- mYStride ----------------------------->|
- * |<----------------- Y data width ------------->|
- *  0   3   6   9   12  15  18  21                639             669
+ * |<-------------------------- mYStride -------------------------->|
+ * |<----------------- row data ----------------->|
+ *  0  3  6  9  12 15 18 21                    599               669
  * |----------------------------------------------------------------|
- * |Y___Y___Y___Y___Y___Y___Y___Y...                |%%%%%%%%%%%%%%%|
- * |Y___Y___Y___Y___Y___Y___Y___Y...                |%%%%%%%%%%%%%%%|
- * |Y___Y___Y___Y___Y___Y___Y___Y...                |%%%%%%%%%%%%%%%|
- * |            |<->|
- *                mYSkip
+ * |Y__Y__Y__Y__Y__Y__Y__Y__...                Y__|%%%%%%%%%%%%%%%%%|
+ * |Y__Y__Y__Y__Y__Y__Y__Y__...                Y__|%%%%%%%%%%%%%%%%%|
+ * |Y__Y__Y__Y__Y__Y__Y__Y__...                Y__|%%%%%%%%%%%%%%%%%|
+ *   ^^
+ *   mYSkip
  */
 class PlanarYCbCrImage : public Image {
  public:

@@ -71,6 +71,8 @@ export class AITabParent extends JSWindowActorParent {
     switch (name) {
       case "AITab:GetPage":
         return this.#handleGetPage();
+      case "AITab:GetHeadingFont":
+        return { font: await this.#headingFontPromise };
       case "AITab:DeletePage":
         return this.#handleDeletePage();
       case "AITab:OpenLink":
@@ -133,7 +135,6 @@ export class AITabParent extends JSWindowActorParent {
 
       return {
         success: true,
-        font: await this.#headingFontPromise,
         page: pageData &&
           page && {
             ...pageData,
@@ -149,8 +150,10 @@ export class AITabParent extends JSWindowActorParent {
   }
 
   /**
-   * Started when the actor is created and sent with the page, so content can
-   * install the font before it renders.
+   * Started when the actor is created so the download overlaps the page
+   * lookup. createAITab() usually started it during generation, in which case
+   * this reuses that download. Content asks for it separately and does not
+   * wait for it to render.
    *
    * @returns {Promise<?ArrayBuffer>} Null when the font is unavailable.
    */

@@ -1157,6 +1157,11 @@ void TransactionBuilder::DeleteSnapshotImage(wr::SnapshotImageKey aKey) {
   wr_resource_updates_delete_snapshot_image(mTxn, aKey);
 }
 
+void TransactionBuilder::AdoptSnapshotImage(wr::SnapshotImageKey aFrom,
+                                            wr::SnapshotImageKey aTo) {
+  wr_resource_updates_adopt_snapshot_image(mTxn, aFrom, aTo);
+}
+
 void TransactionBuilder::AddRawFont(wr::FontKey aKey, wr::Vec<uint8_t>& aBytes,
                                     uint32_t aIndex) {
   wr_resource_updates_add_raw_font(mTxn, aKey, &aBytes.inner, aIndex);

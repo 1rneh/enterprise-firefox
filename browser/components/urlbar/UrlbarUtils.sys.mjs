@@ -2198,12 +2198,9 @@ export class UrlbarProvider {
    *
    * @param {UrlbarResult} _result
    *   The result being selected.
-   * @param {Element} [_element]
-   *   The selected element. Undefined in the message path.
-   *   New providers should not use this parameter!
    * @abstract
    */
-  onBeforeSelection(_result, _element) {}
+  onBeforeSelection(_result) {}
 
   /**
    * Called when a result from the provider is selected. "Selected" refers to

@@ -173,7 +173,6 @@
 #include "nsIDOMXULMenuListElement.h"
 #include "nsIDOMXULMultSelectCntrlEl.h"
 #include "nsIDOMXULRadioGroupElement.h"
-#include "nsIDOMXULRelatedElement.h"
 #include "nsIDOMXULSelectCntrlEl.h"
 #include "nsIDOMXULSelectCntrlItemEl.h"
 #include "nsIDocShell.h"
@@ -1306,6 +1305,14 @@ void Element::LazyLoadingElementUnbindFromTree(UnbindContext& aContext) {
     return;
   }
   observer->Unobserve(*this);
+}
+
+void Element::RenderBlockingElementUnbindFromTree(UnbindContext& aContext) {
+  if (!StaticPrefs::dom_element_blocking_enabled() ||
+      !aContext.WasInComposedDoc() || aContext.IsMove()) {
+    return;
+  }
+  aContext.OwnerDoc().UnblockRendering(*this);
 }
 
 namespace {
@@ -3091,6 +3098,15 @@ nsresult Element::BindToTree(BindContext& aContext, nsINode& aParent) {
     HandleShadowDOMRelatedInsertionSteps(hadParent);
   }
 
+  // https://html.spec.whatwg.org/#dom-trees
+  // An inserted element that is not on the parser's stack of open elements can
+  // be the target of a rel=expect link.
+  if ((HasID() || HasName()) && !HasFlag(ELEMENT_ON_PARSER_STACK) &&
+      !aContext.IsMove() && aContext.InUncomposedDoc() &&
+      StaticPrefs::dom_element_blocking_enabled()) {
+    aContext.OwnerDoc().MaybeProcessInternalResourceLinksForElement(*this);
+  }
+
   if (MayHaveStyle()) {
     // If MayHaveStyle() is true, we must be an nsStyledElement.
     static_cast<nsStyledElement*>(this)->ReparseStyleAttribute(
@@ -3495,6 +3511,10 @@ void Element::SetMappedDeclarationBlock(
 bool Element::FindAttributeDependence(const nsAtom* aAttribute,
                                       const MappedAttributeEntry* const aMaps[],
                                       uint32_t aMapCount) {
+  MOZ_ASSERT(aAttribute);
+  if (!aAttribute->IsStatic()) {
+    return false;
+  }
   for (uint32_t mapindex = 0; mapindex < aMapCount; ++mapindex) {
     for (const MappedAttributeEntry* map = aMaps[mapindex]; map->attribute;
          ++map) {
@@ -4238,6 +4258,10 @@ bool Element::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                              const nsAString& aValue,
                              nsIPrincipal* aMaybeScriptedPrincipal,
                              nsAttrValue& aResult) {
+  if (!aAttribute->IsStatic()) {
+    return false;
+  }
+
   if (aAttribute == nsGkAtoms::lang) {
     aResult.ParseAtom(aValue);
     return true;
@@ -4349,6 +4373,13 @@ void Element::PostIdMaybeChange(const nsAttrValue* aValue) {
     AddToIdTable(aValue->GetAtomValue());
   } else {
     ClearHasID();
+  }
+
+  // https://html.spec.whatwg.org/#link-type-expect
+  // A changed id can change the target of a rel=expect link. Only an element in
+  // the document tree can be a target.
+  if (IsInUncomposedDoc() && StaticPrefs::dom_element_blocking_enabled()) {
+    OwnerDoc()->ProcessInternalResourceLinks();
   }
 }
 
@@ -4987,9 +5018,28 @@ void Element::GetLinkTarget(nsAString& aTarget) {
 
 void Element::GetLinkTargetImpl(nsAString& aTarget) { aTarget.Truncate(); }
 
+uintptr_t Element::GetRandomSeed() const {
+  // Uses the element's address as the element identifier. If the element is
+  // part of a cloned static document (e.g. for print previews), uses the seed
+  // recorded during the clone instead, ensuring that the clone's random base
+  // value is consistent with the element it was cloned from.
+  if (HasProperties() && OwnerDoc()->IsStaticDocument()) {
+    if (void* seed = GetProperty(nsGkAtoms::staticclonecssrandomseed)) {
+      return reinterpret_cast<uintptr_t>(seed);
+    }
+  }
+  return reinterpret_cast<uintptr_t>(this);
+}
+
 /* Part of https://dom.spec.whatwg.org/#concept-cloning-steps-for-a-single-node
    step 2 (if node is an element). */
 nsresult Element::CopyInnerTo(Element* aDst) {
+  // If the element is being cloned into a static document, record the seed.
+  if (aDst->OwnerDoc()->IsStaticDocument()) {
+    aDst->SetProperty(nsGkAtoms::staticclonecssrandomseed,
+                      reinterpret_cast<void*>(GetRandomSeed()));
+  }
+
   MOZ_TRY(aDst->mAttrs.EnsureCapacityToClone(mAttrs));
 
   // SVG attribute parsing has a lot of side effects, and some of its attributes
@@ -6335,12 +6385,6 @@ already_AddRefed<nsIDOMXULRadioGroupElement> Element::AsXULRadioGroup() {
   return value.forget();
 }
 
-already_AddRefed<nsIDOMXULRelatedElement> Element::AsXULRelated() {
-  nsCOMPtr<nsIDOMXULRelatedElement> value;
-  GetCustomInterface(getter_AddRefs(value));
-  return value.forget();
-}
-
 already_AddRefed<nsIDOMXULSelectControlElement> Element::AsXULSelectControl() {
   nsCOMPtr<nsIDOMXULSelectControlElement> value;
   GetCustomInterface(getter_AddRefs(value));
@@ -6807,9 +6851,14 @@ bool Element::BlockingContainsRender() const {
   if (!attrValue || !StaticPrefs::dom_element_blocking_enabled()) {
     return false;
   }
-  MOZ_ASSERT(attrValue->Type() == nsAttrValue::eAtomArray,
-             "Checking blocking attribute on element that doesn't parse it?");
   return attrValue->Contains(nsGkAtoms::render, eIgnoreCase);
+}
+
+void Element::UnblockRenderingIfNotPotentiallyRenderBlocking() {
+  if (StaticPrefs::dom_element_blocking_enabled() &&
+      !IsPotentiallyRenderBlocking()) {
+    OwnerDoc()->UnblockRendering(*this);
+  }
 }
 
 static bool IsOffsetParent(nsIFrame* aFrame) {

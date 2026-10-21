@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/// <reference path="./devtools-settings.tagmap.d.ts" />
+
 import { html, nothing } from "chrome://global/content/vendor/lit.all.mjs";
 import { MozLitElement } from "chrome://global/content/lit-utils.mjs";
 
@@ -43,7 +45,13 @@ export class DevToolsSettings extends MozLitElement {
   }
 
   render() {
-    return inventory.map(section => this.#renderSection(section));
+    return html`
+      <link
+        rel="stylesheet"
+        href="resource://devtools/client/settings/components/devtools-settings.css"
+      />
+      ${inventory.map(section => this.#renderSection(section))}
+    `;
   }
 }
 

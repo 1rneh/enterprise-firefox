@@ -244,6 +244,7 @@ export default class VPNSiteRulesList extends MozLitElement {
       : this.deletePrompt?.confirmL10nId;
     return html`<dialog
       class="vpn-site-rules-delete-dialog"
+      closedby="any"
       ?error=${this.deleteFailed}
       aria-labelledby="vpn-site-rules-delete-message"
     >

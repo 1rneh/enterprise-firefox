@@ -799,6 +799,14 @@ export const PREFS_CONFIG = new Map([
     },
   ],
   [
+    "unifiedAds.tiles.ohttpImages.enabled",
+    {
+      title:
+        "Use OHTTP when requesting sponsored top sites tile images from MARS",
+      value: false,
+    },
+  ],
+  [
     "unifiedAds.spocs.enabled",
     {
       title:
@@ -2526,7 +2534,7 @@ export const PREFS_CONFIG = new Map([
     "pageLayouts.spacesOrder",
     {
       title:
-        "Comma-separated order of the spaces in the spaces-buttons-top, spaces-buttons-bottom, spaces-floating-arrows, spaces-preview-kit, spaces-preview-illustrated and spaces-preview-cards layout variants, from stories, widgets and activity. A space left out is not shown; empty means stories,widgets,activity.",
+        "Comma-separated order of the spaces in the V1 spaces layout variants, from stories, widgets and activity. A space left out is not shown; empty means stories,widgets,activity.",
       value: "",
     },
   ],

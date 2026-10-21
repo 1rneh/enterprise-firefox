@@ -308,7 +308,23 @@ ai-tasks-alert-history-error-network = { -smart-window-brand-name } couldn’t c
 
 ai-tasks-alert-history-error-timeout = The page took too long to respond. This task will try again at its next scheduled time.
 
-ai-tasks-alert-history-error-rate-limit = { -smart-window-brand-name } has reached its check limit for today. This task will try again at its next scheduled time.
+ai-tasks-alert-history-error-budget = { -smart-window-brand-name } has reached its daily check limit. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-rate-limit = { -smart-window-brand-name } has reached its request limit for now. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-too-large = There was too much page content to compare in one check. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-capacity = { -smart-window-brand-name } is at capacity. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-upstream-rate-limit = { -smart-window-brand-name } is temporarily handling too many requests. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-connection-blocked = { -smart-window-brand-name } temporarily blocked requests from your connection. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-request-blocked = { -smart-window-brand-name } blocked this request for security reasons. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-request = { -smart-window-brand-name } couldn’t process this request. This task will try again at its next scheduled time.
+
+ai-tasks-alert-history-error-service-budget = { -smart-window-brand-name } has reached its usage limit. This task will try again at its next scheduled time.
 
 ai-tasks-alert-history-error-auth = This page asked us to sign in, so there was nothing to compare. Open the page, sign in, and the next check should work.
 
@@ -500,14 +516,20 @@ aitab-page-delete-dialog-confirm =
 # Credit at the bottom of a generated page.
 aitab-page-footer-brand = { -smart-window-brand-name }
 
-smartwindow-aitab-creating = Creating a page…
+smartwindow-aitab-creating = Creating your { -smart-page-brand-name }
+smartwindow-aitab-updating = Updating your { -smart-page-brand-name }
+smartwindow-aitab-creating-an-aitab-failed = Tried to create { -smart-page-brand-name }, but couldn’t
+smartwindow-aitab-updating-an-aitab-failed =  Tried to update { -smart-page-brand-name }, but couldn’t
+
 # "Open here" opens aitab url in the current tab
 smartwindow-aitab-open-current =
     .label = Open here
 # "Open in new tab" opens a new browser tab with the AITab url in it
 smartwindow-aitab-open-new =
     .label = Open in new tab
-smartwindow-aitab-created-an-aitab = Created a { -smart-page-brand-name }
+
+smartwindow-aitab-created-an-aitab = Created { -smart-page-brand-name }
+smartwindow-aitab-updated-an-aitab = Updated { -smart-page-brand-name }
 smartwindow-aitab-empty-chat-message = Want to make changes to your { -smart-page-brand-name }? Ask in the chat to add or remove content.
 
 ## "Pick up where you left off" cards for resuming browsing or chat journeys.

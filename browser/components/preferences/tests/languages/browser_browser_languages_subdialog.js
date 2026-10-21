@@ -300,14 +300,7 @@ add_task(async function testDisabledBrowserLanguages() {
   await Promise.all(addons.map(addon => addon.uninstall()));
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 
-  assertTelemetryRecorded([
-    ["manage", "main", dialogId],
-    ["search", "dialog", dialogId],
-    ["add", "dialog", dialogId, { installId }],
-
-    // Cancel is recorded when the tab is closed.
-    ["cancel", "dialog", dialogId],
-  ]);
+  assertTelemetryRecorded([["manage", "main", dialogId]]);
 });
 
 add_task(async function testReorderingBrowserLanguages() {
@@ -427,16 +420,8 @@ add_task(async function testReorderingBrowserLanguages() {
 
   assertTelemetryRecorded([
     ["manage", "main", firstDialogId],
-    ["reorder", "dialog", firstDialogId],
-    ["accept", "dialog", firstDialogId],
-    ["set_fallback", "dialog", firstDialogId],
     ["manage", "main", secondDialogId],
-    ["reorder", "dialog", secondDialogId],
-    ["accept", "dialog", secondDialogId],
     ["manage", "main", thirdDialogId],
-    ["reorder", "dialog", thirdDialogId],
-    ["reorder", "dialog", thirdDialogId],
-    ["accept", "dialog", thirdDialogId],
   ]);
 });
 
@@ -545,19 +530,7 @@ add_task(async function testAddAndRemoveSelectedLanguages() {
   await Promise.all(addons.map(addon => addon.uninstall()));
   BrowserTestUtils.removeTab(gBrowser.selectedTab);
 
-  assertTelemetryRecorded([
-    ["manage", "main", dialogId],
-
-    // Install id is not recorded since it was already installed.
-    ["add", "dialog", dialogId],
-    ["add", "dialog", dialogId],
-
-    ["remove", "dialog", dialogId],
-    ["remove", "dialog", dialogId],
-
-    ["add", "dialog", dialogId],
-    ["accept", "dialog", dialogId],
-  ]);
+  assertTelemetryRecorded([["manage", "main", dialogId]]);
 });
 
 add_task(async function testInstallFromAMO() {
@@ -714,15 +687,8 @@ add_task(async function testInstallFromAMO() {
   assertTelemetryRecorded([
     // First dialog installs a locale and accepts.
     ["search", "main", firstDialogId],
-    // It has an installId since it was downloaded.
-    ["add", "dialog", firstDialogId, { installId }],
-    // It got moved down to avoid errors with finding translations.
-    ["reorder", "dialog", firstDialogId],
-    ["accept", "dialog", firstDialogId],
-
     // The second dialog just checks the state and is closed with the tab.
     ["search", "main", secondDialogId],
-    ["cancel", "dialog", secondDialogId],
   ]);
 });
 

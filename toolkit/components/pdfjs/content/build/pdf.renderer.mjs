@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.254
- * pdfjsBuild = 28e406a46
+ * pdfjsVersion = 6.5.260
+ * pdfjsBuild = 33734f1fd
  */
 
 ;// ./src/shared/util.js
@@ -7164,8 +7164,13 @@ class RendererMessageHandler {
         ctx.drawImage(canvas, 0, 0);
         ctx.drawImage(transparentCanvas, 0, 0);
         bitmap = composite.transferToImageBitmap();
+        composite.width = composite.height = 0;
       } else {
         bitmap = await createImageBitmap(canvas);
+        if (renderTaskState.aborted) {
+          bitmap.close();
+          return;
+        }
       }
     }
     const transfers = bitmap ? [bitmap] : [];
@@ -7198,7 +7203,7 @@ class RendererMessageHandler {
       }
     }
   }
-  static #cleanupRenderTask(renderTaskId) {
+  static #cleanupRenderTask(renderTaskId, keepCanvas = false) {
     const renderTaskState = this.#renderTaskStates.get(renderTaskId);
     if (!renderTaskState) {
       return;
@@ -7206,7 +7211,26 @@ class RendererMessageHandler {
     renderTaskState.aborted = true;
     renderTaskState.continueResolve?.();
     renderTaskState.gfx?.endDrawing();
+    if (!keepCanvas) {
+      this.#releaseCanvases(renderTaskState);
+    }
     this.#renderTaskStates.delete(renderTaskId);
+  }
+  static #releaseCanvases({
+    canvas,
+    gfx
+  }) {
+    canvas.width = canvas.height = 0;
+    const map = gfx?.annotationCanvasMap;
+    if (!map) {
+      return;
+    }
+    for (const value of map.values()) {
+      for (const annotationCanvas of Array.isArray(value) ? value : [value]) {
+        annotationCanvas.width = annotationCanvas.height = 0;
+      }
+    }
+    map.clear();
   }
   static #appendFromSharedOperatorList(renderTaskState, length, operationsFilterMask, lastChunk) {
     const {
@@ -7443,9 +7467,13 @@ class RendererMessageHandler {
         recordedBBoxesBuffer = renderTaskState.dependencyTracker?.take().buffer ?? null;
         imageCoordinates = renderTaskState.imagesTracker?.take() ?? null;
         const aborted = renderTaskState.aborted;
-        this.#cleanupRenderTask(renderTaskId);
+        this.#cleanupRenderTask(renderTaskId, !aborted);
         if (!aborted) {
-          await this.#sendFrame(handler, renderTaskState, true);
+          try {
+            await this.#sendFrame(handler, renderTaskState, true);
+          } finally {
+            this.#releaseCanvases(renderTaskState);
+          }
         }
       } else {
         await this.#maybeSendInterimFrame(handler, renderTaskState);
@@ -7496,11 +7524,12 @@ class RendererMessageHandler {
     this.#canvasFactory = null;
     this.#filterFactory?.destroy();
     this.#filterFactory = null;
+    this.#connection.send("Disconnected", null);
     this.#connection.destroy();
     this.#connection = null;
   }
   static #sendReady(handler) {
-    const workerVersion = "6.5.254";
+    const workerVersion = "6.5.260";
     const testObj = new Uint8Array();
     handler.send("ready", {
       testObj,

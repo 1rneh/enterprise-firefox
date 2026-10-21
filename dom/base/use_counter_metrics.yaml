@@ -108,8 +108,8 @@ use.counter:
     send_in_pings:
       - use-counters
 
-# Total of 2674 use counter metrics (excludes denominators).
-# Total of 435 'page' use counters.
+# Total of 2676 use counter metrics (excludes denominators).
+# Total of 436 'page' use counters.
 use.counter.page:
   svgsvgelement_getelementbyid:
     type: counter
@@ -7285,6 +7285,23 @@ use.counter.page:
     send_in_pings:
       - use-counters
 
+  speculation_rules_header:
+    type: counter
+    description: >
+      Whether a page has a speculation rule set from a Speculation-Rules header.
+      Compare against `use.counter.top_level_content_documents_destroyed`
+      to calculate the rate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    notification_emails:
+      - dom-core@mozilla.com
+      - emilio@mozilla.com
+    expires: never
+    send_in_pings:
+      - use-counters
+
   speculation_rules_prefetch:
     type: counter
     description: >
@@ -7506,7 +7523,7 @@ use.counter.page:
     send_in_pings:
       - use-counters
 
-# Total of 435 'document' use counters.
+# Total of 436 'document' use counters.
 use.counter.doc:
   svgsvgelement_getelementbyid:
     type: counter
@@ -14669,6 +14686,23 @@ use.counter.doc:
     type: counter
     description: >
       Whether a document has a <script type="speculationrules"> element.
+      Compare against `use.counter.content_documents_destroyed`
+      to calculate the rate.
+    bugs:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    data_reviews:
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1852098
+    notification_emails:
+      - dom-core@mozilla.com
+      - emilio@mozilla.com
+    expires: never
+    send_in_pings:
+      - use-counters
+
+  speculation_rules_header:
+    type: counter
+    description: >
+      Whether a document has a speculation rule set from a Speculation-Rules header.
       Compare against `use.counter.content_documents_destroyed`
       to calculate the rate.
     bugs:

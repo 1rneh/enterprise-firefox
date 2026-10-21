@@ -22,8 +22,6 @@ skip-if = [
 ["test_restore_aiwindow.py"]
 skip-if = ["enterprise"] # Bug 2046670 Tests expect an overriden identity.fxaccounts.remote.root pref to persist across restart but enterprise builds set and lock the pref on startup
 
-["test_restore_counts.py"]
-
 ["test_restore_last_session_window_mismatch.py"]
 
 ["test_restore_loading_tab.py"]

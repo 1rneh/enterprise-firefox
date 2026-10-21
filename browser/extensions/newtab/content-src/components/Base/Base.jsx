@@ -1192,8 +1192,10 @@ export class BaseContent extends React.PureComponent {
           (this.props.ExternalComponents.components.find(
             c => c.type === "SEARCH"
           )?.attributes ?? {});
-      const logoShouldBeCentered =
-        noFeedOrContentWidgets && !hasManyTopSitesRows && !searchHasOwnRow;
+      const contentShouldBeLowered =
+        noFeedOrContentWidgets && !hasManyTopSitesRows;
+      const logoShouldBeCentered = contentShouldBeLowered && !searchHasOwnRow;
+      const searchShouldBeLowered = contentShouldBeLowered && searchHasOwnRow;
       // The 5-column story grid is driven by the layout data alone: the content
       // band only widens when every section has a columnCount: 5 entry. Sections
       // share one subgrid track count, so a layout set where only some sections
@@ -1261,7 +1263,7 @@ export class BaseContent extends React.PureComponent {
             className={`nova-outer-wrapper${this.state.fixedSearch ? " stuck-search" : ""}${searchHasOwnRow ? " search-has-own-row" : ""}`}
           >
             <div
-              className={`container nova-enabled${logoShouldBeCentered ? " logo-in-content" : ""}${searchHasOwnRow ? " search-has-own-row" : ""}${hasFiveColumnLayout ? " sections-5-col" : ""}`}
+              className={`container nova-enabled${logoShouldBeCentered ? " logo-in-content" : ""}${searchHasOwnRow ? " search-has-own-row" : ""}${searchShouldBeLowered ? " search-lowered" : ""}${hasFiveColumnLayout ? " sections-5-col" : ""}`}
             >
               <aside className="sidebar-inline-start">
                 {!prefs.hideLogo && !logoShouldBeCentered && !isPageEmpty && (

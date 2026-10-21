@@ -236,14 +236,11 @@ export class UrlbarParentController {
    *
    * @param {UrlbarResult} result
    *   The result being selected.
-   * @param {Element} [element]
-   *   The selected element. Undefined in the message path.
-   *   New providers should not use this parameter!
    */
-  onBeforeSelection(result, element) {
+  onBeforeSelection(result) {
     this.manager
       .getProvider(result?.providerName)
-      ?.tryMethod("onBeforeSelection", result, element);
+      ?.tryMethod("onBeforeSelection", result);
   }
 
   /**
@@ -707,6 +704,19 @@ export class UrlbarParentController {
    */
   recordZeroPrefix(kind) {
     Glean.urlbarZeroprefix2[kind][this.sapName].add(1);
+  }
+
+  /**
+   * Counts a URL canonization, unless this input is in a private window.
+   */
+  recordCanonization() {
+    if (this.isPrivate) {
+      return;
+    }
+    lazy.UrlbarPrefs.set(
+      "canonizedURLCount",
+      lazy.UrlbarPrefs.get("canonizedURLCount") + 1
+    );
   }
 
   /**

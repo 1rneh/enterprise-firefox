@@ -77,7 +77,18 @@ export const MONITOR_AGENTS_CHANGED_TOPIC =
 export const MONITOR_ERROR_CODES = Object.freeze({
   NETWORK: "network_error",
   TIMEOUT: "timeout",
+  BUDGET_EXCEEDED: "budget_exceeded",
   RATE_LIMIT: "rate_limit",
+  REQUEST_TOO_LARGE: "request_too_large",
+  MAX_USERS: "max_users_reached",
+  UPSTREAM_RATE_LIMIT: "upstream_rate_limit",
+  FASTLY_RATE_LIMIT: "fastly_rate_limit",
+  REQUEST_BLOCKED: "request_blocked",
+  INVALID_MODEL: "invalid_model",
+  INVALID_REQUEST: "invalid_request",
+  GLOBAL_BUDGET_EXCEEDED: "global_budget_exceeded",
+  GUEST_BUDGET_EXCEEDED: "guest_budget_exceeded",
+  MAX_GUESTS: "max_guests_reached",
   AUTH: "auth_error",
   CONTENT_EXTRACTION: "content_extraction_error",
   CANCELED: "canceled",
@@ -87,6 +98,36 @@ export const MONITOR_ERROR_CODES = Object.freeze({
   UNKNOWN: "unknown_error",
   ACTIVE_LIMIT: "active_limit_reached",
 });
+
+const MLPA_ERROR_CODES = new Map([
+  [
+    400,
+    new Map([
+      [8, MONITOR_ERROR_CODES.INVALID_MODEL],
+      [9, MONITOR_ERROR_CODES.INVALID_REQUEST],
+    ]),
+  ],
+  [
+    403,
+    new Map([
+      [4, MONITOR_ERROR_CODES.MAX_USERS],
+      [12, MONITOR_ERROR_CODES.MAX_GUESTS],
+    ]),
+  ],
+  [413, new Map([[3, MONITOR_ERROR_CODES.REQUEST_TOO_LARGE]])],
+  [
+    429,
+    new Map([
+      [1, MONITOR_ERROR_CODES.BUDGET_EXCEEDED],
+      [2, MONITOR_ERROR_CODES.RATE_LIMIT],
+      [5, MONITOR_ERROR_CODES.UPSTREAM_RATE_LIMIT],
+      [6, MONITOR_ERROR_CODES.FASTLY_RATE_LIMIT],
+      [10, MONITOR_ERROR_CODES.GLOBAL_BUDGET_EXCEEDED],
+      [11, MONITOR_ERROR_CODES.GUEST_BUDGET_EXCEEDED],
+    ]),
+  ],
+  [500, new Map([[10, MONITOR_ERROR_CODES.GLOBAL_BUDGET_EXCEEDED]])],
+]);
 
 // Why a monitor paused itself. Stored on the monitor's expiry record.
 export const MONITOR_EXPIRY_REASONS = Object.freeze({
@@ -1157,15 +1198,26 @@ export function monitorAgeMs(monitor, since = monitor.createdAt) {
 export function categorizeError(error) {
   const message = (error?.message ?? String(error)).toLowerCase();
 
-  // MLPA failures carry an HTTP status (or encode it in the message as
-  // "NNN status code") rather than descriptive text, so map status first.
-  // MLPA reports budget, QPS, and upstream limits all as 429.
+  // MLPA subcodes identify failures that share an HTTP status.
   const status =
     typeof error?.status === "number"
       ? error.status
       : Number(message.match(/(\d{3}) status code/)?.[1]);
+  const mlpaErrorCode = MLPA_ERROR_CODES.get(status)?.get(error?.error);
+  if (mlpaErrorCode) {
+    return mlpaErrorCode;
+  }
+  if (status === 406) {
+    return MONITOR_ERROR_CODES.REQUEST_BLOCKED;
+  }
+  if (status === 413) {
+    return MONITOR_ERROR_CODES.REQUEST_TOO_LARGE;
+  }
+  if (status === 400) {
+    return MONITOR_ERROR_CODES.INVALID_REQUEST;
+  }
   if (status === 429) {
-    return MONITOR_ERROR_CODES.RATE_LIMIT;
+    return MONITOR_ERROR_CODES.MODEL;
   }
   if (status === 401 || status === 403) {
     return MONITOR_ERROR_CODES.AUTH;

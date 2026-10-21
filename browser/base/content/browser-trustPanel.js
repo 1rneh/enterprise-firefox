@@ -14,6 +14,7 @@ ChromeUtils.defineESModuleGetters(this, {
   E10SUtils: "resource://gre/modules/E10SUtils.sys.mjs",
   FX_MONITOR_OAUTH_CLIENT_ID: "resource://gre/modules/FxAccountsCommon.sys.mjs",
   identifyType: "resource://gre/modules/TrackingDBService.sys.mjs",
+  NimbusFeatures: "resource://nimbus/ExperimentAPI.sys.mjs",
   PanelMultiView:
     "moz-src:///browser/components/customizableui/PanelMultiView.sys.mjs",
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
@@ -2049,6 +2050,18 @@ class TrustPanel {
       this.#popupToggleDelayTimer = setTimeout(() => {
         this.#enablePopupToggles();
       }, popupClickjackDelay);
+    }
+
+    // Record Nimbus exposure for protections panel redesign experiment
+    if (
+      Services.prefs.getBoolPref(
+        "browser.protectionsPanelRedesign.enabled",
+        false
+      )
+    ) {
+      NimbusFeatures.protectionsPanelRedesign.recordExposureEvent({
+        once: true,
+      });
     }
   }
 

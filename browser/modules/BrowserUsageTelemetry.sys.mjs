@@ -278,6 +278,10 @@ function getOpenTabsAndWinsCounts() {
 
   for (let win of Services.wm.getEnumerator("navigator:browser")) {
     winCount++;
+    // Windows that are still opening don't have a gBrowser yet.
+    if (!win.gBrowser) {
+      continue;
+    }
     tabCount += win.gBrowser.tabs.length;
     for (const tab of win.gBrowser.tabs) {
       if (tab.getAttribute("pending") !== "true") {
@@ -305,6 +309,9 @@ function getPinnedTabsCount() {
   let pinnedTabs = 0;
 
   for (let win of Services.wm.getEnumerator("navigator:browser")) {
+    if (!win.gBrowser) {
+      continue;
+    }
     pinnedTabs += [...win.gBrowser.tabs].filter(t => t.pinned).length;
   }
 
@@ -1587,6 +1594,9 @@ export let BrowserUsageTelemetry = {
     let tabGroupLengths = [];
 
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
+      if (!win.gBrowser) {
+        continue;
+      }
       totalTabs += win.gBrowser.tabs.length;
       for (let group of win.gBrowser.tabGroups) {
         totalTabsInGroups += group.tabs.length;
@@ -1633,6 +1643,9 @@ export let BrowserUsageTelemetry = {
       collapsed = 0;
 
     for (let win of Services.wm.getEnumerator("navigator:browser")) {
+      if (!win.gBrowser) {
+        continue;
+      }
       for (let group of win.gBrowser.tabGroups) {
         if (group.collapsed) {
           collapsed += 1;

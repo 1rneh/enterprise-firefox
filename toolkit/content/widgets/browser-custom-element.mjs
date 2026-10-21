@@ -1863,7 +1863,7 @@ export class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
   async drawSnapshot(x, y, w, h, scale, backgroundColor, fullViewport = false) {
     let rect = fullViewport ? null : new DOMRect(x, y, w, h);
     try {
-      return this.browsingContext.currentWindowGlobal.drawSnapshot(
+      return await this.browsingContext.currentWindowGlobal.drawSnapshot(
         rect,
         scale,
         backgroundColor

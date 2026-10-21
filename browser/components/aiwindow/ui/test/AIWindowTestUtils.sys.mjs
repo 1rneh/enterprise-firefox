@@ -238,6 +238,7 @@ export class MockEngineManager {
     return {
       request,
       respond: response => engine.respond(requestId, response),
+      reject: error => engine.reject(requestId, error),
     };
   }
 

@@ -503,6 +503,16 @@ class CompositorBridgeParent final : public CompositorBridgeParentBase {
   static void CollectEmbeddedChildNamespaces(LayersId aEmbedder,
                                              nsTArray<uint32_t>& aOut);
 
+  // Iterates every entry. aFn should take (LayersId, LayerTreeState&).
+  template <typename Function>
+  static void ForEachLayerTreeStateUnderLock(
+      const StaticMonitorAutoLock& aProofOfLock, Function&& aFn) {
+    sIndirectLayerTreesLock.AssertCurrentThreadOwns();
+    for (auto& entry : sIndirectLayerTrees) {
+      aFn(entry.first, entry.second);
+    }
+  }
+
   /**
    * Given the layers id for a content process, get the GeckoContentController
    * for the corresponding *root* layers id. That is, the

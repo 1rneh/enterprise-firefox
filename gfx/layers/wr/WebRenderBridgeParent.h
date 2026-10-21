@@ -264,6 +264,13 @@ class WebRenderBridgeParent final : public PWebRenderBridgeParent,
     return aFontKey.mNamespace == mLateInit->mIdNamespace;
   }
 
+  // Returns the bridge whose namespace is aNamespace, if it is this bridge or
+  // another bridge of the same content process and the same WebRender window.
+  // Otherwise returns null. A snapshot image can only be adopted
+  // (OpAdoptSnapshotImage) from such a bridge.
+  already_AddRefed<WebRenderBridgeParent> FindSnapshotSourceBridge(
+      const wr::IdNamespace& aNamespace);
+
   bool OwnsExternalImageId(const wr::ExternalImageId& aId) const {
     return static_cast<uint32_t>(wr::AsUint64(aId) >> 32) ==
            mLateInit->mIdNamespace.mHandle;

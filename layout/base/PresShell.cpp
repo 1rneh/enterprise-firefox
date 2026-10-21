@@ -6779,7 +6779,11 @@ void PresShell::PaintInternal(nsIFrame* aFrame, WindowRenderer* aRenderer,
   }
 
   if (aFrame) {
+    // A view transition capture must build a display list, also when an
+    // iframe is captured from an ancestor root frame that has no pending
+    // layer tree update.
     if (!(aFlags & PaintInternalFlags::PaintSyncDecodeImages) &&
+        !(aFlags & PaintInternalFlags::PaintCompositeOffscreen) &&
         !aFrame->HasAnyStateBits(NS_FRAME_UPDATE_LAYER_TREE)) {
       if (layerManager) {
         layerManager->SetTransactionIdAllocator(presContext->RefreshDriver());

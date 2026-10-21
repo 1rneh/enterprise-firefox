@@ -11,6 +11,7 @@ export class AITabChild extends JSWindowActorChild {
   handleEvent(event) {
     switch (event.type) {
       case "AITab:GetPage":
+      case "AITab:GetHeadingFont":
       case "AITab:DeletePage":
         this.#query(event);
         break;

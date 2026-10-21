@@ -16,8 +16,14 @@ support-files = ["topstories.json"]
 ["test_ActivityStream_contextualAds.js"]
 
 ["test_AdsClient.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["test_AdsFeed.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["test_ExtensionWidgetsFeed.js"]
 
@@ -36,8 +42,14 @@ support-files = ["topstories.json"]
 ["test_LocationInterestGrid.js"]
 
 ["test_NewTabAttributionFeed.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["test_NewTabAttributionService.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["test_NewTabContentPing.js"]
 

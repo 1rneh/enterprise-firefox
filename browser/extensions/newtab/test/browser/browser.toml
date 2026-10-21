@@ -35,6 +35,9 @@ tags = "newtab"
 ["browser_as_render.js"]
 
 ["browser_attribution_actor.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]
 
 ["browser_context_menu_item.js"]
 
@@ -87,3 +90,6 @@ https_first_disabled = true
 tags = "urlbar"
 
 ["browser_topsites_sponsored.js"]
+skip-if = [
+  "enterprise", # MARS (sponsored content) is disabled on enterprise builds
+]

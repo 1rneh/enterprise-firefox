@@ -258,16 +258,26 @@ export class IPPAutoActivationSingleton {
     });
   }
 
-  #handleProxyEvent() {
+  #handleProxyEvent(event) {
     switch (lazy.IPPProxyManager.state) {
       case lazy.IPPProxyStates.ACTIVE:
         this.#activation = null;
         break;
 
       case lazy.IPPProxyStates.READY:
-        // Not when an activation of ours is what just failed.
-        if (!this.#activation) {
-          this.#maybeActivate();
+        // Only after a working connection goes away: a failed activation, or
+        // the user stopping a failed connection, is not retried.
+        if (
+          event.detail?.prevState === lazy.IPPProxyStates.ACTIVE ||
+          event.detail?.prevState === lazy.IPPProxyStates.PAUSED
+        ) {
+          // Starting dispatches ACTIVATING, so let every listener see READY
+          // first.
+          Promise.resolve().then(() => {
+            if (this.#initialized) {
+              this.#maybeActivate();
+            }
+          });
         }
         break;
 

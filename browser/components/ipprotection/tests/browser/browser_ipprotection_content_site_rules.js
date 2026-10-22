@@ -878,8 +878,8 @@ add_task(async function test_site_rule_status_inclusion_from_rule() {
       MOCK_SITE_NAME
     );
   IPPPermissionRules.setRule(principal, IPPPrincipalRules.INCLUDED);
-  await waitForProxyState(IPPProxyStates.ACTIVE);
 
+  await waitForProxyState(IPPProxyStates.ACTIVE);
   let content = await openPanel();
 
   Assert.ok(

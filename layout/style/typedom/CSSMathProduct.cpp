@@ -16,6 +16,7 @@
 #include "mozilla/dom/CSSNumericValue.h"
 #include "mozilla/dom/CSSNumericValueBinding.h"
 #include "nsString.h"
+#include "nsTArray.h"
 
 namespace mozilla::dom {
 
@@ -29,6 +30,17 @@ CSSMathProduct::CSSMathProduct(
 
 // static
 RefPtr<CSSMathProduct> CSSMathProduct::Create(
+    nsCOMPtr<nsISupports> aParent, UniquePtr<StyleNumericType> aNumericType,
+    nsTArray<RefPtr<CSSNumericValue>> aValues) {
+  auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(aValues));
+
+  return MakeRefPtr<CSSMathProduct>(std::move(aParent),
+                                    WrapMovingNotNull(std::move(aNumericType)),
+                                    std::move(array));
+}
+
+// static
+RefPtr<CSSMathProduct> CSSMathProduct::Create(
     nsCOMPtr<nsISupports> aParent, const StyleMathProduct& aMathProduct) {
   nsTArray<RefPtr<CSSNumericValue>> values;
 
@@ -36,13 +48,9 @@ RefPtr<CSSMathProduct> CSSMathProduct::Create(
     values.AppendElement(CSSNumericValue::Create(aParent, value));
   }
 
-  auto array = MakeRefPtr<CSSNumericArray>(aParent, std::move(values));
-
-  return MakeRefPtr<CSSMathProduct>(
-      std::move(aParent),
-      WrapMovingNotNull(
-          MakeUnique<StyleNumericType>(aMathProduct.numeric_type)),
-      std::move(array));
+  return Create(std::move(aParent),
+                MakeUnique<StyleNumericType>(aMathProduct.numeric_type),
+                std::move(values));
 }
 
 NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED_0(CSSMathProduct, CSSMathValue)

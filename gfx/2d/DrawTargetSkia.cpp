@@ -1656,8 +1656,7 @@ bool DrawTarget::Draw3DTransformedSurface(SourceSurface* aSurface,
   }
   // Transform the surface bounds and clip to this DT.
   IntRect xformBounds = RoundedOut(fullMat.TransformAndClipBounds(
-      Rect(Point(0, 0), Size(aSurface->GetSize())),
-      Rect(Point(0, 0), Size(GetSize()))));
+      Rect(Point(0, 0), Size(aSurface->GetSize())), Rect(GetRect())));
   if (xformBounds.IsEmpty()) {
     return true;
   }

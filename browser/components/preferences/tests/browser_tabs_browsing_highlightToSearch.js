@@ -13,15 +13,12 @@ const SHORTCUTS_PREF = "browser.ml.chat.shortcuts";
 const PROVIDER_PREF = "browser.ml.chat.provider";
 
 /**
- * Open the pane that holds the setting, which differs between the redesigned
- * and legacy layouts.
+ * Open the pane that holds the setting.
  *
  * @returns {Promise<{tab: MozTabbrowserTab, control: Element}>}
  */
 async function openPaneWithSetting() {
-  let pane = Services.prefs.getBoolPref("browser.settings-redesign.enabled")
-    ? "tabsBrowsing"
-    : "general";
+  let pane = "tabsBrowsing";
   let tab = await openPrefsTab(pane);
   let doc = tab.linkedBrowser.contentDocument;
   await TestUtils.waitForCondition(

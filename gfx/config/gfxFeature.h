@@ -68,6 +68,7 @@ namespace gfx {
   _(WEBGL, Feature, "WebGL")                                                 \
   _(VIDEO_HDR, Feature, "HDR video supported")                               \
   _(WEBRENDER_ANGLE_METAL, Feature, "WebRender ANGLE Metal")                 \
+  _(WEBRENDER_ANGLE_GL, Feature, "WebRender ANGLE OpenGL")                   \
   /* Add new entries above this comment */
 
 enum class Feature : uint32_t {

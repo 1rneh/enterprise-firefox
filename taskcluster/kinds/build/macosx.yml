@@ -797,6 +797,9 @@ macosx64-devedition/opt:
             - artifact: sbom.json
               extract: false
               dest: x64
+            - artifact: sbom-build-tooling.json
+              extract: false
+              dest: x64
             - artifact: buildhub.json
               extract: false
               dest: ../artifacts
@@ -878,6 +881,9 @@ macosx64-devedition/opt:
               extract: false
               dest: aarch64
             - artifact: sbom.json
+              extract: false
+              dest: aarch64
+            - artifact: sbom-build-tooling.json
               extract: false
               dest: aarch64
             - artifact: target.common.tests.tar.zst
@@ -1272,7 +1278,8 @@ macosx64-shippable/opt:
     worker:
         # No MOZ_GENERATE_SBOM here: this task only recombines the
         # per-architecture builds, and re-uploads their SBOMs as
-        # sbom-x86_64.json and sbom-aarch64.json.
+        # sbom-x86_64.json and sbom-aarch64.json, along with their build
+        # tooling counterparts.
         max-run-time: 1800
     mozconfig: null
     run:
@@ -1288,6 +1295,9 @@ macosx64-shippable/opt:
               extract: false
               dest: x64
             - artifact: sbom.json
+              extract: false
+              dest: x64
+            - artifact: sbom-build-tooling.json
               extract: false
               dest: x64
             - artifact: buildhub.json
@@ -1371,6 +1381,9 @@ macosx64-shippable/opt:
               extract: false
               dest: aarch64
             - artifact: sbom.json
+              extract: false
+              dest: aarch64
+            - artifact: sbom-build-tooling.json
               extract: false
               dest: aarch64
             - artifact: target.common.tests.tar.zst

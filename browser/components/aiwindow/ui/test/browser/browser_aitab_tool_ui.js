@@ -415,6 +415,13 @@ describe("AITab ToolUI", () => {
     });
 
     it("opens the stored page in a new tab from Open in new tab", async () => {
+      const unrelatedTab = BrowserTestUtils.addTab(
+        win.gBrowser,
+        "about:blank",
+        {
+          index: Array.from(win.gBrowser.tabs).indexOf(chatTab) + 1,
+        }
+      );
       const opened = BrowserTestUtils.waitForNewTab(
         win.gBrowser,
         viewerURL,
@@ -427,10 +434,21 @@ describe("AITab ToolUI", () => {
       );
       const newTab = await opened;
 
-      Assert.equal(win.gBrowser.tabs.length, initialTabCount + 1);
+      Assert.equal(win.gBrowser.tabs.length, initialTabCount + 2);
       Assert.notEqual(newTab, chatTab);
       Assert.equal(win.gBrowser.selectedTab, newTab);
       Assert.equal(newTab.linkedBrowser.currentURI.spec, viewerURL);
+      const tabs = Array.from(win.gBrowser.tabs);
+      Assert.equal(
+        tabs.indexOf(newTab),
+        tabs.indexOf(chatTab) + 1,
+        "The generated page opens immediately after the chat tab"
+      );
+      Assert.equal(
+        tabs.indexOf(unrelatedTab),
+        tabs.indexOf(newTab) + 1,
+        "The unrelated tab remains after the generated page"
+      );
     });
 
     it("opens a new tab from the completed title when the page is closed", async () => {

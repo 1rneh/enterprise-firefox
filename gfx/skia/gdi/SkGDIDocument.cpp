@@ -197,20 +197,22 @@ void blit_bitmap(HDC dc, const SkBitmap& bm, const SkIRect& dst, bool smooth = t
     SetStretchBltMode(dc, oldMode);
 }
 
-using DrawPageFn = std::function<void(SkCanvas*, SkIPoint)>;
+using DrawFn = std::function<void(SkCanvas*)>;
 
-// Draws |draw| on top of white into a new |width| x |height| bitmap, whose device origin is at
-// |origin| in the page, after applying |matrix| to the canvas.
-bool draw_on_white(int width, int height, const SkMatrix& matrix, SkIPoint origin,
-                   const DrawPageFn& draw, SkBitmap* bm) {
-    if (!bm->tryAllocPixels(SkImageInfo::Make(width, height, kBGRA_8888_SkColorType,
+// Rasterizes |draw| (in device space) for the |area| of the page on top of white, at |scale|
+// times the device resolution.
+bool rasterize(const SkIRect& area, SkScalar scale, const DrawFn& draw, SkBitmap* bm) {
+    int w = std::max(1, SkScalarCeilToInt(area.width() * scale));
+    int h = std::max(1, SkScalarCeilToInt(area.height() * scale));
+    if (!bm->tryAllocPixels(SkImageInfo::Make(w, h, kBGRA_8888_SkColorType,
                                               kPremul_SkAlphaType))) {
         return false;
     }
     SkCanvas canvas(*bm);
     canvas.clear(SK_ColorWHITE);
-    canvas.concat(matrix);
-    draw(&canvas, origin);
+    canvas.scale(SkScalar(w) / area.width(), SkScalar(h) / area.height());
+    canvas.translate(-area.x(), -area.y());
+    draw(&canvas);
     // Make sure that nothing is left translucent (e.g. due to kClear or kSrc), since GDI ignores
     // the alpha channel.
     canvas.restoreToCount(1);
@@ -218,43 +220,15 @@ bool draw_on_white(int width, int height, const SkMatrix& matrix, SkIPoint origi
     return true;
 }
 
-// Rasterizes |draw| for the |area| of the page on top of white, at |scale| times the device
-// resolution. |draw| gets a canvas whose device origin is at the passed point of the page.
-//
-// If |canvasMayBeScaled|, the canvas may also be transformed (relative to that origin), so that
-// |draw| is rasterized at the final resolution. Otherwise it's untransformed and at device
-// resolution, and the result is downscaled afterwards.
-bool rasterize(const SkIRect& area, SkScalar scale, bool canvasMayBeScaled,
-               const DrawPageFn& draw, SkBitmap* bm) {
-    int w = std::max(1, SkScalarCeilToInt(area.width() * scale));
-    int h = std::max(1, SkScalarCeilToInt(area.height() * scale));
-    if (scale >= 1 || canvasMayBeScaled) {
-        SkMatrix matrix = SkMatrix::Scale(SkScalar(w) / area.width(), SkScalar(h) / area.height());
-        return draw_on_white(w, h, matrix, area.topLeft(), draw, bm);
-    }
-    SkBitmap full;
-    if (!draw_on_white(area.width(), area.height(), SkMatrix::I(), area.topLeft(), draw, &full) ||
-        !bm->tryAllocPixels(full.info().makeWH(w, h))) {
-        return false;
-    }
-    sk_sp<SkImage> image = full.asImage()->withDefaultMipmaps();
-    if (!image) {
-        return false;
-    }
-    SkCanvas canvas(*bm);
-    canvas.drawImageRect(image, SkRect::MakeIWH(w, h),
-                         SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kLinear));
-    return true;
-}
-
 // Rasterizes and blits the |region| of the page, in as few strips as memory usage allows.
-void rasterize_region(HDC dc, const SkRegion& region, SkScalar scale, bool canvasMayBeScaled,
-                      const DrawPageFn& draw) {
+void rasterize_region(HDC dc, const SkRegion& region, SkScalar scale, const DrawFn& draw) {
     if (region.isEmpty()) {
         return;
     }
     const SkIRect& area = region.getBounds();
-    int stripHeight = std::max<int>(1, kMaxRasterPixels / area.width());
+    int64_t rowPixels = std::max<int64_t>(1, SkScalarCeilToInt(area.width() * scale));
+    int stripHeight = std::max<int>(
+            1, SkScalarFloorToInt((kMaxRasterPixels / 4 / rowPixels) / scale));
     for (int y = area.fTop; y < area.fBottom; y += stripHeight) {
         SkRegion strip(SkIRect::MakeLTRB(area.fLeft, y, area.fRight,
                                          std::min(y + stripHeight, area.fBottom)));
@@ -262,7 +236,7 @@ void rasterize_region(HDC dc, const SkRegion& region, SkScalar scale, bool canva
             continue;
         }
         SkBitmap bm;
-        if (rasterize(strip.getBounds(), scale, canvasMayBeScaled, draw, &bm)) {
+        if (rasterize(strip.getBounds(), scale, draw, &bm)) {
             blit_bitmap(dc, bm, strip.getBounds());
         }
     }
@@ -956,15 +930,13 @@ private:
         EndPath(dc);
         SetPolyFillMode(dc, fill_mode(geometry.fPath));
         SelectClipPath(dc, RGN_AND);
-        rasterize_region(dc, SkRegion(area), fPage->fRasterScale, /* canvasMayBeScaled */ true,
-                         [&](SkCanvas* canvas, SkIPoint origin) {
-                             canvas->translate(-origin.x(), -origin.y());
-                             canvas->concat(ctm);
-                             SkPaint fill(paint);
-                             fill.setStyle(SkPaint::kFill_Style);
-                             fill.setPathEffect(nullptr);
-                             canvas->drawPaint(fill);
-                         });
+        rasterize_region(dc, SkRegion(area), fPage->fRasterScale, [&](SkCanvas* canvas) {
+            canvas->concat(ctm);
+            SkPaint fill(paint);
+            fill.setStyle(SkPaint::kFill_Style);
+            fill.setPathEffect(nullptr);
+            canvas->drawPaint(fill);
+        });
         RestoreDC(dc, -1);
     }
 
@@ -1217,7 +1189,7 @@ class GDIDocument final : public SkGDI::Document {
 public:
     GDIDocument(HDC dc, const SkGDI::Options& options) : fDC(dc), fOptions(options) {}
 
-    void drawPage(SkISize size, const DrawPageFn& draw) override {
+    void drawPage(SkISize size, const DrawFn& draw) override {
         if (size.isEmpty()) {
             return;
         }
@@ -1246,13 +1218,13 @@ public:
     }
 
 private:
-    static void Playback(const DrawPageFn& draw, PageState* state) {
+    static void Playback(const DrawFn& draw, PageState* state) {
         SkCanvas canvas(sk_make_sp<SkGDIDevice>(state, state->fBounds.size(),
                                                 SkGDIDevice::Kind::kDirect, nullptr));
-        draw(&canvas, {0, 0});
+        draw(&canvas);
     }
 
-    void rasterizeFallback(const DrawPageFn& draw, const SkRegion& fallback, SkScalar scale) {
+    void rasterizeFallback(const DrawFn& draw, const SkRegion& fallback, SkScalar scale) {
         if (fallback.isEmpty()) {
             return;
         }
@@ -1261,7 +1233,7 @@ private:
         }
         // Every rasterization needs to draw the whole page, so rasterize the bounds of the
         // fallback region in as few strips as possible, clipped to the region.
-        rasterize_region(fDC, fallback, scale, /* canvasMayBeScaled */ false, draw);
+        rasterize_region(fDC, fallback, scale, draw);
     }
 
     HDC fDC;

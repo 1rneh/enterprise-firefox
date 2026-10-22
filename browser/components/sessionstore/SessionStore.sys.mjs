@@ -41,6 +41,9 @@
  *   Whether the window is a popup, i.e. one without browser chrome.
  * @property {boolean} [isTaskbarTab]
  *   Whether the window is a taskbar tab.
+ * @property {boolean} [isMiniWindow]
+ *   Whether the window is a mini window. Mini windows are ephemeral, so they
+ *   aren't written to the session file or kept as closed windows.
  * @property {boolean} [isAIWindow]
  *   Whether the window is an AI window.
  * @property {string} [title]
@@ -1764,6 +1767,10 @@ class _SessionStore {
       this.#windows[this.#windowIds.get(aWindow)].isTaskbarTab = true;
     }
 
+    if (aWindow.document.documentElement.hasAttribute("mini-window")) {
+      this.#windows[this.#windowIds.get(aWindow)].isMiniWindow = true;
+    }
+
     if (lazy.AIWindow.isAIWindowActiveAndEnabled(aWindow)) {
       this.#windows[this.#windowIds.get(aWindow)].isAIWindow = true;
     }
@@ -1813,9 +1820,14 @@ class _SessionStore {
   #initializeWindow(aWindow, aInitialState = null) {
     let isPrivateWindow = PrivateBrowsingUtils.isWindowPrivate(aWindow);
     let isTaskbarTab = this.#windows[this.#windowIds.get(aWindow)].isTaskbarTab;
-    // A regular window is not a private window, taskbar tab window, or popup window
+    let isMiniWindow = this.#windows[this.#windowIds.get(aWindow)].isMiniWindow;
+    // A regular window is not a private window, taskbar tab window, mini window
+    // or popup window
     let isRegularWindow =
-      !isPrivateWindow && !isTaskbarTab && aWindow.toolbar.visible;
+      !isPrivateWindow &&
+      !isTaskbarTab &&
+      !isMiniWindow &&
+      aWindow.toolbar.visible;
 
     // perform additional initialization when the first window is loading
     if (lazy.RunState.isStopped) {
@@ -1907,7 +1919,8 @@ class _SessionStore {
       this.#restoreLastWindow &&
       aWindow.toolbar.visible &&
       this.#closedWindows.length &&
-      !isPrivateWindow
+      !isPrivateWindow &&
+      !isMiniWindow
     ) {
       // default to the most-recently closed window
       // don't use popup windows
@@ -2006,7 +2019,7 @@ class _SessionStore {
       this.#shouldRestoreLastSession = false;
     }
 
-    if (this.#restoreLastWindow && aWindow.toolbar.visible) {
+    if (this.#restoreLastWindow && aWindow.toolbar.visible && !isMiniWindow) {
       // always reset (if not a popup window)
       // we don't want to restore a window directly after, for example,
       // undoCloseWindow was executed.
@@ -2021,12 +2034,9 @@ class _SessionStore {
    *        Window reference
    */
   #onBeforeBrowserWindowShown(aWindow) {
-    // Do not track Document Picture-in-Picture windows or mini windows since
-    // these are ephemeral and tied to a specific tab's browser document.
-    if (
-      aWindow.browsingContext.isDocumentPiP ||
-      aWindow.document.documentElement.hasAttribute("mini-window")
-    ) {
+    // Do not track Document Picture-in-Picture windows since these are
+    // ephemeral and tied to a specific tab's browser document.
+    if (aWindow.browsingContext.isDocumentPiP) {
       return;
     }
 
@@ -2218,7 +2228,8 @@ class _SessionStore {
 
       let isLastRegularWindow =
         Object.values(this.#windows).filter(
-          wData => !wData.isPrivate && !wData.isTaskbarTab
+          wData =>
+            !wData.isPrivate && !wData.isTaskbarTab && !wData.isMiniWindow
         ).length == 1;
       this.#log.debug(
         `onClose, closing window isLastRegularWindow? ${isLastRegularWindow}`
@@ -2238,6 +2249,7 @@ class _SessionStore {
         isLastRegularWindow &&
         !winData.isTaskbarTab &&
         !winData.isPrivate &&
+        !winData.isMiniWindow &&
         taskbarTabsRemains
       ) {
         // If the setting is enabled, Firefox should auto-restore
@@ -2275,7 +2287,11 @@ class _SessionStore {
       // 2) Flush the window.
       // 3) When the flush is complete, revisit our decision to store the window
       //    in #closedWindows, and add/remove as necessary.
-      if (!winData.isPrivate && !winData.isTaskbarTab) {
+      if (
+        !winData.isPrivate &&
+        !winData.isTaskbarTab &&
+        !winData.isMiniWindow
+      ) {
         this.#maybeSaveClosedWindow(winData, isLastWindow);
       }
 
@@ -2294,9 +2310,13 @@ class _SessionStore {
           }
         }
 
-        // Save non-private windows if they have at
+        // Save non-{private, taskbar tabs, mini} windows if they have at
         // least one saveable tab or are the last window.
-        if (!winData.isPrivate && !winData.isTaskbarTab) {
+        if (
+          !winData.isPrivate &&
+          !winData.isTaskbarTab &&
+          !winData.isMiniWindow
+        ) {
           this.#maybeSaveClosedWindow(winData, isLastWindow);
 
           if (!isLastWindow && winData.closedId > -1) {
@@ -3337,8 +3357,6 @@ class _SessionStore {
       url: browser.currentURI.spec,
       title: aTab.label,
       userTypedValue,
-      // TODO(bug 2076655): Remove userTypedClear from the lazy state.
-      userTypedClear: 0,
     });
   }
 
@@ -4919,8 +4937,9 @@ class _SessionStore {
 
   #isLastRestorableWindow() {
     return (
-      Object.values(this.#windows).filter(winData => !winData.isPrivate)
-        .length == 1 &&
+      Object.values(this.#windows).filter(
+        winData => !winData.isPrivate && !winData.isMiniWindow
+      ).length == 1 &&
       !this.#closedWindows.some(win => win._shouldRestore || false)
     );
   }
@@ -5850,8 +5869,12 @@ class _SessionStore {
 
     // collect the data for all windows
     for (ix in this.#windows) {
-      if (this.#windows[ix]._restoring || this.#windows[ix].isTaskbarTab) {
-        // window data is still in #statesToRestore
+      if (
+        this.#windows[ix]._restoring ||
+        this.#windows[ix].isTaskbarTab ||
+        this.#windows[ix].isMiniWindow
+      ) {
+        // window data is still in #statesToRestore, or the window isn't saved
         continue;
       }
       total.push(this.#windows[ix]);
@@ -6882,7 +6905,6 @@ class _SessionStore {
         url,
         title,
         userTypedValue: tabData.userTypedValue || "",
-        userTypedClear: tabData.userTypedClear || 0,
       });
     }
 

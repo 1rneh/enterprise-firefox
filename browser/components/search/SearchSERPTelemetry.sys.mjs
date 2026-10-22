@@ -57,6 +57,7 @@ export const SearchSERPTelemetryUtils = {
     SUBMITTED: "submitted",
   },
   COMPONENTS: {
+    AD_BRAND_ZONE: "ad_brand_zone",
     AD_CAROUSEL: "ad_carousel",
     AD_IMAGE_ROW: "ad_image_row",
     AD_LINK: "ad_link",
@@ -102,6 +103,7 @@ const SCAN = {
 };
 
 const AD_COMPONENTS = [
+  SearchSERPTelemetryUtils.COMPONENTS.AD_BRAND_ZONE,
   SearchSERPTelemetryUtils.COMPONENTS.AD_CAROUSEL,
   SearchSERPTelemetryUtils.COMPONENTS.AD_IMAGE_ROW,
   SearchSERPTelemetryUtils.COMPONENTS.AD_LINK,
@@ -220,6 +222,11 @@ const AD_COMPONENTS = [
  *   The configuration for possible page type parameters.
  * @property {string[]} queryParamNames
  *   An array of query parameters that may be used for the user's search string.
+ * @property {boolean} [requireDocumentLoadForAdClick=false]
+ *   If true, only document loads (top-level or subframe) to an ad server are
+ *   counted as ad clicks. Use this when the provider sends non-document
+ *   requests, such as tracking pixels on hover, to the same endpoint used for
+ *   ad click navigations.
  * @property {boolean} [requireTopLevelImpressionOrigin=false]
  *   If true, a same-document navigation is only allowed to start tracking a
  *   browser if the document that browser actually loaded over the network was
@@ -331,6 +338,9 @@ class TelemetryHandler {
   // Callback used when syncing telemetry settings.
   #telemetrySettingsSync;
 
+  // The promise of the initialization in progress or completed.
+  #initPromise = null;
+
   // _browserInfoByURL is a map of tracked search urls to objects containing:
   // * {object} info
   //   the search provider information associated with the url.
@@ -394,12 +404,16 @@ class TelemetryHandler {
    * Initializes the TelemetryHandler and its ContentHandler. It will add
    * appropriate listeners to the window so that window opening and closing
    * can be tracked.
+   *
+   * @returns {Promise<void>}
+   *   Resolves once initialization has completed.
    */
-  async init() {
-    if (this._initialized) {
-      return;
-    }
+  init() {
+    this.#initPromise ??= this.#init();
+    return this.#initPromise;
+  }
 
+  async #init() {
     this._telemetrySettings = lazy.RemoteSettings(TELEMETRY_SETTINGS_KEY);
     let rawProviderInfo = [];
     try {
@@ -474,6 +488,7 @@ class TelemetryHandler {
     this.#telemetrySettingsSync = null;
 
     this._initialized = false;
+    this.#initPromise = null;
   }
 
   /**
@@ -1714,6 +1729,11 @@ class ContentHandler {
       }
 
       if (!info?.extraAdServersRegexps?.some(regex => regex.test(url))) {
+        return;
+      }
+
+      if (info.requireDocumentLoadForAdClick && !channel.isDocument) {
+        lazy.logConsole.debug("Ignoring non-document request to ad server");
         return;
       }
 

@@ -26,6 +26,7 @@
     "isSPA",
     "defaultPageQueryParam",
     "pageTypeParam",
+    "requireDocumentLoadForAdClick",
     "requireTopLevelImpressionOrigin",
     "subframes",
     "impressionAttributes",

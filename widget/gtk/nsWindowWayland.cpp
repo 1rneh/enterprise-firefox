@@ -506,7 +506,7 @@ void nsWindowWayland::UnlockNativePointer() {
   }
 }
 
-bool nsWindowWaylandToplevel::WaylandPipEnabled() const {
+bool nsWindowWaylandToplevel::IsPipWindow() const {
   return mPiPType == PiPType::MediaPiP &&
          StaticPrefs::widget_wayland_experimental_pip_enabled_AtStartup() &&
          GdkIsWaylandDisplay() && WaylandDisplayGet()->GetPipShell();
@@ -514,7 +514,7 @@ bool nsWindowWaylandToplevel::WaylandPipEnabled() const {
 
 void nsWindowWaylandToplevel::MaybeCreatePipResources() {
   LOG("MaybeCreatePipResources()");
-  if (!WaylandPipEnabled()) {
+  if (!IsPipWindow()) {
     return;
   }
 
@@ -632,7 +632,7 @@ void nsWindowWaylandToplevel::CreateNative() {
     mWaylandVsyncSource->EnableVSyncSource();
   }
 
-  if (WaylandPipEnabled()) {
+  if (IsPipWindow()) {
     // This avoids GTK from managing our top level surface role.
     // We'll handle it manually in OnMap().
     gdk_wayland_window_set_use_custom_surface(GetToplevelGdkWindow());

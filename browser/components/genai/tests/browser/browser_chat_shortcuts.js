@@ -353,6 +353,11 @@ add_task(async function test_search_action_click() {
       const panel = await showSelectionMenu(browser);
       const searchButton = document.getElementById("search-action-button");
       Assert.ok(!searchButton.hidden, "Search is offered without a chatbot");
+      Assert.deepEqual(
+        Glean.sapImpressionCounts.textSelection.testGetValue(),
+        { [SearchService.defaultEngine.id]: 1 },
+        "Showing Search records one impression, for the default engine"
+      );
 
       const panelHidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
       searchButton.click();
@@ -394,6 +399,7 @@ add_task(async function test_search_action_click() {
  * action is offered.
  */
 add_task(async function test_search_disabled_keeps_ai_action() {
+  Services.fog.testResetFOG();
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.highlightToSearch.featureGate", true],
@@ -416,6 +422,11 @@ add_task(async function test_search_disabled_keeps_ai_action() {
         document.getElementById("search-action-button").hidden,
         "Search is hidden when turned off"
       );
+      Assert.deepEqual(
+        Glean.sapImpressionCounts.textSelection.testGetValue(),
+        {},
+        "No impression is recorded while Search is hidden"
+      );
 
       panel.hide();
     });
@@ -424,10 +435,81 @@ add_task(async function test_search_disabled_keeps_ai_action() {
   }
 });
 
+async function doPrivateWindowImpressionTest(shouldRecordCounts) {
+  Services.fog.testResetFOG();
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.highlightToSearch.featureGate", true],
+      ["browser.highlightToSearch.enabled", true],
+      ["browser.highlightToSearch.search.enabled", true],
+      ["browser.ml.chat.provider", ""],
+      // This pref is the opposite of what it seems like it should be.
+      ["browser.engagement.search_counts.pbm", !shouldRecordCounts],
+    ],
+  });
+
+  const win = await BrowserTestUtils.openNewBrowserWindow({ private: true });
+
+  try {
+    await BrowserTestUtils.openNewForegroundTab(
+      win.gBrowser,
+      "data:text/plain,hi"
+    );
+    const browser = win.gBrowser.selectedBrowser;
+    await SimpleTest.promiseFocus(browser);
+
+    const selectPromise = SpecialPowers.spawn(browser, [], () =>
+      ContentTaskUtils.waitForCondition(() => content.getSelection().toString())
+    );
+    win.goDoCommand("cmd_selectAll");
+    await selectPromise;
+    await BrowserTestUtils.synthesizeMouse(
+      browser,
+      60,
+      10,
+      { type: "mouseup" },
+      browser
+    );
+
+    const panel = win.document.getElementById(
+      "selection-shortcut-action-panel"
+    );
+    await TestUtils.waitForCondition(
+      () => panel.getAttribute("panelopen") === "true",
+      "Selection menu opened in a private window"
+    );
+    Assert.ok(
+      !win.document.getElementById("search-action-button").hidden,
+      "Search is offered in a private window"
+    );
+    Assert.deepEqual(
+      Glean.sapImpressionCounts.textSelection.testGetValue(),
+      shouldRecordCounts ? { [SearchService.defaultPrivateEngine.id]: 1 } : {},
+      "The impression follows the private browsing counts pref"
+    );
+  } finally {
+    await BrowserTestUtils.closeWindow(win);
+    await SpecialPowers.popPrefEnv();
+  }
+}
+
+/**
+ * Check that the Search impression is recorded in a private window, using the
+ * private default engine, unless private browsing counts are turned off.
+ */
+add_task(async function test_private_window_impression_counts_enabled() {
+  await doPrivateWindowImpressionTest(true);
+});
+
+add_task(async function test_private_window_impression_counts_disabled() {
+  await doPrivateWindowImpressionTest(false);
+});
+
 /**
  * Check that Smart Window never offers the Search action.
  */
 add_task(async function test_smart_window_hides_search() {
+  Services.fog.testResetFOG();
   await SpecialPowers.pushPrefEnv({
     set: [
       ["browser.highlightToSearch.featureGate", true],
@@ -460,6 +542,11 @@ add_task(async function test_smart_window_hides_search() {
     Assert.ok(
       win.document.getElementById("search-action-button").hidden,
       "Search is not offered in Smart Window"
+    );
+    Assert.deepEqual(
+      Glean.sapImpressionCounts.textSelection.testGetValue(),
+      {},
+      "No impression is recorded in Smart Window"
     );
   } finally {
     await BrowserTestUtils.closeWindow(win);
@@ -1523,4 +1610,112 @@ add_task(async function test_ime_composition_hides_panel() {
   });
 
   await SpecialPowers.popPrefEnv();
+});
+
+const DEFAULT_IGNORE_FIELDS = "input,moz-multiline-editor";
+
+/**
+ * Check that textareas are ignored only while the Highlight to Search feature
+ * gate is on, so existing chatbot users keep the menu there until then.
+ */
+add_task(async function test_textarea_ignored_with_feature_gate() {
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.ml.chat.shortcuts.ignoreFields", DEFAULT_IGNORE_FIELDS]],
+  });
+  Assert.ok(
+    !GenAI.ignoredInputs.has("textarea"),
+    "Textareas are not ignored while the feature gate is off"
+  );
+
+  await SpecialPowers.pushPrefEnv({
+    set: [["browser.highlightToSearch.featureGate", true]],
+  });
+  Assert.ok(
+    GenAI.ignoredInputs.has("textarea"),
+    "Textareas are ignored while the feature gate is on"
+  );
+  Assert.ok(GenAI.ignoredInputs.has("input"), "Inputs are still ignored");
+
+  await SpecialPowers.popPrefEnv();
+  Assert.ok(
+    !GenAI.ignoredInputs.has("textarea"),
+    "Textareas are shown again once the feature gate is off"
+  );
+  await SpecialPowers.popPrefEnv();
+});
+
+async function selectTextareaAndMouseUp(browser) {
+  await SimpleTest.promiseFocus(browser);
+  await BrowserTestUtils.synthesizeMouse(
+    browser,
+    10,
+    10,
+    { type: "mousedown" },
+    browser
+  );
+  await SpecialPowers.spawn(browser, [], () => {
+    const textarea = content.document.querySelector("textarea");
+    textarea.focus();
+    textarea.select();
+  });
+  await BrowserTestUtils.synthesizeMouse(
+    browser,
+    60,
+    10,
+    { type: "mouseup" },
+    browser
+  );
+}
+
+/**
+ * Check that selecting text in a textarea shows no menu while the feature gate
+ * is on, and still does while it is off.
+ */
+add_task(async function test_textarea_selection_menu() {
+  const panel = document.getElementById("selection-shortcut-action-panel");
+  const spy = sinon.spy(GenAI, "handleShortcutsMessage");
+
+  for (const featureGate of [true, false]) {
+    spy.resetHistory();
+    await SpecialPowers.pushPrefEnv({
+      set: [
+        ["browser.highlightToSearch.featureGate", featureGate],
+        ["browser.ml.chat.shortcuts.ignoreFields", DEFAULT_IGNORE_FIELDS],
+        ["browser.ml.chat.shortcuts", true],
+        ["browser.ml.chat.shortcut.onboardingMouseoverCount", 2],
+        ["browser.ml.chat.provider", "http://localhost:8080"],
+      ],
+    });
+
+    await BrowserTestUtils.withNewTab(
+      "data:text/html,<textarea>some text</textarea>",
+      async browser => {
+        await selectTextareaAndMouseUp(browser);
+        await TestUtils.waitForCondition(
+          () => spy.calledWith("GenAI:ShowShortcuts"),
+          "Actor offered the textarea selection to the parent"
+        );
+
+        if (featureGate) {
+          Assert.equal(
+            panel.state,
+            "closed",
+            "No menu for a textarea while the feature gate is on"
+          );
+        } else {
+          await TestUtils.waitForCondition(
+            () => panel.getAttribute("panelopen") === "true",
+            "Menu opens for a textarea while the feature gate is off"
+          );
+          const hidden = BrowserTestUtils.waitForEvent(panel, "popuphidden");
+          panel.hide();
+          await hidden;
+        }
+      }
+    );
+
+    await SpecialPowers.popPrefEnv();
+  }
+
+  spy.restore();
 });

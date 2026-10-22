@@ -16029,7 +16029,7 @@
 # address and by-type (HTTPS/TXT) negative entries.
 - name: network.dnsNegativeCacheExpirationGracePeriod
   type: RelaxedAtomicUint32
-  value: 60
+  value: 600
   mirror: always
 
 # Get TTL; not supported on all platforms; nop on the unsupported ones.
@@ -17751,6 +17751,12 @@
 - name: network.http.dictionaries.enable
   type: RelaxedAtomicBool
   value: @IS_NIGHTLY_BUILD@
+  mirror: always
+
+# Whether to collect telemetry about Akamai responses and Akamai WAF blocks.
+- name: network.http.akamai_waf_telemetry.enabled
+  type: RelaxedAtomicBool
+  value: true
   mirror: always
 
 #---------------------------------------------------------------------------
@@ -19939,9 +19945,11 @@
 # circumstances. See RemoveForbiddenNodes in SVGUseElement.cpp for the spec
 # text.
 #
-# - 0: Don't restrict ever.
-# - 1: Restrict only cross-document.
-# - 2/other: restrict always.
+# - 0: Don't restrict anything.
+# - 1: Restrict only to SVG graphics elements except foreignObject when
+#      cross-document, and remove foreignObject and other foreign elements if
+#      same-document.
+# - 2/other: restrict only to SVG graphics elements except foreignObject.
 #
 # We allow the behavior to be configurable via this pref. Our chosen default
 # value forbids non-graphical content in <svg:use> clones of cross-document
@@ -20915,7 +20923,7 @@
 #if defined(MOZ_WIDGET_ANDROID)
 - name: webgl.out-of-process.enable-ahardwarebuffer
   type: bool
-  value: true
+  value: false
   mirror: once
 #endif
 

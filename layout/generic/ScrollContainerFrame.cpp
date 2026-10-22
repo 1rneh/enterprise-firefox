@@ -3588,7 +3588,7 @@ void ScrollContainerFrame::AppendScrollPartsTo(nsDisplayListBuilder* aBuilder,
       continue;
     }
 
-    nsDisplayList list(aBuilder);
+    nsDisplayList list;
     partList.SerializeWithCorrectZOrder(&list, scrollPart->GetContent());
 
     if (createLayer) {
@@ -3719,7 +3719,7 @@ void ScrollContainerFrame::MaybeCreateTopLayerAndWrapRootItems(
   }
   nsIFrame* rootStyleFrame = GetFrameForStyle();
 
-  nsDisplayList rootResultList(aBuilder);
+  nsDisplayList rootResultList;
   bool serializedList = false;
   auto SerializeList = [&] {
     if (!serializedList) {

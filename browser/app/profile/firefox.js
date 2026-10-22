@@ -4045,8 +4045,6 @@ pref("browser.ipProtection.features.siteExceptions", true);
 pref("browser.ipProtection.features.siteInclusions", false);
 // Pref to track if the site inclusion prompt has been shown in the VPN panel
 pref("browser.ipProtection.siteInclusionPromptShown", false);
-// Pref to show confirmation hints for site exceptions
-pref("browser.ipProtection.siteExceptionsHintsEnabled", true);
 pref("browser.ipProtection.log", false);
 #ifdef MOZ_ENTERPRISE
 pref("browser.ipProtection.guardian.endpoint", "");

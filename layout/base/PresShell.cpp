@@ -254,8 +254,7 @@ struct RangePaintInfo {
   float mResolution = 1.0;
 
   explicit RangePaintInfo(nsIFrame* aFrame)
-      : mBuilder(aFrame, nsDisplayListBuilderMode::Painting, false),
-        mList(&mBuilder) {
+      : mBuilder(aFrame, nsDisplayListBuilderMode::Painting, false) {
     MOZ_COUNT_CTOR(RangePaintInfo);
     mBuilder.BeginFrame();
   }
@@ -5338,7 +5337,7 @@ UniquePtr<RangePaintInfo> PresShell::CreateRangePaintInfo(
     ViewID zoomedId = nsLayoutUtils::FindOrCreateIDFor(
         rootScrollContainerFrame->GetContent());
 
-    nsDisplayList wrapped(&info->mBuilder);
+    nsDisplayList wrapped;
     wrapped.AppendNewToTop<nsDisplayAsyncZoom>(
         &info->mBuilder, rootScrollContainerFrame, &info->mList, nullptr,
         nsDisplayItem::ContainerASRType::Constant, zoomedId);
@@ -5653,7 +5652,7 @@ already_AddRefed<SourceSurface> PresShell::RenderSelection(
 
 static void AddDisplayItemToBottom(nsDisplayListBuilder* aBuilder,
                                    nsDisplayList* aList, nsDisplayItem* aItem) {
-  nsDisplayList list(aBuilder);
+  nsDisplayList list;
   list.AppendToTop(aItem);
   list.AppendToTop(aList);
   aList->AppendToTop(&list);

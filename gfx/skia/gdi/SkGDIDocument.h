@@ -5,7 +5,6 @@
 #ifndef SkGDIDocument_DEFINED
 #define SkGDIDocument_DEFINED
 
-#include "include/core/SkPoint.h"
 #include "include/core/SkScalar.h"
 #include "include/core/SkSize.h"
 #include "include/core/SkTypes.h"
@@ -40,11 +39,10 @@ public:
      * before anything can be emitted, so |draw| is called multiple times, and must draw exactly
      * the same content every time. Nothing drawn needs to outlive each call.
      *
-     * The device origin of the canvas passed to |draw| is at |origin| in the page, and the canvas
-     * isn't otherwise transformed.
+     * The canvas passed to |draw| may be transformed, and |draw| needs to draw relative to its
+     * initial transform.
      */
-    virtual void drawPage(SkISize size,
-                          const std::function<void(SkCanvas*, SkIPoint origin)>& draw) = 0;
+    virtual void drawPage(SkISize size, const std::function<void(SkCanvas*)>& draw) = 0;
 };
 
 SK_API std::unique_ptr<Document> MakeDocument(HDC dc, const Options& options = Options());

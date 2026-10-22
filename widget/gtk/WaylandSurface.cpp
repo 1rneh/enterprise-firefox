@@ -1523,12 +1523,11 @@ void WaylandSurface::SetColorRepresentationLocked(
   if (!colorRepresentation) {
     return;
   }
-
   LOGWAYLAND(
       "WaylandSurface::SetColorRepresentationLocked() color coefficients %s "
-      "full range %d",
-      BufferSurface::GetWLColorCoeficientsName(aWLColorCoeficients),
-      aFullRange);
+      "full range %d aWPChromaLocation %d",
+      BufferSurface::GetWLColorCoeficientsName(aWLColorCoeficients), aFullRange,
+      aWPChromaLocation);
 
   MOZ_DIAGNOSTIC_ASSERT(!mColorRepresentationSurface);
   mColorRepresentationSurface = WUniquePtr<wp_color_representation_surface_v1>(

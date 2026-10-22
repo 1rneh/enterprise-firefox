@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-import { AppConstants } from "resource://gre/modules/AppConstants.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 /**
@@ -14,7 +13,7 @@ import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
  * @import {WindowMode} from "moz-src:///browser/components/urlbar/content/UrlbarInputBase.mjs"
  * @import {SearchEngineInfo} from "chrome://browser/content/urlbar/SearchEngineStore.mjs"
  * @import {UrlbarLoadRequest, LoadURLParams} from "chrome://browser/content/urlbar/UrlbarShared.mjs"
- * @import {UrlbarChildControllerProxy, UrlbarInputProxy, UrlbarViewProxy} from "moz-src:///browser/components/urlbar/actors/UrlbarParent.sys.mjs"
+ * @import {UrlbarChildControllerProxy, UrlbarInputProxy, UrlbarParent, UrlbarViewProxy} from "moz-src:///browser/components/urlbar/actors/UrlbarParent.sys.mjs"
  */
 
 const lazy = XPCOMUtils.declareLazy({
@@ -113,10 +112,12 @@ export class UrlbarParentController {
    */
   #child = null;
 
-  // The owning JSWindowActor, used to resolve the chrome window parent-side
-  // (see `browserWindow`). Unlike the input and view, the browser window is a
-  // parent-process object, so we don't reach through the content-side child
-  // for it.
+  /**
+   * The associated UrlbarParent actor.
+   * Null in unit tests.
+   *
+   * @type {?UrlbarParent}
+   */
   #actor = null;
 
   // Whether the controller serves the address bar.
@@ -132,7 +133,7 @@ export class UrlbarParentController {
    *   The search access point name.
    * @param {boolean} [options.isPrivate]
    *   Whether the controller serves a private-browsing input.
-   * @param {object} [options.actor]
+   * @param {UrlbarParent} [options.actor]
    *   The owning `UrlbarParent` JSWindowActor, used to resolve the chrome
    *   window. Omitted in unit tests.
    * @param {object} [options.manager]
@@ -161,15 +162,6 @@ export class UrlbarParentController {
   }
 
   /**
-   * The platform constant.
-   *
-   * @type {string}
-   */
-  get platform() {
-    return AppConstants.platform;
-  }
-
-  /**
    * The input or an object that can forward calls to the input.
    *
    * @type {UrlbarInputProxy | UrlbarInput}
@@ -179,14 +171,14 @@ export class UrlbarParentController {
   }
 
   /**
-   * The chrome window the urlbar lives in, resolved parent-side from the actor.
-   * Parent-side providers read this (icons, speculative connect, opening help
-   * links), so it can't come from the content-side child.
+   * The chrome window the urlbar lives in.
    *
    * @type {BrowserWindow}
    */
   get browserWindow() {
-    return this.#actor?.browsingContext?.topChromeWindow;
+    return /** @type {BrowserWindow} */ (
+      this.#actor?.browsingContext?.topChromeWindow
+    );
   }
 
   /**

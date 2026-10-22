@@ -33,6 +33,7 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.listentopage.content.Content
 import mozilla.components.feature.listentopage.content.ContentProvider
 import mozilla.components.feature.listentopage.content.TextChunker
+import mozilla.components.feature.listentopage.facts.ListenToPageFacts
 import mozilla.components.feature.listentopage.fakes.FakeAudioFileCache
 import mozilla.components.feature.listentopage.fakes.FakePlaybackController
 import mozilla.components.feature.listentopage.fakes.FakeSpeechSynthesizer
@@ -48,6 +49,8 @@ import mozilla.components.feature.listentopage.synthesis.NoOfflineVoiceAvailable
 import mozilla.components.feature.listentopage.synthesis.SpeechSynthesisException
 import mozilla.components.feature.listentopage.synthesis.SpeechSynthesizer
 import mozilla.components.lib.state.Middleware
+import mozilla.components.support.base.facts.Facts
+import mozilla.components.support.base.facts.processor.CollectionProcessor
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -98,7 +101,43 @@ class ListenMiddlewareTest {
     fun tearDown() {
         middlewareScopes.forEach { it.cancel() }
         middlewareScopes.clear()
+        Facts.clearProcessors()
     }
+
+    @Test
+    fun `test that binding the engine reports which engine it is`() = runTest {
+        val facts = CollectionProcessor().also { Facts.registerProcessor(it) }
+        val store =
+            storeWith(synthesizerProvider = { FakeSpeechSynthesizer(enginePackageName = ENGINE) }) {
+                Result.success(Content(text = "Article text.", languageTag = "en-US"))
+            }
+
+        store.listenAndPlay(TAB_ID, URL)
+        advanceUntilIdle()
+
+        assertEquals(listOf(ENGINE), facts.engineBoundValues())
+    }
+
+    @Test
+    fun `test that each session reports the engine it binds`() = runTest {
+        val facts = CollectionProcessor().also { Facts.registerProcessor(it) }
+        val store =
+            storeWith(synthesizerProvider = { FakeSpeechSynthesizer(enginePackageName = ENGINE) }) {
+                Result.success(Content(text = "Article text.", languageTag = "en-US"))
+            }
+        store.listenAndPlay(TAB_ID, URL)
+        advanceUntilIdle()
+        store.dispatch(ListenAction.Session.StopRequested())
+        advanceUntilIdle()
+
+        store.listenAndPlay(TAB_ID, URL)
+        advanceUntilIdle()
+
+        assertEquals(listOf(ENGINE, ENGINE), facts.engineBoundValues())
+    }
+
+    private fun CollectionProcessor.engineBoundValues() =
+        facts.filter { it.item == ListenToPageFacts.Items.ENGINE_BOUND }.map { it.value }
 
     @Test
     fun `test that the article of the requested tab is extracted and its language recorded`() = runTest {
@@ -485,56 +524,6 @@ class ListenMiddlewareTest {
         // played until the whole of it had been synthesized.
         assertEquals("Sentence 1 is right here.", synthesizer.requests.first())
         assertTrue(article.length > synthesizer.requests.first().length * 50)
-    }
-
-    @Test
-    fun `test that an article declaring no language is not read out`() = runTest {
-        val synthesizer = FakeSpeechSynthesizer()
-        val store =
-            storeWith(synthesizerProvider = { synthesizer }) {
-                Result.success(Content(text = "An article with no language. It does not read.", languageTag = ""))
-            }
-        store.listenAndPlay(TAB_ID, URL)
-        advanceUntilIdle()
-
-        assertEquals(ListenError.ContentUnavailable, store.state.error)
-        assertEquals(emptyList<String>(), synthesizer.requests)
-        assertNull(store.state.languageTag)
-    }
-
-    @Test
-    fun `test that an article declaring a language with the wrong separator is repaired and read out`() = runTest {
-        val synthesizer = FakeSpeechSynthesizer()
-        val store =
-            storeWith(synthesizerProvider = { synthesizer }) {
-                Result.success(Content(text = "An article with a POSIX tag. It still reads.", languageTag = "en_US"))
-            }
-        store.listenAndPlay(TAB_ID, URL)
-        advanceUntilIdle()
-
-        // The repaired tag, not the one the page gave, is what the article is read as and what its voices are looked
-        // up for. Repairing per consumer is how a session ends up reading an article aloud while also reporting that
-        // it has no voice for the language.
-        assertEquals("en-US", store.state.languageTag)
-        assertEquals(listOf("en-US"), synthesizer.voiceRequests)
-        assertEquals("An article with a POSIX tag.", synthesizer.requests.first())
-        assertNull(store.state.error)
-    }
-
-    @Test
-    fun `test that an article declaring a malformed language is not read out`() = runTest {
-        listOf("-en", "e", "  ").forEach { tag ->
-            val synthesizer = FakeSpeechSynthesizer()
-            val store =
-                storeWith(synthesizerProvider = { synthesizer }) {
-                    Result.success(Content(text = "An article with a bad tag. It does not read.", languageTag = tag))
-                }
-            store.listenAndPlay(TAB_ID, URL)
-            advanceUntilIdle()
-
-            assertEquals("Read out <$tag>", emptyList<String>(), synthesizer.requests)
-            assertEquals("No error for <$tag>", ListenError.ContentUnavailable, store.state.error)
-        }
     }
 
     // The engine offers a voice here, so the synthesis is reached and it is the synthesis that fails.

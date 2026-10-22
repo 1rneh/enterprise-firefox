@@ -140,7 +140,6 @@
 
 #profiler-button-button {
   --profiler-button-image-fill-active: var(--toolbarbutton-icon-fill-attention);
-  --profiler-button-image-opacity-paused: var(--toolbarbutton-opacity-disabled);
 }
 
 #profiler-button-button > .toolbarbutton-icon {
@@ -159,10 +158,6 @@
 
 #profiler-button-button.profiler-active:hover > image {
   background-color: color-mix(in srgb, var(--profiler-button-image-fill-active) 13%, transparent);
-}
-
-#profiler-button-button.profiler-paused > image {
-  opacity: var(--profiler-button-image-opacity-paused);
 }
 
 #preferences-button {

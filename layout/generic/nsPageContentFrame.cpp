@@ -329,7 +329,7 @@ static void BuildDisplayListForExtraPage(nsDisplayListBuilder* aBuilder,
   if (!aExtraPage->HasAnyStateBits(NS_FRAME_FORCE_DISPLAY_LIST_DESCEND_INTO)) {
     return;
   }
-  nsDisplayList list(aBuilder);
+  nsDisplayList list;
   aExtraPage->BuildDisplayListForStackingContext(aBuilder, &list);
   PruneDisplayListForExtraPage(aBuilder, aPage, &list);
   aList->AppendToTop(&list);
@@ -362,7 +362,7 @@ void nsPageContentFrame::BuildDisplayList(nsDisplayListBuilder* aBuilder,
 
   nsDisplayListCollection set(aBuilder);
 
-  nsDisplayList content(aBuilder);
+  nsDisplayList content;
   {
     nsDisplayListBuilder::AutoPageNumberSetter p(aBuilder,
                                                  pageFrame->GetPageNum());

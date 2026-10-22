@@ -1183,10 +1183,18 @@ def make_desktop_nightly_filter(platforms, graph_config):
     """Returns a filter that gets all nightly tasks on the given platform."""
 
     def filter(task, parameters):
-        # _filter_by_release_project is used instead of filter_for_project
-        # because it fakes things a bit for Try, and allows tasks that
-        # otherwise wouldn't run there to be run
-        filter_for_target_project = _filter_by_release_project(parameters, graph_config)
+        # On Try, _filter_by_release_project fakes things a bit, and allows
+        # tasks that otherwise wouldn't run there to be run. Elsewhere,
+        # including project branches such as Pine, use the project's own
+        # run-on-projects.
+        if parameters["project"] == "try":
+            filter_for_target_project = _filter_by_release_project(
+                parameters, graph_config
+            )
+        else:
+            filter_for_target_project = functools.partial(
+                filter_for_project, parameters=parameters
+            )
 
         return all([
             filter_on_platforms(task, platforms),

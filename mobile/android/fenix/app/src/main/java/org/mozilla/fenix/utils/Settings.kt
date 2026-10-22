@@ -3415,10 +3415,17 @@ class Settings(
             default = { FxNimbus.features.addressbarFocusMode.value().enabled },
         )
 
-    /** Whether the customizing the browser menu is allowed. */
+    /** Whether customizing the browser menu is allowed. */
     var isMenuCustomizationEnabled by
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_menu_customization),
+            default = { false },
+        )
+
+    /** Whether entering the browser menu customization screen is allowed. */
+    var isMenuCustomizationScreenEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_menu_customization_screen),
             default = { false },
         )
 
@@ -3521,6 +3528,13 @@ class Settings(
         booleanPreference(
             key = appContext.getPreferenceKey(R.string.pref_key_enable_account_settings_new_ui),
             default = { FxNimbus.features.accountSyncDecoupleM1.value().enabled },
+        )
+
+    /** Whether or not accounts & sync decoupling is enabled */
+    var syncDecouplingEnabled by
+        booleanPreference(
+            key = appContext.getPreferenceKey(R.string.pref_key_enable_sync_decoupling),
+            default = { FxNimbus.features.accountSyncDecouple.value().enabled },
         )
 
     private var powerSavingModeAutoPreference by

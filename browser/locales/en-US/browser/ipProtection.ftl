@@ -287,6 +287,7 @@ ipprotection-message-continuous-onboarding-autostart = <a data-l10n-name="settin
 ipprotection-message-continuous-onboarding-site-settings = { -brand-short-name } will remember which websites you’ve set to use VPN. Update these in <a data-l10n-name="setting-link">settings</a> anytime.
 
 confirmation-hint-ipprotection-navigated-to-excluded-site = VPN is off for this site
+confirmation-hint-ipprotection-navigated-to-included-site = VPN is on for this site
 
 ipprotection-open-button = Open { -brand-product-name }
 ipprotection-come-back-title = Come back to try built-in VPN

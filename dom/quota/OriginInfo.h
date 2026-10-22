@@ -7,6 +7,7 @@
 
 #include "Assertions.h"
 #include "ClientUsageArray.h"
+#include "mozilla/StaticString.h"
 #include "mozilla/ThreadSafeWeakPtr.h"
 #include "mozilla/dom/quota/QuotaManager.h"
 
@@ -191,7 +192,14 @@ class OriginInfo final : public SupportsThreadSafeWeakPtr<OriginInfo> {
 
   void MakeDirty(DirtyTrackingAutoLock& aProofOfLock);
 
+  // Records the quotamanager.usage_underflow event if aUsage is negative.
+  void LockedMaybeRecordUsageUnderflow(Client::Type aClientType, int64_t aUsage,
+                                       StaticString aCallSite);
+
   ClientUsageArray mClientUsages;
+  // Per client, how many times a negative usage was seen for this OriginInfo.
+  // Used to throttle usage_underflow telemetry events.
+  Array<uint32_t, Client::TYPE_MAX> mUsageUnderflowCount{};
 
   // Signed for the same reason as QuotaManager::mTemporaryStorageUsage: though
   // it shouldn't go negative, in case that happens (transient state or bug

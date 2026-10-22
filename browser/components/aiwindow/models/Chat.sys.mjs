@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-import { openAIEngine } from "moz-src:///browser/components/aiwindow/models/openAIEngine.sys.mjs";
+import { AuthProvider } from "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs";
 import { MESSAGE_ROLE } from "moz-src:///browser/components/aiwindow/models/Conversation.sys.mjs";
 import {
   toolsConfig,
@@ -30,6 +30,7 @@ import { runSearchTheWeb } from "moz-src:///browser/components/aiwindow/models/s
 
 import { expandUrlTokensInToolParams } from "moz-src:///browser/components/aiwindow/models/ChatUtils.sys.mjs";
 import { runLLMaJTelemetry } from "moz-src:///browser/components/aiwindow/models/TelemetryUtils.sys.mjs";
+import { getSmartPageName } from "chrome://browser/content/aiwindow/modules/TrustedInternalURLs.mjs";
 
 /**
  * Execute a specific tool and return the result
@@ -163,11 +164,17 @@ const FEATURE_GATED_HANDLERS = new Map([
  * @property {true} success - If the AITab was generated successfully
  * @property {{message: string, page: {slug: string}}} toolResult - The
  *   model response and the stored page's slug
- * @property {GenerateAiTabToolUI} uiData - Data to update the ToolUI
+ * @property {GenerateAiTabToolUI} [uiData] - Data to update the ToolUI,
+ *   absent for a modification
  */
 
 /**
- * @typedef {Omit<GenerateAiTabSuccess, "uiData"> | GenerateAiTabFailure} GenerateAiTabResult
+ * @typedef {object} GenerateAiTabResult
+ * @property {boolean} success - If the AITab was generated successfully
+ * @property {GenerateAiTabSuccess["toolResult"] | string} toolResult - The
+ *   tool result for the model
+ * @property {boolean} endsTurn - Whether the ToolUI card is the response, so
+ *   the model gets no follow-up turn
  */
 
 /**
@@ -181,6 +188,8 @@ const FEATURE_GATED_HANDLERS = new Map([
  * @param {AbortSignal} [signal] - Cancels in-flight page extractions.
  * @param {any} _mode - Operation mode, unused
  * @param {string} [toolCallId] - The tool call's ID
+ * @param {BrowsingContext} [browsingContext] - The chat's browsing context,
+ *   used to find the selected tab of its window
  *
  * @returns {Promise<GenerateAiTabResult>} The tool response after attaching
  *   its UI data to the conversation.
@@ -190,7 +199,8 @@ async function runGenerateAiTab(
   conversation,
   signal,
   _mode,
-  toolCallId
+  toolCallId,
+  browsingContext
 ) {
   const { success, toolResult, uiData } = await toolFns.createAITab(
     params,
@@ -200,9 +210,26 @@ async function runGenerateAiTab(
 
   if (toolCallId && uiData) {
     conversation.addUIToolToCurrentMessage(toolCallId, uiData);
+  } else if (success) {
+    reloadSelectedSmartPage(browsingContext, toolResult.page.slug);
   }
 
-  return { success, toolResult };
+  return { success, toolResult, endsTurn: success && !!uiData };
+}
+
+/**
+ * Reloads the selected tab of the chat's window when it shows the page with
+ * `slug`, so a modified page displays its new version.
+ *
+ * @param {BrowsingContext} [browsingContext]
+ * @param {string} slug
+ */
+function reloadSelectedSmartPage(browsingContext, slug) {
+  const browser = browsingContext?.topChromeWindow?.gBrowser?.selectedBrowser;
+  const url = browser?.currentURI && URL.parse(browser.currentURI.spec);
+  if (getSmartPageName(url) === slug) {
+    browser.reload();
+  }
 }
 
 /**
@@ -415,7 +442,7 @@ Object.assign(Chat, {
    * @param {BrowsingContext} options.browsingContext - Omitted for tests only.
    * @param {"fullpage" | "sidebar" | "urlbar"} options.mode - See the MODE in ai-window.mjs
    * @param {AbortSignal} [options.signal]
-   * @param {Promise<string|null>} [options.fxAccountTokenPromise] - A token
+   * @param {Promise<string|null>} [options.tokenPromise] - A token
    *   fetch the caller already started, so a cold or expired token resolves
    *   alongside prompt construction rather than after it. Omit to fetch here.
    */
@@ -424,7 +451,7 @@ Object.assign(Chat, {
     browsingContext,
     mode,
     signal,
-    fxAccountTokenPromise,
+    tokenPromise,
   }) {
     if (!browsingContext && !Cu.isInAutomation) {
       const err = new Error(
@@ -433,13 +460,12 @@ Object.assign(Chat, {
       err.clientReason = "missingBrowsingContext";
       throw err;
     }
-    const fxAccountToken = await (fxAccountTokenPromise ??
-      openAIEngine.getFxAccountToken());
-    if (!fxAccountToken) {
+    const token = await (tokenPromise ?? AuthProvider.getToken());
+    if (!token) {
       console.error("fetchWithHistory Account Token null or undefined");
-      const fxaError = new Error("FxA token unavailable");
-      fxaError.clientReason = "fxaTokenUnavailable";
-      throw fxaError;
+      const tokenError = new Error("Token unavailable");
+      tokenError.clientReason = "fxaTokenUnavailable";
+      throw tokenError;
     }
 
     const currentTurn = conversation.currentTurnIndex();
@@ -465,7 +491,7 @@ Object.assign(Chat, {
 
       const stream = conversation.runWithGenerator({
         streamOptions: { enabled: true },
-        fxAccountToken,
+        token,
         chatId: conversation.id,
         tools: chatToolsConfig,
         args: snapshot,
@@ -688,7 +714,7 @@ Object.assign(Chat, {
         // Dispatch the required arguments to different tool calls. Wrap this in a
         // try/catch so the conversation can be updated for failed calls.
         let result;
-        let aiTabSucceeded = false;
+        let aiTabEndsTurn = false;
         let toolCallError = "";
         let isSearchHandoff = false;
         // Set when the tool is writing the user-facing reply itself, in which
@@ -726,10 +752,11 @@ Object.assign(Chat, {
               conversation,
               signal,
               mode,
-              id
+              id,
+              browsingContext
             );
             if (toolName === GENERATE_AITAB) {
-              aiTabSucceeded = result.success;
+              aiTabEndsTurn = result.endsTurn;
               result = result.toolResult;
             }
             /**
@@ -818,7 +845,7 @@ Object.assign(Chat, {
           .catch(() => {});
 
         // These successful tools finish their turns in the UI.
-        if (toolName === MANAGE_TABS || aiTabSucceeded) {
+        if (toolName === MANAGE_TABS || aiTabEndsTurn) {
           // These tool calls need to return early so any staged
           // security flags that have accumulated up to this point
           // need to be committed before returning since the commit

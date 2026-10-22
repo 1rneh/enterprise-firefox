@@ -684,7 +684,7 @@ add_task(async function test_modification_continues_the_conversation() {
     );
 
     Assert.ok(
-      toolResult.message.startsWith("The page was updated"),
+      toolResult.message.startsWith("The page was modified."),
       `The model is told the page was revised: ${toolResult.message}`
     );
     Assert.equal(
@@ -869,7 +869,7 @@ add_task(async function test_a_page_the_user_referenced_can_be_revised() {
     );
 
     Assert.ok(
-      toolResult.message?.startsWith("The page was updated"),
+      toolResult.message?.startsWith("The page was modified."),
       `The referenced page is revised: ${JSON.stringify(toolResult)}`
     );
     const latest = await lazy.AITabStore.getBySlug(slug);
@@ -1067,7 +1067,7 @@ add_task(async function test_focus_stands_in_for_modify_instructions() {
       "The focus reaches the model as the change to make."
     );
     Assert.ok(
-      toolResult.message.startsWith("The page was updated"),
+      toolResult.message.startsWith("The page was modified."),
       `The page is revised rather than refused: ${toolResult.message}`
     );
 

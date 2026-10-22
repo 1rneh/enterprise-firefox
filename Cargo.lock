@@ -3226,9 +3226,9 @@ dependencies = [
 
 [[package]]
 name = "glean"
-version = "70.2.1"
+version = "70.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a75a8cfc27ecee273cf19b4aaf8b50e916b137f6a3d2b4f1c13c59eae0e21ee"
+checksum = "11297daad5e1ac6aa71c2422238c3f0cb477d5e4fded7f399dc5a0d9b620046f"
 dependencies = [
  "crossbeam-channel",
  "glean-core",
@@ -3249,9 +3249,9 @@ dependencies = [
 
 [[package]]
 name = "glean-core"
-version = "70.2.1"
+version = "70.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9fb076df739ce5d2eff3a2cc723cc23e1f90d9d9f07dc46365962745cb3c286"
+checksum = "1e76828a4ec9b014352ce29aa70ab6699a44abcaf80b63db73123b9c7210c8bd"
 dependencies = [
  "android_logger",
  "bincode",
@@ -4252,9 +4252,9 @@ dependencies = [
 
 [[package]]
 name = "jxl"
-version = "0.7.4"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43b041e4bd5bb931cf73b271bc3304eb135bb473914877d64bf77fdf5b4d4687"
+checksum = "b8379fc83d79477900c9aed78cb8370a556d834081bebcb771c6010381c4e230"
 dependencies = [
  "array-init",
  "byteorder",
@@ -4279,9 +4279,9 @@ dependencies = [
 
 [[package]]
 name = "jxl_macros"
-version = "0.7.4"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7401c9c53e44e2efa17d7562c613f0972b93cf134aa91f08c14e00c8278ce663"
+checksum = "eeb27c06a9957bd9c8e65d0aeea0db6a555a9e1c85597e284f8304015c410c87"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4290,16 +4290,16 @@ dependencies = [
 
 [[package]]
 name = "jxl_simd"
-version = "0.7.4"
+version = "0.8.0"
 dependencies = [
  "rustversion",
 ]
 
 [[package]]
 name = "jxl_transforms"
-version = "0.7.4"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f72e196c6c1e938a4c7e2175d7c83464fa9e7f587224d310cac15d83fc80a37"
+checksum = "21c4b7f8957f5ba578b2e28cd5ebbc97dad58a3ad5ff26765da61e8dab8f1cad"
 dependencies = [
  "jxl_simd",
 ]
@@ -9983,9 +9983,9 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xshell-venv"
-version = "2.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b02ebe4a3558b86c64aeab700c924b08613020fca9c94d5f2cd412691b6c00bd"
+checksum = "1cae3b35db7e0236556d24524b840464227105347c4ac2696f15b138ee2698e5"
 dependencies = [
  "xshell",
 ]

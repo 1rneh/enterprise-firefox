@@ -15,10 +15,12 @@ ChromeUtils.defineESModuleGetters(lazy, {
   AITab: "moz-src:///browser/components/aiwindow/models/aitab/AITab.sys.mjs",
   AITabStore:
     "moz-src:///browser/components/aiwindow/ui/modules/AITabStore.sys.mjs",
+  Chat: "moz-src:///browser/components/aiwindow/models/Chat.sys.mjs",
   ConversationStore:
     "moz-src:///browser/components/aiwindow/ui/modules/ConversationStore.sys.mjs",
   MLTestUtils: "resource://testing-common/MLTestUtils.sys.mjs",
   MODEL_FEATURES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
+  PURPOSES: "moz-src:///browser/components/aiwindow/models/Utils.sys.mjs",
   MockEngineManager: "resource://testing-common/AIWindowTestUtils.sys.mjs",
   newChatConversation: "resource://testing-common/AIWindowTestUtils.sys.mjs",
   newConversation: "resource://testing-common/AIWindowTestUtils.sys.mjs",
@@ -748,6 +750,70 @@ add_task(async function test_createAITab_links_to_the_stored_page() {
     );
     Assert.equal(toolUIData.properties.viewerURL, viewerURL);
   } finally {
+    await mockEngine.rejectAllRequests();
+    await lazy.AITabStore.destroyDatabase();
+    await stopServing();
+    mockEngine.cleanupMocks();
+  }
+});
+
+add_task(async function test_modification_is_answered_by_the_model() {
+  const mockEngine = new lazy.MockEngineManager();
+  const { url, cleanup: stopServing } = servePage();
+  let pageTab;
+  try {
+    const conversation = await lazy.newChatConversation();
+    const created = generatePage(mockEngine, conversation, { url_list: [url] });
+    await mockEngine.respondTo({
+      purpose: lazy.MODEL_FEATURES.AITAB,
+      response: JSON.stringify(GENERATED_SURFACE),
+    });
+    const { body: createdResult } = await created;
+
+    const viewerURL = lazy.AITab.buildViewerURL(createdResult.page.slug);
+    pageTab = await BrowserTestUtils.openNewForegroundTab(gBrowser, viewerURL);
+    const reloadSpy = sinon.spy(pageTab.linkedBrowser, "reload");
+
+    conversation.addUserMessage("Make it shorter");
+    conversation.addAssistantMessage("text", "");
+    const turn = lazy.Chat.fetchWithHistory({
+      conversation,
+      browsingContext: pageTab.linkedBrowser.browsingContext,
+    });
+    const id = await mockEngine.respondToWithToolCall({
+      toolName: lazy.GENERATE_AITAB,
+      toolParams: {
+        modify_slug: createdResult.page.slug,
+        modify_instructions: "Make it shorter",
+      },
+    });
+    await mockEngine.respondTo({
+      purpose: lazy.MODEL_FEATURES.AITAB,
+      response: JSON.stringify(GENERATED_SURFACE),
+    });
+
+    const { request, respond } = await mockEngine.captureRequest({
+      purpose: lazy.PURPOSES.CHAT,
+    });
+    Assert.ok(
+      JSON.stringify(request.args).includes("The page was modified."),
+      "the model gets a follow-up turn to tell the user about the change"
+    );
+    respond("I made the page shorter.");
+    await turn;
+    Assert.ok(
+      reloadSpy.calledOnce,
+      "the open page reloads to show the modified version"
+    );
+
+    Assert.ok(
+      !conversation.messages.some(m => m.toolUIData?.toolCallId === id),
+      "a modification leaves no tool card in the chat"
+    );
+  } finally {
+    if (pageTab) {
+      BrowserTestUtils.removeTab(pageTab);
+    }
     await mockEngine.rejectAllRequests();
     await lazy.AITabStore.destroyDatabase();
     await stopServing();

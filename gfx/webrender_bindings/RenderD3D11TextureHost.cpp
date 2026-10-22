@@ -381,8 +381,8 @@ bool RenderDXGITextureHost::EnsureD3D11Texture2D(ID3D11Device* aDevice) {
 
   D3D11_TEXTURE2D_DESC desc{};
   mTexture->GetDesc(&desc);
-  if (uint32_t(mSize.width) > desc.Width ||
-      uint32_t(mSize.height) > desc.Height ||
+  if (uint32_t(mSize.width) != desc.Width ||
+      uint32_t(mSize.height) != desc.Height ||
       !IsCompatibleDXGIFormat(mFormat, desc.Format)) {
     gfxCriticalNote << "RenderDXGITextureHost descriptor (" << mSize.width
                     << "x" << mSize.height << " fmt " << int(mFormat)
@@ -793,8 +793,8 @@ bool RenderDXGIYCbCrTextureHost::EnsureD3D11Texture2D(ID3D11Device* aDevice) {
     D3D11_TEXTURE2D_DESC desc{};
     mTextures[i]->GetDesc(&desc);
     const gfx::IntSize& expected = (i == 0) ? mSizeY : mSizeCbCr;
-    if (uint32_t(expected.width) > desc.Width ||
-        uint32_t(expected.height) > desc.Height ||
+    if (uint32_t(expected.width) != desc.Width ||
+        uint32_t(expected.height) != desc.Height ||
         desc.Format != expectedFormat) {
       gfxCriticalNote << "RenderDXGIYCbCrTextureHost descriptor ("
                       << expected.width << "x" << expected.height << " depth "

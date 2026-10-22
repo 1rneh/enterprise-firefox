@@ -11,6 +11,7 @@
 #include "mozilla/WidgetUtils.h"
 #include "mozilla/gfx/DrawEventRecorder.h"
 #include "mozilla/gfx/HelpersCairo.h"
+#include "mozilla/gfx/HelpersSkia.h"
 #include "mozilla/gfx/InlineTranslator.h"
 #include "nsCoord.h"
 #include "nsIContentAnalysis.h"
@@ -19,6 +20,7 @@
 #include "nsPIDOMWindow.h"
 #include "nsServiceManagerUtils.h"
 #include "nsString.h"
+#include "skia/include/core/SkCanvas.h"
 
 namespace mozilla {
 namespace gfx {
@@ -203,12 +205,8 @@ nsresult PrintTargetWindows::EndPage() {
     mTranslator->SaveState(pageStart);
     MemStream& recording = mRecorder->mOutputStream;
     bool firstPass = true;
-    mDocument->drawPage(size, [&](SkCanvas* aCanvas, SkIPoint aOrigin) {
+    mDocument->drawPage(size, [&](SkCanvas* aCanvas) {
       RefPtr<DrawTarget> dt = Factory::CreateDrawTargetWithSkCanvas(aCanvas);
-      if (dt && (aOrigin.x() || aOrigin.y())) {
-        dt = Factory::CreateOffsetDrawTarget(
-            dt, IntPoint(aOrigin.x(), aOrigin.y()));
-      }
       if (!dt || !recording.mValid) {
         failure = true;
         return;
@@ -217,6 +215,12 @@ nsresult PrintTargetWindows::EndPage() {
         mTranslator->RestoreState(pageStart);
       }
       firstPass = false;
+      // The canvas may be transformed (e.g. to rasterize part of the page),
+      // and the recording sets absolute transforms.
+      const Matrix baseTransform =
+          SkiaMatrixToGfxMatrix(aCanvas->getTotalMatrix()).As2D();
+      dt->SetTransform(baseTransform);
+      mTranslator->SetReferenceDrawTargetTransform(baseTransform);
       mTranslator->SetBaseDrawTarget(dt);
       if (!mTranslator->TranslateRecording(recording.mData,
                                            recording.mLength)) {
@@ -228,6 +232,7 @@ nsresult PrintTargetWindows::EndPage() {
     // reference DTs across pages.
     mTranslator->ForgetDrawTargets();
     RefPtr<DrawTarget> refDT = GetReferenceDrawTarget();
+    mTranslator->SetReferenceDrawTargetTransform(Matrix());
     mTranslator->SetBaseDrawTarget(refDT);
     mRecorder->WipeRecording();
   } else {

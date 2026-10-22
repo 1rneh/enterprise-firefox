@@ -4,13 +4,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+import { AuthProvider } from "moz-src:///browser/components/aiwindow/models/AuthProvider.sys.mjs";
 import { createEngine } from "chrome://global/content/ml/EngineProcess.sys.mjs";
-import { OAUTH_CLIENT_ID } from "resource://gre/modules/FxAccountsCommon.sys.mjs";
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
-
-const lazy = XPCOMUtils.declareLazy({
-  getFxAccountsSingleton: "resource://gre/modules/FxAccounts.sys.mjs",
-});
 
 const APIKEY_PREF = "browser.smartwindow.apiKey";
 const ENDPOINT_PREF = "browser.smartwindow.endpoint";
@@ -185,24 +181,6 @@ export class openAIEngine {
   }
 
   /**
-   * Retrieves the Firefox account token
-   *
-   * @returns {Promise<string|null>}   The Firefox account token (string) or null
-   */
-  static async getFxAccountToken() {
-    try {
-      const fxAccounts = lazy.getFxAccountsSingleton();
-      return await fxAccounts.getOAuthToken({
-        service: "smartwindow",
-        client_id: OAUTH_CLIENT_ID,
-      });
-    } catch (error) {
-      console.warn("Error obtaining FxA token:", error);
-      return null;
-    }
-  }
-
-  /**
    * MLPA returns 429 for several sub-conditions (budget, QPS, upstream limit);
    * callers should back off the same way regardless of the sub-code.
    *
@@ -329,7 +307,7 @@ export class openAIEngine {
       return await this.engineInstance.run(content);
     } catch (ex) {
       // Skip the token retry flow when using a custom endpoint,
-      // as the retry logic only applies to FxAccounts tokens.
+      // as the retry logic only applies to AuthProvider tokens.
       if (!this._is401Error(ex) || this.isCustomEndpoint) {
         throw ex;
       }
@@ -338,16 +316,12 @@ export class openAIEngine {
         "LLM request returned a 401 - revoking our token and retrying"
       );
 
-      const fxAccounts = lazy.getFxAccountsSingleton();
-      const oldToken = content.fxAccountToken;
-      if (oldToken) {
-        await fxAccounts.removeCachedOAuthToken({ token: oldToken });
-      }
+      await AuthProvider.invalidateToken(content.token);
 
       await this._recreateEngine();
 
-      const newToken = await openAIEngine.getFxAccountToken();
-      const updatedContent = { ...content, fxAccountToken: newToken };
+      const newToken = await AuthProvider.getToken();
+      const updatedContent = { ...content, token: newToken };
 
       try {
         return await this.engineInstance.run(updatedContent);
@@ -360,9 +334,7 @@ export class openAIEngine {
           "Retry LLM request still returned a 401 - revoking our token and failing"
         );
 
-        if (newToken) {
-          await fxAccounts.removeCachedOAuthToken({ token: newToken });
-        }
+        await AuthProvider.invalidateToken(newToken);
 
         throw retryEx;
       }
@@ -427,7 +399,7 @@ export class openAIEngine {
       }
     } catch (ex) {
       // Skip the token retry flow when using a custom endpoint,
-      // as the retry logic only applies to FxAccounts tokens.
+      // as the retry logic only applies to AuthProvider tokens.
       if (!this._is401Error(ex) || this.isCustomEndpoint) {
         throw ex;
       }
@@ -436,16 +408,12 @@ export class openAIEngine {
         "LLM streaming request returned a 401 - revoking our token and retrying"
       );
 
-      const fxAccounts = lazy.getFxAccountsSingleton();
-      const oldToken = options.fxAccountToken;
-      if (oldToken) {
-        await fxAccounts.removeCachedOAuthToken({ token: oldToken });
-      }
+      await AuthProvider.invalidateToken(options.token);
 
       await this._recreateEngine();
 
-      const newToken = await openAIEngine.getFxAccountToken();
-      const updatedOptions = { ...engineOptions, fxAccountToken: newToken };
+      const newToken = await AuthProvider.getToken();
+      const updatedOptions = { ...engineOptions, token: newToken };
 
       try {
         const generator = this.engineInstance.runWithGenerator(updatedOptions);
@@ -464,9 +432,7 @@ export class openAIEngine {
           "Retry LLM streaming request still returned a 401 - revoking our token and failing"
         );
 
-        if (newToken) {
-          await fxAccounts.removeCachedOAuthToken({ token: newToken });
-        }
+        await AuthProvider.invalidateToken(newToken);
 
         throw retryEx;
       }

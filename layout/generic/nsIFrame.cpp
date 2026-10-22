@@ -3469,7 +3469,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
   const bool usingSVGEffects = usingFilter || usingMask;
 
   const nsRect visibleRectOutsideSVGEffects = visibleRect;
-  nsDisplayList hoistedScrollInfoItemsStorage(aBuilder);
+  nsDisplayList hoistedScrollInfoItemsStorage;
   if (usingSVGEffects) {
     dirtyRect =
         SVGIntegrationUtils::GetRequiredSourceForInvalidArea(this, dirtyRect);
@@ -3747,7 +3747,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
     content = PresContext()->Document()->GetRootElement();
   }
 
-  nsDisplayList resultList(aBuilder);
+  nsDisplayList resultList;
   set.SerializeWithCorrectZOrder(&resultList, content);
 
   // Get the ASR to use for the container items that we create here.
@@ -3936,8 +3936,8 @@ void nsIFrame::BuildDisplayListForStackingContext(
     if (extend3DContext) {
       // Install dummy nsDisplayTransform as a leaf containing
       // descendants not participating this 3D rendering context.
-      nsDisplayList nonparticipants(aBuilder);
-      nsDisplayList participants(aBuilder);
+      nsDisplayList nonparticipants;
+      nsDisplayList participants;
       int index = 1;
 
       nsDisplayItem* separator = nullptr;
@@ -4151,7 +4151,7 @@ void nsIFrame::BuildDisplayListForStackingContext(
           nsDisplayItem::ContainerASRType::AncestorOfContained, &resultList);
     } else {
       MOZ_ASSERT(resultList.Length() == 1);
-      resultList.Clear();
+      resultList.RemoveBottom();
     }
 
     // Mark the outermost display item as reusable. These display items and
@@ -4192,7 +4192,7 @@ static nsDisplayItem* WrapInWrapList(nsDisplayListBuilder* aBuilder,
   // we can skip adding one.
   if (aBuiltContainerItem || (!aBuilder->IsPartialUpdate() && !needsWrapList)) {
     MOZ_ASSERT(aList->Length() == 1);
-    aList->Clear();
+    aList->RemoveBottom();
     return item;
   }
 
@@ -4210,7 +4210,7 @@ static nsDisplayItem* WrapInWrapList(nsDisplayListBuilder* aBuilder,
       DiscardOldItems(aFrame);
     } else {
       MOZ_ASSERT(aList->Length() == 1);
-      aList->Clear();
+      aList->RemoveBottom();
       return item;
     }
   }
@@ -4668,8 +4668,8 @@ void nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder* aBuilder,
     awayFromCommonPath = true;
   }
 
-  nsDisplayList list(aBuilder);
-  nsDisplayList extraPositionedDescendants(aBuilder);
+  nsDisplayList list;
+  nsDisplayList extraPositionedDescendants;
   const ActiveScrolledRoot* wrapListASR;
   bool builtContainerItem = false;
   if (isStackingContext) {

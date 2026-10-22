@@ -623,6 +623,8 @@ class nsWindow : public nsIWidget {
   void CreateAndPutGdkScrollEvent(mozilla::LayoutDeviceIntPoint aPoint,
                                   double aDeltaX, double aDeltaY);
 
+  bool IsFullscreenSupported();
+
   nsCString mGtkWindowAppClass;
   nsCString mGtkWindowAppName;
   nsCString mGtkWindowRoleName;

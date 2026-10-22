@@ -4294,6 +4294,16 @@ ScriptFetchInfo* ScriptLoader::GetActiveScriptFetchInfo(JSContext* aCx) {
   return static_cast<ScriptFetchInfo*>(value.toPrivate());
 }
 
+// static
+void ScriptLoader::AssociateFetchInfoWithSystemClassicScript(
+    JS::Handle<JSScript*> aScript, nsIURI* aURI) {
+  RefPtr<ScriptFetchOptions> fetchOptions = ScriptFetchOptions::CreateDefault();
+  fetchOptions->SetTriggeringPrincipal(nsContentUtils::GetSystemPrincipal());
+  RefPtr<ScriptFetchInfo> fetchInfo = new ScriptFetchInfo(
+      ScriptKind::eClassic, ReferrerPolicy::_empty, fetchOptions, aURI);
+  fetchInfo->AssociateWithScript(aScript);
+}
+
 void ScriptLoader::RegisterForDiskCache(ScriptLoadRequest* aRequest) {
   MOZ_ASSERT(!mCache);
   MOZ_ASSERT(aRequest->PassedConditionForDiskCache());

@@ -3279,6 +3279,7 @@ toolbar#nav-bar {
                 symbolsPath,
                 test=self.lastTestSeen,
                 quiet=quiet,
+                group=currentManifest,
             )
 
             expected = None

@@ -2498,13 +2498,18 @@ struct MOZ_STACK_CLASS TextRunDrawParams {
   const mozilla::gfx::DrawOptions* drawOpts = nullptr;
   nsAtom* fontPalette = nullptr;
   mozilla::gfx::FontPaletteValueSet* paletteValueSet = nullptr;
-  // The source text for the range passed to gfxFont::Draw, as provided by
-  // gfxTextRun::PropertyProvider::GetSourceText, but converted to UTF-8.
-  // Only set if needsSourceText is true and the provider returned the text.
+  // The source text, as provided by
+  // gfxTextRun::PropertyProvider::GetSourceText, converted to UTF-8.
+  // GetSourceText may be called with a narrower range than the one passed to
+  // gfxFont::Draw, if a ligature spans multiple PropertyProviders; see
+  // sourceCharToByte. Only set if needsSourceText is true and the provider
+  // returned the text.
   const nsACString* sourceText = nullptr;
-  // The byte offset in sourceText For each textrun character in that range. The
-  // final element should be the length of sourceText. This must only be set if
-  // sourceText is also set.
+  // The byte offset in sourceText for each character in the range passed to
+  // gfxFont::Draw, which may be wider than the range sourceText itself covers.
+  // Characters outside sourceText's own range map to the byte offset at its
+  // nearest edge. The final element should be the length of sourceText. This
+  // must only be set if sourceText is also set.
   const uint32_t* sourceCharToByte = nullptr;
   DrawMode drawMode = DrawMode::GLYPH_FILL;
   bool isVerticalRun = false;

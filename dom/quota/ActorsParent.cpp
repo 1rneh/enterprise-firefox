@@ -67,6 +67,7 @@
 #include "mozilla/GeckoTrace.h"
 #include "mozilla/InitializedOnce.h"
 #include "mozilla/Logging.h"
+#include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/Mutex.h"
 #include "mozilla/NotNull.h"
@@ -8790,6 +8791,24 @@ uint64_t QuotaManager::LockedCollectOriginsForEviction(
   }
 
   return helper->BlockAndReturnOriginsForEviction(aLocks);
+}
+
+void QuotaManager::LockedMaybeRecordTemporaryStorageUsageUnderflow(
+    StaticString aCallSite) {
+  mQuotaMutex.AssertCurrentThreadOwns();
+
+  if (mTemporaryStorageUsage >= 0) {
+    return;
+  }
+
+  if (!ThrottleCounter(mTemporaryStorageUsageUnderflowCount)) {
+    return;
+  }
+
+  glean::quotamanager::TemporaryStorageUsageUnderflowExtra extra;
+  extra.callSite.emplace(aCallSite);
+  extra.magnitude.emplace(FloorLog2(Abs(mTemporaryStorageUsage)));
+  glean::quotamanager::temporary_storage_usage_underflow.Record(Some(extra));
 }
 
 void QuotaManager::LockedRemoveQuotaForRepository(

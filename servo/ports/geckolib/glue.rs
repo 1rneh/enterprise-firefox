@@ -10428,7 +10428,7 @@ pub extern "C" fn Servo_ViewTransitionRule_GetTypes(
     result: &mut nsTArray<*mut nsAtom>,
 ) {
     if let Some(ref types) = rule.descriptors.types {
-        result.extend(types.value.iter().map(|ty| ty.0.as_ptr()));
+        result.extend(types.iter().map(|ty| ty.0.as_ptr()));
     }
 }
 

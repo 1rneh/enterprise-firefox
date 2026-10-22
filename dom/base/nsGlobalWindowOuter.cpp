@@ -4093,14 +4093,13 @@ FullscreenTransitionTask::Run() {
   } else if (stage == eToggleFullscreen) {
     PROFILER_MARKER_UNTYPED("Fullscreen toggle start", DOM);
     mFullscreenChangeStartTime = TimeStamp::Now();
-    // Toggle the fullscreen state on the widget
-    if (!mWindow->SetWidgetFullscreen(FullscreenReason::ForFullscreenAPI,
-                                      mFullscreen, mWidget)) {
-      // Fail to setup the widget, call FinishFullscreenChange to
-      // complete fullscreen change directly.
-      const RefPtr<nsGlobalWindowOuter> win = mWindow;
-      win->FinishFullscreenChange(mFullscreen);
-    }
+    // Toggle the fullscreen state on the widget. If the widget refuses,
+    // TryMakeWidgetFullscreen() finishes the fullscreen change for us, but we
+    // still have to run the remaining stages to undo the transition effect.
+    const RefPtr<nsGlobalWindowOuter> win = mWindow;
+    const nsCOMPtr<nsIWidget> widget = mWidget;
+    win->TryMakeWidgetFullscreen(FullscreenReason::ForFullscreenAPI,
+                                 mFullscreen, widget);
     // Set observer for the next content paint.
     nsCOMPtr<nsIObserver> observer = new Observer(this);
     nsCOMPtr<nsIObserverService> obs = mozilla::services::GetObserverService();
@@ -4183,8 +4182,10 @@ FullscreenTransitionTask::Observer::GetName(nsACString& aName) {
   return NS_OK;
 }
 
-static bool MakeWidgetFullscreen(nsGlobalWindowOuter* aWindow,
-                                 FullscreenReason aReason, bool aFullscreen) {
+// Returns false if the request could not be handed over to the widget at all,
+// in which case the caller is responsible for finishing the fullscreen change.
+MOZ_CAN_RUN_SCRIPT static bool MakeWidgetFullscreen(
+    nsGlobalWindowOuter* aWindow, FullscreenReason aReason, bool aFullscreen) {
   nsCOMPtr<nsIWidget> widget = aWindow->GetMainWidget();
   if (!widget) {
     return false;
@@ -4202,7 +4203,8 @@ static bool MakeWidgetFullscreen(nsGlobalWindowOuter* aWindow,
   }
 
   if (!performTransition) {
-    return aWindow->SetWidgetFullscreen(aReason, aFullscreen, widget);
+    aWindow->TryMakeWidgetFullscreen(aReason, aFullscreen, widget);
+    return true;
   }
 
   nsCOMPtr<nsIRunnable> task = new FullscreenTransitionTask(
@@ -4234,7 +4236,8 @@ nsresult nsGlobalWindowOuter::ProcessWidgetFullscreenRequest(
     if (MakeWidgetFullscreen(this, aReason, aFullscreen)) {
       // The rest of code for switching fullscreen is in nsGlobalWindowOuter::
       // FinishFullscreenChange() which will be called after sizemodechange
-      // event is dispatched.
+      // event is dispatched, or directly by TryMakeWidgetFullscreen() if the
+      // widget refused the change.
       return NS_OK;
     }
   }
@@ -4379,9 +4382,9 @@ void nsGlobalWindowOuter::ForceFullScreenInWidget() {
   mForceFullScreenInWidget = true;
 }
 
-bool nsGlobalWindowOuter::SetWidgetFullscreen(FullscreenReason aReason,
-                                              bool aIsFullscreen,
-                                              nsIWidget* aWidget) {
+bool nsGlobalWindowOuter::TryMakeWidgetFullscreen(FullscreenReason aReason,
+                                                  bool aIsFullscreen,
+                                                  nsIWidget* aWidget) {
   MOZ_ASSERT(this == GetInProcessTopInternal(),
              "Only topmost window should call this");
   MOZ_ASSERT(!GetFrameElementInternal(), "Content window should not call this");
@@ -4405,7 +4408,20 @@ bool nsGlobalWindowOuter::SetWidgetFullscreen(FullscreenReason aReason,
                     // the native system behavior.
                     aWidget->MakeFullScreenWithNativeTransition(aIsFullscreen)
                     : aWidget->MakeFullScreen(aIsFullscreen);
-  return NS_SUCCEEDED(rv);
+  if (NS_FAILED(rv)) {
+    if (!NS_WARN_IF(!IsChromeWindow())) {
+      if (RefPtr<PresShell> presShell =
+              do_QueryReferent(mChromeFields.mFullscreenPresShell)) {
+        if (nsRefreshDriver* rd = presShell->GetRefreshDriver()) {
+          rd->Thaw();
+        }
+        mChromeFields.mFullscreenPresShell = nullptr;
+      }
+    }
+    FinishFullscreenChange(!aIsFullscreen);
+    return false;
+  }
+  return true;
 }
 
 /* virtual */

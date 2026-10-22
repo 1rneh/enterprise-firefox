@@ -1,9 +1,5 @@
 [DEFAULT]
-dupe-manifest=true
 skip-if = ["enterprise"] # Firefox Labs is disabled on Firefox Enterprise
-prefs = [
-  "browser.settings-redesign.enabled=false",
-]
 support-files = [
   "head.js",
 ]

@@ -154,10 +154,6 @@ know what you are doing.
 
 : Controls whether the VPN egress location is displayed in the status panel.
 
-`browser.ipProtection.siteExceptionsHintsEnabled` (boolean, default: `true`)
-
-: Controls whether site exception confirmation hints are shown in the toolbar button.
-
 `browser.ipProtection.onboardingMessageMask` (integer, default: `0`)
 
 : Bitmask tracking which onboarding messages have already been shown.

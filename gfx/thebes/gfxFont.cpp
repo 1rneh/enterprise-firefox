@@ -1011,7 +1011,7 @@ gfxFont::gfxFont(const RefPtr<UnscaledFont>& aUnscaledFont,
       mAdjustedSize(-1.0),       // negative to indicate "not yet initialized"
       mFUnitsConvFactor(-1.0f),  // negative to indicate "not yet initialized"
       mAntialiasOption(anAAOption),
-      mIsValid(true),
+      mIsValid(false),  // subclass sets true if initialization is successful
       mApplySyntheticBold(false),
       mKerningEnabled(false),
       mMathInitialized(false) {
@@ -4286,8 +4286,6 @@ void gfxFont::SetupGlyphExtents(DrawTarget* aDrawTarget, uint32_t aGlyphID,
 // If this returns TRUE without setting the mIsValid flag, then we -did-
 // apparently find an sfnt, but it was too broken to be used.
 bool gfxFont::InitMetricsFromSfntTables() {
-  mIsValid = false;  // font is NOT valid in case of early return
-
   const uint32_t kHheaTableTag = TRUETYPE_TAG('h', 'h', 'e', 'a');
   const uint32_t kOS_2TableTag = TRUETYPE_TAG('O', 'S', '/', '2');
 
@@ -4385,14 +4383,11 @@ bool gfxFont::InitMetricsFromSfntTables() {
   hb_font_destroy(hbFont);
 
   mIsValid = true;
-
   return true;
 }
 
 #if MOZ_FONTATIONS
 bool gfxFont::InitMetricsFromSkrifa() {
-  mIsValid = false;
-
   const auto* skf = mFontEntry->GetSkrifaFont();
   if (!skf) {
     return false;

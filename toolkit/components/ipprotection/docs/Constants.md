@@ -86,10 +86,12 @@ the UI layer.
 
 ### Error propagation
 
-Errors thrown inside `IPPProxyManager.start()` are caught by the activation
-promise. The proxy reverts to its previous state (typically `READY`) and the
-promise resolves with `{ started: false, error }`. The panel reads the error
-code from this result to determine which message to show.
+Errors thrown inside `IPPProxyManager.start()` are reported back to the
+caller; the panel uses the error code to determine which message to show.
+A failed user activation reverts the proxy to its previous state (typically
+`READY`). A failed system activation moves it to `IPPProxyStates.ERROR`
+instead, keeping the channel filter until `stop()`; `ERRORS.NOT_READY` and
+`ERRORS.CANCELED` still revert.
 
 Errors that occur while the proxy is already `ACTIVE` (such as a pass
 rotation failure) move the state machine to `IPPProxyStates.ERROR` and are

@@ -27,6 +27,7 @@ import mozilla.components.browser.state.store.BrowserStore
 import mozilla.components.feature.listentopage.content.Content
 import mozilla.components.feature.listentopage.content.ContentProvider
 import mozilla.components.feature.listentopage.content.TextChunker
+import mozilla.components.feature.listentopage.facts.emitEngineBoundFact
 import mozilla.components.feature.listentopage.playback.ArticleDisplayData
 import mozilla.components.feature.listentopage.playback.AudioFileCache
 import mozilla.components.feature.listentopage.playback.ChunkAudio
@@ -276,9 +277,7 @@ class ListenMiddleware(
     /**
      * Takes [content] as the session's article, or reports that there is nothing to read out.
      *
-     * The article is read in the language the page declares. Where it declares none this can use, it cannot be read at
-     * all: the chunker needs a language to find the sentence boundaries in, and the voice lookup needs one to match a
-     * voice against.
+     * The article is read in the language of [content].
      *
      * @param tabId The tab [content] was extracted from.
      */
@@ -288,13 +287,7 @@ class ListenMiddleware(
             return
         }
 
-        val language = content.languageTag.asLanguageTagOrNull()
-        if (language == null) {
-            logger.debug("The page declares no usable language (\"${content.languageTag}\")")
-            dispatch(ListenAction.Content.ContentUnavailable)
-            return
-        }
-
+        val language = content.languageTag
         val displayData = browserStore.state.findTab(tabId).describeArticle()
         article =
             Article(
@@ -846,7 +839,10 @@ class ListenMiddleware(
 
     /** The engine for this session, bound on first use because binding it is IPC. */
     private suspend fun synthesizer(): SpeechSynthesizer = synthesizerLock.withLock {
-        synthesizer ?: withContext(ioDispatcher) { synthesizerProvider() }.also { synthesizer = it }
+        synthesizer
+            ?: withContext(ioDispatcher) { synthesizerProvider() }
+                .also { synthesizer = it }
+                .also { emitEngineBoundFact(it.enginePackageName) }
     }
 
     /**
@@ -940,10 +936,6 @@ private fun TabSessionState?.describeArticle(): ArticleDisplayData =
         title = this?.content?.title?.takeIf { it.isNotBlank() },
         site = this?.pageUrl?.toUri()?.host?.takeIf { it.isNotBlank() }?.stripCommonSubdomains(),
     )
-
-/** This language tag in the form everything downstream works from, or `null` when it names no language. */
-private fun String.asLanguageTagOrNull(): String? =
-    trim().replace('_', '-').takeIf { Locale.forLanguageTag(it).language.isNotEmpty() }
 
 /**
  * The language subtag of a BCP 47 tag, or the tag itself when it is too malformed to parse.

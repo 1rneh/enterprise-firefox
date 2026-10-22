@@ -3754,6 +3754,13 @@ nsresult nsHttpChannel::ContinueProcessNormal(nsresult rv) {
   // being called inside our OnDataAvailable (see bug 136678).
   StoreCachedContentIsPartial(false);
 
+  // The body we are about to deliver comes from the network, so no cached
+  // alternative data describes it.  Normally InitCacheEntry() has already
+  // dropped it, but not when we no longer hold the entry it came from.
+  mAvailableCachedAltDataType.Truncate();
+  StoreDeliveringAltData(false);
+  mAltDataLength = -1;
+
   UpdateInhibitPersistentCachingFlag();
 
   // We may need to install the cache listener before CallonStartRequest,
@@ -5249,6 +5256,28 @@ void nsHttpChannel::UntieValidationRequest() {
   MOZ_ASSERT(NS_SUCCEEDED(rv));
 }
 
+void nsHttpChannel::DiscardCacheEntryCheckState() {
+  StoreCachedContentIsValid(CachedContentValidity::Invalid);
+
+  if (mDidReval) {
+    LOG(("  Removing conditional request headers"));
+    UntieValidationRequest();
+    mDidReval = false;
+  }
+
+  if (LoadCachedContentIsPartial()) {
+    LOG(("  Removing byte range request headers"));
+    UntieByteRangeRequest();
+    StoreCachedContentIsPartial(false);
+  }
+
+  mCachedResponseHead = nullptr;
+  mCacheInputStream.CloseAndRelease();
+  mAvailableCachedAltDataType.Truncate();
+  StoreDeliveringAltData(false);
+  mAltDataLength = -1;
+}
+
 NS_IMETHODIMP
 nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
   nsresult rv = NS_OK;
@@ -5258,11 +5287,19 @@ nsHttpChannel::OnCacheEntryCheck(nsICacheEntry* entry, uint32_t* aResult) {
   LOG(("nsHttpChannel::OnCacheEntryCheck enter [channel=%p entry=%p]", this,
        entry));
 
+  // Held for the whole check: this may run on the cache I/O thread while the
+  // backstop timeout runs on the main thread, and the timeout must not slip in
+  // between the test below and the state we arm from here on.
+  MutexAutoLock lock(mCacheWaitLock);
+
   if (mCacheWaitTimedOut) {
     LOG(("  cache entry check arrived after backstop timeout, declining"));
     *aResult = ENTRY_NOT_WANTED;
     return NS_OK;
   }
+
+  // Each check starts from a clean slate.
+  DiscardCacheEntryCheckState();
 
   NoteCacheEntryKeyMatch(entry);
 
@@ -5741,23 +5778,9 @@ nsresult nsHttpChannel::OnNormalCacheEntryAvailable(nsICacheEntry* aEntry,
   StoreWaitForCacheEntry(LoadWaitForCacheEntry() & ~WAIT_FOR_CACHE_ENTRY);
 
   if (NS_FAILED(aEntryStatus) || aNew) {
-    // Make sure this flag is dropped.  It may happen the entry is doomed
-    // between OnCacheEntryCheck and OnCacheEntryAvailable.
-    StoreCachedContentIsValid(CachedContentValidity::Invalid);
-
-    // From the same reason remove any conditional headers added
-    // in OnCacheEntryCheck.
-    if (mDidReval) {
-      LOG(("  Removing conditional request headers"));
-      UntieValidationRequest();
-      mDidReval = false;
-    }
-
-    if (LoadCachedContentIsPartial()) {
-      LOG(("  Removing byte range request headers"));
-      UntieByteRangeRequest();
-      StoreCachedContentIsPartial(false);
-    }
+    // It may happen the entry is doomed between OnCacheEntryCheck and
+    // OnCacheEntryAvailable; whatever the check armed from it must go.
+    DiscardCacheEntryCheckState();
 
     if (mLoadFlags & LOAD_ONLY_FROM_CACHE) {
       // if this channel is only allowed to pull from the cache, then
@@ -12345,17 +12368,21 @@ nsresult nsHttpChannel::OnCacheWaitTimeout() {
   }
 
   LOG(("  cache entry wait timed out, forcing network [this=%p]", this));
-  mCacheWaitTimedOut = true;
+  {
+    // Waits for an OnCacheEntryCheck in flight on the cache I/O thread.
+    MutexAutoLock lock(mCacheWaitLock);
+    mCacheWaitTimedOut = true;
+  }
 
   // Stop treating the outstanding cache open as blocking.  We stay registered
   // as a callback on the entry, but a late OnCacheEntryCheck or
   // OnCacheEntryAvailable will be declined/ignored (see mCacheWaitTimedOut).
   StoreWaitForCacheEntry(LoadWaitForCacheEntry() & ~WAIT_FOR_CACHE_ENTRY);
 
-  mCacheInputStream.CloseAndRelease();
-  mAvailableCachedAltDataType.Truncate();
-  StoreDeliveringAltData(false);
-  mAltDataLength = -1;
+  // OnCacheEntryCheck may already have run for an entry we now won't get
+  // (e.g. it asked to be rechecked once a wedged writer finishes); the network
+  // response must not carry its conditional headers or alt-data.
+  DiscardCacheEntryCheckState();
 
   nsresult rv = TriggerNetwork();
   if (NS_FAILED(rv)) {

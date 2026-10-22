@@ -18,6 +18,7 @@
 #include "mozilla/Mutex.h"
 #include "mozilla/RefPtr.h"
 #include "mozilla/Result.h"
+#include "mozilla/StaticString.h"
 #include "mozilla/ThreadBound.h"
 #include "mozilla/dom/Nullable.h"
 #include "mozilla/dom/UnboundedMPSCQueue.h"
@@ -847,6 +848,10 @@ class QuotaManager final : public BackgroundThreadObject {
 
   void LockedRemoveQuotaForOrigin(const OriginMetadata& aOriginMetadata);
 
+  // Records the quotamanager.temporary_storage_usage_underflow event if
+  // mTemporaryStorageUsage is negative.
+  void LockedMaybeRecordTemporaryStorageUsageUnderflow(StaticString aCallSite);
+
   bool LockedHasGroupInfoPair(const nsACString& aGroup) const;
 
   already_AddRefed<GroupInfo> LockedGetOrCreateGroupInfo(
@@ -1308,6 +1313,9 @@ class QuotaManager final : public BackgroundThreadObject {
   // sense. See bug 1585978 for details.
   int64_t mTemporaryStorageLimit;
   int64_t mTemporaryStorageUsage;
+  // How many times a negative mTemporaryStorageUsage was seen. Used to
+  // throttle temporary_storage_usage_underflow telemetry events.
+  uint32_t mTemporaryStorageUsageUnderflowCount = 0;
 
   int64_t mNextDirectoryLockId;
   bool mStorageInitialized;

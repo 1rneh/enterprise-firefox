@@ -504,6 +504,20 @@ nsTArray<nsCString> TakeStartupURLs() { return std::move(StartupURLs()); }
   // Placeholder for unused program name.
   args.AppendElement(nullptr);
   bool bufferedURLs = false;
+  bool shouldOpenInBackground = false;
+#ifdef MOZ_BUILD_APP_IS_BROWSER
+  NSAppleEventDescriptor* event =
+      NSAppleEventManager.sharedAppleEventManager.currentAppleEvent;
+  if (event.eventClass == kInternetEventClass && event.eventID == kAEGetURL) {
+    if (@available(macOS 15.0, *)) {
+      constexpr AEKeyword kActivationExpected = 'aapd';
+      shouldOpenInBackground =
+          ![event paramDescriptorForKeyword:kActivationExpected].booleanValue;
+    } else {
+      shouldOpenInBackground = !NSApp.isActive;
+    }
+  }
+#endif
 
   for (NSURL* url in urls) {
     if (!url || !url.scheme ||
@@ -518,7 +532,7 @@ nsTArray<nsCString> TakeStartupURLs() { return std::move(StartupURLs()); }
       continue;
     }
 
-    args.AppendElement("-url");
+    args.AppendElement(shouldOpenInBackground ? "-url-background" : "-url");
     args.AppendElement(urlString);
   }
 

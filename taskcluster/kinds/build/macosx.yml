@@ -508,7 +508,7 @@ macosx64-enterprise-shippable/opt:
 macosx64-aarch64-enterprise/opt:
     description: "MacOS X aarch64 Enterprise Cross-compile"
     index:
-        job-name: macosx64-enterprise-opt
+        job-name: macosx64-aarch64-enterprise-opt
     attributes:
         enable-build-signing: true
         enable-full-crashsymbols: true

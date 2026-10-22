@@ -62,7 +62,7 @@ tasks:
                     linux64-aarch64-enterprise: linux64-aarch64-enterprise-opt
                     linux64(?!-aarch64).*: linux64-opt
                     linux64-aarch64.*: linux64-aarch64-opt
-                    macosx64-aarch64-enterprise: macosx64-enterprise-opt
+                    macosx64-aarch64-enterprise: macosx64-aarch64-enterprise-opt
                     macosx64.*: macosx64-opt
                     win32.*: win32-opt
                     win64.*: win64-opt

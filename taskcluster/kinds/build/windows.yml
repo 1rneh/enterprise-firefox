@@ -657,6 +657,8 @@ win64-aarch64-enterprise/opt:
     worker-type: b-linux-docker-xlarge-amd
     worker:
         max-run-time: 10800
+        # env:
+        #     MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         platform: win64-aarch64
     run:
@@ -710,6 +712,8 @@ win64-aarch64-enterprise/debug:
     worker-type: b-linux-docker-xlarge-amd
     worker:
         max-run-time: 10800
+        # env:
+        #     MOZ_AUTOMATION_PACKAGE_TESTS: "1"
     mozconfig:
         variant: debug-enterprise
         platform: win64-aarch64

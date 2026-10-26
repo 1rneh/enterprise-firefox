@@ -781,7 +781,7 @@ void BrowserParent::Destroy() {
   }
 }
 
-mozilla::ipc::IPCResult BrowserParent::RecvDidUnsuppressPainting() {
+mozilla::ipc::IPCResult BrowserParent::RecvReadyToReplaceRetainedPaint() {
   if (!mFrameElement) {
     return IPC_OK();
   }
@@ -791,6 +791,24 @@ mozilla::ipc::IPCResult BrowserParent::RecvDidUnsuppressPainting() {
     subdocFrame->ClearRetainedPaintData();
   }
   return IPC_OK();
+}
+
+mozilla::ipc::IPCResult
+BrowserParent::RecvReadyToReplaceRetainedPaintNormalPriority() {
+  // Only an initial about:blank document sends this. The frame retains the
+  // paint of the previous document only while a BFCache swap waits for a
+  // document that has been loaded or restored, so the initial document must not
+  // replace it. If that document never comes, for example because the load
+  // fails after the swap, the previous document stays visible until this
+  // BrowserParent is destroyed.
+  if (mFrameElement) {
+    nsSubDocumentFrame* subdocFrame =
+        do_QueryFrame(mFrameElement->GetPrimaryFrame());
+    if (subdocFrame && subdocFrame->HasRetainedPaintData()) {
+      return IPC_OK();
+    }
+  }
+  return RecvReadyToReplaceRetainedPaint();
 }
 
 mozilla::ipc::IPCResult BrowserParent::RecvEnsureLayersConnected(

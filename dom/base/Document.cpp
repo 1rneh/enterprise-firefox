@@ -1587,6 +1587,7 @@ Document::Document(const char* aContentType,
       mHasPolicyWithRequireTrustedTypesForDirective(false),
       mClipboardCopyTriggered(false),
       mHasBeenRevealed(false),
+      mRevealAfterBFCacheRestore(false),
       mSentMayHaveViewTransitionOptIn(false),
       mOutboundViewTransitionOptInDirty(false),
       mAutoSizesEnabled(StaticPrefs::dom_image_sizes_auto_enabled()),
@@ -2777,6 +2778,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INTERNAL(Document)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mAutoSizeImageObserver)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mElementsObservedForLastRememberedSize)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRenderBlockingElementSet)
+  NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mRenderBlockedSink)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mActiveEditContext)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mDOMImplementation)
   NS_IMPL_CYCLE_COLLECTION_TRAVERSE(mImageMaps)
@@ -2904,6 +2906,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(Document)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mAutoSizeImageObserver)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mElementsObservedForLastRememberedSize);
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mRenderBlockingElementSet);
+  NS_IMPL_CYCLE_COLLECTION_UNLINK(mRenderBlockedSink);
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mActiveEditContext)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mFontFaceSet)
   NS_IMPL_CYCLE_COLLECTION_UNLINK(mPreviouslyFocusedContent)
@@ -9074,7 +9077,11 @@ void Document::EndLoad(bool aFireDOMContentLoadedSync) {
   // can flush it from FlushPendingNotifications as needed.  We might have to
   // do that to get a StartLayout() to happen.
   if (mParser) {
-    mWeakSink = do_GetWeakReference(mParser->GetContentSink());
+    nsIContentSink* sink = mParser->GetContentSink();
+    mWeakSink = do_GetWeakReference(sink);
+    if (IsRenderBlocked()) {
+      mRenderBlockedSink = sink;
+    }
     mParser = nullptr;
   }
 
@@ -12749,6 +12756,7 @@ void Document::Destroy() {
   SetDevToolsWatchingDOMMutations(false);
 
   mIsGoingAway = true;
+  mRenderBlockedSink = nullptr;
 
   if (mScriptLoader) {
     mScriptLoader->Destroy();
@@ -13092,6 +13100,7 @@ void Document::OnPageShow(bool aPersisted, EventTarget* aDispatchStartTarget,
       // We're coming out of bfcache, clear the revealed flag per
       // https://html.spec.whatwg.org/#reactivate-a-document 4.2.
       mHasBeenRevealed = false;
+      mRevealAfterBFCacheRestore = true;
       MaybeScheduleRenderingPhases({RenderingPhase::Reveal});
     }
 
@@ -17886,6 +17895,8 @@ void Document::Reveal() {
 
   // Step 2
   mHasBeenRevealed = true;
+  const bool restoredFromBFCache = mRevealAfterBFCacheRestore;
+  mRevealAfterBFCacheRestore = false;
 
   UpdateOutboundViewTransitionOptIn();
 
@@ -17895,6 +17906,13 @@ void Document::Reveal() {
 
   RefPtr<nsGlobalWindowInner> win = nsGlobalWindowInner::Cast(GetInnerWindow());
   if (!win) {
+    if (nsPresContext* pc = GetPresContext()) {
+      if (restoredFromBFCache) {
+        pc->SendReadyToReplaceRetainedPaint();
+      } else {
+        pc->FlushDeferredReadyToReplaceRetainedPaint();
+      }
+    }
     return;
   }
 
@@ -17914,6 +17932,10 @@ void Document::Reveal() {
           TakeCrossDocViewTransitionParams(bc->BrowserId());
     }
   }
+
+  // The parent can still paint the previous document, see
+  // ReadyToReplaceRetainedPaint.
+  const bool tookParams = !!mInboundViewTransitionParams;
 
   // Use only params that a same-origin document captured, since cross-site
   // documents can share a content process.
@@ -17937,6 +17959,16 @@ void Document::Reveal() {
       PageRevealEvent::Constructor(win, u"pagereveal"_ns, init);
   event->SetTrusted(true);
   win->DispatchEvent(*event);
+
+  if (nsPresContext* pc = GetPresContext();
+      pc && (tookParams || restoredFromBFCache ||
+             pc->IsReadyToReplaceRetainedPaintDeferred())) {
+    if (vt.isSome()) {
+      pc->SendReadyToReplaceRetainedPaintAfterNextComposite();
+    } else {
+      pc->SendReadyToReplaceRetainedPaint();
+    }
+  }
 
   // Step 5, If transition is not null, then: Activate transition.
   if (vt.isSome()) {
@@ -20204,6 +20236,15 @@ UniquePtr<ViewTransitionParams> Document::TakeCrossDocViewTransitionParams(
   return extracted ? std::move(*extracted) : nullptr;
 }
 
+bool Document::HasPendingInboundCrossDocumentViewTransition() {
+  if (mHasBeenRevealed || !sCrossDocVTParams ||
+      !StaticPrefs::dom_viewTransitions_cross_document_enabled()) {
+    return false;
+  }
+  BrowsingContext* bc = GetBrowsingContext();
+  return bc && bc->IsTop() && sCrossDocVTParams->Contains(bc->BrowserId());
+}
+
 void Document::ClearCrossDocViewTransitionParams(
     uint64_t aBrowserId, Maybe<uint64_t> aProducerBrowsingContextId) {
   if (!sCrossDocVTParams) {
@@ -20367,6 +20408,7 @@ void Document::StopRenderBlocking() {
     // was actually blocked.
     StartLayoutAfterUnblocking();
   }
+  mRenderBlockedSink = nullptr;
 }
 
 // https://html.spec.whatwg.org/#process-internal-resource-links
@@ -20460,10 +20502,12 @@ void Document::StartLayoutAfterUnblocking() {
   MaybeScheduleRendering();
 
   // Start layout if it was deferred while blocked. After parsing ends the
-  // parser is gone, but EndLoad keeps a weak reference to the sink for this.
+  // parser is gone, but EndLoad keeps the sink alive for this.
   nsCOMPtr<nsIContentSink> sink;
   if (mParser) {
     sink = mParser->GetContentSink();
+  } else if (mRenderBlockedSink) {
+    sink = mRenderBlockedSink.forget();
   } else {
     sink = do_QueryReferent(mWeakSink);
   }

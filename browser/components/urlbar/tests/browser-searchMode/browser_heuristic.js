@@ -9,6 +9,12 @@
 
 add_setup(async function () {
   await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.urlbar.unifiedSearchButton.always", false],
+      ["browser.urlbar.unifiedSearchButton.historyInSearchMode", false],
+    ],
+  });
+  await SpecialPowers.pushPrefEnv({
     set: [["browser.urlbar.scotchBonnet.enableOverride", false]],
   });
   await PlacesUtils.history.clear();

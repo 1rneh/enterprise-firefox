@@ -338,6 +338,11 @@ class nsWindow final : public nsIWidget {
     sIsRestoringSession = aIsRestoringSession;
   }
 
+  // The last time the application stopped being the active application.
+  static mozilla::TimeStamp GetLastAppDeactivationTime() {
+    return sLastAppDeactivationTime;
+  }
+
   bool IsRTL() const { return mIsRTL; }
 
   bool ShouldAssociateWithWinAppSDK() const;
@@ -719,6 +724,7 @@ class nsWindow final : public nsIWidget {
   static bool sJustGotDeactivate;
   static bool sJustGotActivate;
   static bool sIsInMouseCapture;
+  static mozilla::TimeStamp sLastAppDeactivationTime;
   static bool sIsRestoringSession;
   static bool sIsNativePointLocked;
   static bool sIsUsingRawInputForMouseMove;

@@ -6,7 +6,12 @@ package org.mozilla.fenix
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
+import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
+import androidx.navigation.NavController
+import androidx.navigation.NavDirections
+import androidx.navigation.NavOptions
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -30,10 +35,14 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mozilla.fenix.GleanMetrics.Metrics
 import org.mozilla.fenix.GleanMetrics.NativeShareSheet
+import org.mozilla.fenix.HomeActivity.Companion.handleMenuKeyPress
+import org.mozilla.fenix.browser.BrowserFragment
+import org.mozilla.fenix.browser.BrowserFragmentDirections
 import org.mozilla.fenix.browser.browsingmode.BrowsingMode
 import org.mozilla.fenix.browser.browsingmode.BrowsingModeManager
 import org.mozilla.fenix.components.AppStore
 import org.mozilla.fenix.components.appstate.AppAction
+import org.mozilla.fenix.components.menu.MenuAccessPoint
 import org.mozilla.fenix.components.share.QR_CODE_URI_KEY
 import org.mozilla.fenix.components.share.SEND_TO_DEVICES_ACTION
 import org.mozilla.fenix.components.share.SendToDevicesDialogFragment
@@ -41,6 +50,8 @@ import org.mozilla.fenix.ext.components
 import org.mozilla.fenix.ext.getIntentSource
 import org.mozilla.fenix.helpers.FenixGleanTestRule
 import org.mozilla.fenix.helpers.perf.TestStrictModeManager
+import org.mozilla.fenix.home.HomeFragment
+import org.mozilla.fenix.home.HomeFragmentDirections
 import org.mozilla.fenix.utils.Settings
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -565,4 +576,86 @@ class HomeActivityTest {
             browserStore.state.extensions[extension.id]?.activeOptionsPage,
         )
     }
+
+    @Test
+    fun `GIVEN home is shown and menu customization is enabled WHEN the menu key is pressed THEN open the customizable menu`() {
+        val navController = mockNavController(R.id.homeFragment)
+
+        assertTrue(handleMenuKeyPress(menuKeyDown(), mockk<HomeFragment>(), navController, true))
+
+        verify {
+            navController.navigate(HomeFragmentDirections.actionHomeFragmentToMenuFragment(MenuAccessPoint.Home), null)
+        }
+    }
+
+    @Test
+    fun `GIVEN home is shown and menu customization is disabled WHEN the menu key is pressed THEN open the legacy menu`() {
+        val navController = mockNavController(R.id.homeFragment)
+
+        assertTrue(handleMenuKeyPress(menuKeyDown(), mockk<HomeFragment>(), navController, false))
+
+        verify {
+            navController.navigate(NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Home), null)
+        }
+    }
+
+    @Test
+    fun `GIVEN the browser is shown and menu customization is enabled WHEN the menu key is pressed THEN open the customizable menu`() {
+        val navController = mockNavController(R.id.browserFragment)
+
+        assertTrue(handleMenuKeyPress(menuKeyDown(), mockk<BrowserFragment>(), navController, true))
+
+        verify {
+            navController.navigate(
+                BrowserFragmentDirections.actionBrowserFragmentToMenuFragment(MenuAccessPoint.Browser),
+                null,
+            )
+        }
+    }
+
+    @Test
+    fun `GIVEN the browser is shown and menu customization is disabled WHEN the menu key is pressed THEN open the legacy menu`() {
+        val navController = mockNavController(R.id.browserFragment)
+
+        assertTrue(handleMenuKeyPress(menuKeyDown(), mockk<BrowserFragment>(), navController, false))
+
+        verify {
+            navController.navigate(NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Browser), null)
+        }
+    }
+
+    @Test
+    fun `GIVEN the menu key is held down WHEN repeated presses arrive THEN consume them without opening the menu`() {
+        val navController = mockNavController(R.id.homeFragment)
+
+        assertTrue(handleMenuKeyPress(menuKeyDown(repeatCount = 1), mockk<HomeFragment>(), navController, true))
+
+        verify(exactly = 0) { navController.navigate(any<NavDirections>(), any<NavOptions>()) }
+    }
+
+    @Test
+    fun `GIVEN the menu is already open WHEN the menu key is pressed THEN consume the key press without opening the menu again`() {
+        val navController = mockNavController(R.id.menuDialogFragment)
+
+        assertTrue(handleMenuKeyPress(menuKeyDown(), mockk<HomeFragment>(), navController, false))
+
+        verify(exactly = 0) { navController.navigate(any<NavDirections>(), any<NavOptions>()) }
+    }
+
+    @Test
+    fun `GIVEN neither home nor the browser is shown WHEN the menu key is pressed THEN leave the key press unhandled`() {
+        val navController = mockNavController(R.id.settingsFragment)
+
+        assertFalse(handleMenuKeyPress(menuKeyDown(), mockk<Fragment>(), navController, true))
+
+        verify(exactly = 0) { navController.navigate(any<NavDirections>(), any<NavOptions>()) }
+    }
+
+    private fun menuKeyDown(repeatCount: Int = 0) =
+        KeyEvent(0L, 0L, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MENU, repeatCount)
+
+    private fun mockNavController(currentDestinationId: Int): NavController =
+        mockk(relaxed = true) {
+            every { currentDestination } returns mockk(relaxed = true) { every { id } returns currentDestinationId }
+        }
 }

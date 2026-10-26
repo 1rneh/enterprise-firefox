@@ -123,6 +123,9 @@ export class UrlbarParentController {
   // Whether the controller serves the address bar.
   #isAddressbar = false;
 
+  /** @type {BrowserWindow} */
+  #browserWindow;
+
   /**
    * Initialises the controller from standalone data; the live input/view are
    * reached at runtime through the paired `UrlbarChildController`.
@@ -149,6 +152,9 @@ export class UrlbarParentController {
     this.#isAddressbar = sapName == "urlbar";
     this.isPrivate = isPrivate;
     this.#actor = actor;
+    this.#browserWindow = /** @type {BrowserWindow} */ (
+      actor?.browsingContext.topChromeWindow
+    );
 
     /**
      * @type {ProvidersManager}
@@ -176,9 +182,7 @@ export class UrlbarParentController {
    * @type {BrowserWindow}
    */
   get browserWindow() {
-    return /** @type {BrowserWindow} */ (
-      this.#actor?.browsingContext?.topChromeWindow
-    );
+    return this.#browserWindow;
   }
 
   /**
@@ -948,9 +952,8 @@ export class UrlbarParentController {
    * @param {string} reason Reason for the speculative connect request.
    */
   speculativeConnect(result, context, reason) {
-    // browserWindow is null only during teardown. Never speculative connect in
-    // private contexts.
-    if (!this.browserWindow || context.isPrivate || !context.results.length) {
+    // Never speculative connect in private contexts.
+    if (context.isPrivate || !context.results.length) {
       return;
     }
 
@@ -2211,14 +2214,11 @@ export class TelemetryEvent {
   /**
    * Returns Smart Window telemetry data for SAP `smartbar`.
    *
-   * @param {string} searchSource
-   *   The search source identifier.
    * @returns {{ chatId: string, intent: string, model: string } | null}
    *   Telemetry for the smartbar.
    */
-  #getOptionalSmartbarTelemetry(searchSource) {
-    const isSmartbar = this.#searchSourceToSap(searchSource) === "smartbar";
-    if (!isSmartbar) {
+  #getOptionalSmartbarTelemetry() {
+    if (this._controller.sapName != "smartbar") {
       return null;
     }
     return this.#smartbarData;
@@ -2691,7 +2691,7 @@ export class TelemetryEvent {
       viewTime: viewTime / 1000,
       location: snapshot.location,
       windowMode: snapshot.windowMode,
-      ...this.#getOptionalSmartbarTelemetry(snapshot.searchSource),
+      ...this.#getOptionalSmartbarTelemetry(),
     });
   }
 }

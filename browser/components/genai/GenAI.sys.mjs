@@ -146,6 +146,13 @@ XPCOMUtils.defineLazyPreferenceGetter(
 );
 XPCOMUtils.defineLazyPreferenceGetter(
   lazy,
+  "highlightToSearchCopyEnabled",
+  "browser.highlightToSearch.copy.enabled",
+  null,
+  (_pref, _old, val) => Glean.selectionMenu.copyEnabled.set(val)
+);
+XPCOMUtils.defineLazyPreferenceGetter(
+  lazy,
   "highlightToSearchSearchEnabled",
   "browser.highlightToSearch.search.enabled",
   null,
@@ -169,6 +176,12 @@ XPCOMUtils.defineLazyServiceGetter(
   "parserUtils",
   "@mozilla.org/parserutils;1",
   Ci.nsIParserUtils
+);
+XPCOMUtils.defineLazyServiceGetter(
+  lazy,
+  "ClipboardHelper",
+  "@mozilla.org/widget/clipboardhelper;1",
+  Ci.nsIClipboardHelper
 );
 
 function recordSelectionMenuEnabled() {
@@ -346,11 +359,31 @@ export const GenAI = {
   /**
    * @returns {bool} can show
    */
+  get canShowCopyAction() {
+    return (
+      lazy.highlightToSearchFeatureGate &&
+      lazy.highlightToSearchEnabled &&
+      lazy.highlightToSearchCopyEnabled
+    );
+  },
+
+  /**
+   * @returns {bool} can show
+   */
+  get canShowMoreActions() {
+    return lazy.highlightToSearchFeatureGate && lazy.highlightToSearchEnabled;
+  },
+
+  /**
+   * @returns {bool} can show
+   */
   get canShowSelectionMenu() {
     if (lazy.highlightToSearchFeatureGate) {
       return (
         lazy.highlightToSearchEnabled &&
-        (this.canShowAIAction || lazy.highlightToSearchSearchEnabled)
+        (this.canShowAIAction ||
+          lazy.highlightToSearchSearchEnabled ||
+          lazy.highlightToSearchCopyEnabled)
       );
     }
     return lazy.chatShortcuts && this.canShowChatEntrypoint;
@@ -439,6 +472,7 @@ export const GenAI = {
     Glean.genaiChatbot.shortcuts.set(lazy.chatShortcuts);
     Glean.genaiChatbot.shortcutsCustom.set(lazy.chatShortcutsCustom);
     Glean.genaiChatbot.sidebar.set(lazy.chatSidebar);
+    Glean.selectionMenu.copyEnabled.set(lazy.highlightToSearchCopyEnabled);
     Glean.selectionMenu.searchEnabled.set(lazy.highlightToSearchSearchEnabled);
     recordSelectionMenuEnabled();
   },
@@ -573,6 +607,100 @@ export const GenAI = {
       return engine;
     };
 
+    const copyActionButton = panel.querySelector("#copy-action-button");
+    const copyConfirmation = panel.querySelector("#copy-action-confirmation");
+    const copyConfirmationText = copyConfirmation.querySelector(
+      ".copy-action-confirmation-text"
+    );
+    let copyConfirmationTimer = null;
+    let copyGeneration = 0;
+
+    const moreActionsButton = panel.querySelector("#more-actions-button");
+    const moreActionsSeparator = panel.querySelector("#more-actions-separator");
+
+    // Returns whether any action ends up visible, so callers can tell whether
+    // the menu has anything to offer, and the engine the Search action uses
+    // (null if it is hidden).
+    panel.updateActions = (selection, browser, isSmartWindow = false) => {
+      if (isSmartWindow) {
+        aiActionButton.hidden = false;
+        searchActionButton.hidden = true;
+        copyActionButton.hidden = true;
+        moreActionsButton.hidden = true;
+        moreActionsSeparator.hidden = true;
+        return { hasActions: true, searchEngine: null };
+      }
+      const aiVisible = this.canShowAIAction;
+      aiActionButton.hidden = !aiVisible;
+      const searchEngine = panel.setSearchButtonLabel(selection, browser);
+      const copyVisible = this.canShowCopyAction;
+      copyActionButton.hidden = !copyVisible;
+      moreActionsButton.hidden = !this.canShowMoreActions;
+      moreActionsSeparator.hidden = moreActionsButton.hidden;
+      return {
+        hasActions: aiVisible || !!searchEngine || copyVisible,
+        searchEngine,
+      };
+    };
+
+    panel.resetCopyConfirmation = () => {
+      copyGeneration++;
+      document.defaultView.clearTimeout(copyConfirmationTimer);
+      copyConfirmation.removeAttribute("copied");
+      panel.removeAttribute("copied");
+      panel.removeAttribute("copy-fading");
+      copyConfirmationText.removeAttribute("data-l10n-id");
+      copyConfirmationText.textContent = "";
+    };
+    panel.addEventListener("popuphidden", event => {
+      if (event.target == panel) {
+        panel.resetCopyConfirmation();
+      }
+    });
+
+    copyActionButton.addEventListener("click", async () => {
+      lazy.ClipboardHelper.copyString(
+        panel.selectionData.selection,
+        panel.selectionData.browser.browsingContext.currentWindowContext
+      );
+
+      Glean.selectionMenu.actionClick.record({
+        action: "copy",
+        selection: panel.selectionData.selection.length,
+        smart_window: lazy.AIWindow.isAIWindowActive(document.defaultView),
+      });
+      panel.markInteracted();
+
+      const generation = ++copyGeneration;
+      document.l10n.setAttributes(
+        copyConfirmationText,
+        "genai-shortcut-copy-confirmation"
+      );
+      await document.l10n.translateElements([copyConfirmationText]);
+      if (generation != copyGeneration) {
+        if (!copyConfirmationText.hasAttribute("data-l10n-id")) {
+          copyConfirmationText.textContent = "";
+        }
+        return;
+      }
+      if (panel.state != "open") {
+        panel.resetCopyConfirmation();
+        return;
+      }
+      copyConfirmation.setAttribute("copied", "true");
+      panel.setAttribute("copied", "true");
+      panel.removeAttribute("copy-fading");
+
+      document.defaultView.clearTimeout(copyConfirmationTimer);
+      copyConfirmationTimer = document.defaultView.setTimeout(() => {
+        panel.setAttribute("copy-fading", "");
+        copyConfirmationTimer = document.defaultView.setTimeout(
+          () => panel.hide(),
+          240
+        );
+      }, 850);
+    });
+
     searchActionButton.addEventListener("click", () => {
       const { selection, principal, policyContainer } = panel.selectionData;
       lazy.SearchUIUtils.loadSearch({
@@ -589,6 +717,7 @@ export const GenAI = {
         selection: selection.length,
         smart_window: lazy.AIWindow.isAIWindowActive(document.defaultView),
       });
+      panel.markInteracted();
       panel.hide();
     });
     const buttonActiveState = "icon";
@@ -596,10 +725,44 @@ export const GenAI = {
     const chatShortcutsOptionsPanel = document.getElementById(
       "chat-shortcuts-options-panel"
     );
+    const moreActionsPanel = document.getElementById(
+      "selection-more-actions-panel"
+    );
     panel.hide = () => {
       chatShortcutsOptionsPanel.hidePopup();
+      moreActionsPanel.hidePopup();
       panel.hidePopup();
     };
+    panel.startDisplay = smartWindow => {
+      panel.display = {
+        start: ChromeUtils.now(),
+        smartWindow,
+        interacted: false,
+      };
+    };
+    panel.markInteracted = () => {
+      if (panel.display) {
+        panel.display.interacted = true;
+      }
+    };
+    // Idempotent - only the first call after startDisplay records.
+    panel.recordDismissed = () => {
+      if (!panel.display) {
+        return;
+      }
+      const { start, smartWindow, interacted } = panel.display;
+      panel.display = null;
+      Glean.selectionMenu.dismissed.record({
+        interacted,
+        duration: Math.round(ChromeUtils.now() - start),
+        smart_window: smartWindow,
+      });
+    };
+    panel.addEventListener("popuphidden", event => {
+      if (event.target == panel) {
+        panel.recordDismissed();
+      }
+    });
     aiActionButton.setAttribute("type", buttonDefaultState);
     aiActionButton.ariaHasPopup = "menu";
     aiActionButton.ariaExpanded = "false";
@@ -611,6 +774,134 @@ export const GenAI = {
       aiActionButton.ariaExpanded = "false";
     });
     chatShortcutsOptionsPanel.firstChild.id = "ask-chat-shortcuts";
+
+    const aiToggle = document.getElementById("more-actions-ai-toggle");
+    const searchToggle = document.getElementById("more-actions-search-toggle");
+    const copyToggle = document.getElementById("more-actions-copy-toggle");
+    const moreActionToggles = [
+      { toggle: aiToggle, action: "ai", pref: "browser.ml.chat.shortcuts" },
+      {
+        toggle: searchToggle,
+        action: "search",
+        pref: "browser.highlightToSearch.search.enabled",
+      },
+      {
+        toggle: copyToggle,
+        action: "copy",
+        pref: "browser.highlightToSearch.copy.enabled",
+      },
+    ];
+
+    aiToggle.iconSrc = "chrome://global/skin/icons/highlights.svg";
+    searchToggle.iconSrc = "chrome://global/skin/icons/search-glass.svg";
+    copyToggle.iconSrc = "chrome://global/skin/icons/edit-copy.svg";
+
+    const renderMoreActions = () => {
+      // The chatbot row is absent, not unchecked, while the chatbot is blocked.
+      aiToggle.hidden = !this.canOfferChatbot;
+      const providerName = this.chatProviders.get(lazy.chatProvider)?.name;
+      document.l10n.setAttributes(
+        aiToggle,
+        providerName
+          ? "genai-more-actions-ai-provider"
+          : "genai-more-actions-ai-generic",
+        { provider: providerName }
+      );
+      aiToggle.pressed = lazy.chatShortcuts;
+      searchToggle.pressed = lazy.highlightToSearchSearchEnabled;
+      copyToggle.pressed = lazy.highlightToSearchCopyEnabled;
+    };
+
+    const hasEnabledAction = () =>
+      this.canShowAIAction ||
+      lazy.highlightToSearchSearchEnabled ||
+      lazy.highlightToSearchCopyEnabled;
+
+    for (const { toggle, action, pref } of moreActionToggles) {
+      toggle.addEventListener("toggle", () => {
+        panel.editingActions = true;
+        try {
+          Services.prefs.setBoolPref(pref, toggle.pressed);
+        } finally {
+          panel.editingActions = false;
+        }
+        Glean.selectionMenu.optionToggled.record({
+          action,
+          enabled: toggle.pressed,
+          source: "menu",
+        });
+        if (!hasEnabledAction()) {
+          Services.prefs.setBoolPref(
+            "browser.highlightToSearch.enabled",
+            false
+          );
+          Glean.selectionMenu.optionToggled.record({
+            action: "master",
+            enabled: false,
+            source: "uncheck_all",
+          });
+          panel.hide();
+          return;
+        }
+        // Re-render the bar in place rather than waiting for the next
+        // selection.
+        panel.updateActions(
+          panel.selectionData.selection,
+          panel.selectionData.browser
+        );
+      });
+    }
+
+    const manageSettingsButton = document.getElementById(
+      "more-actions-manage-settings"
+    );
+    manageSettingsButton.iconSrc = "chrome://global/skin/icons/settings.svg";
+    manageSettingsButton.addEventListener("click", () => {
+      Glean.selectionMenu.menuClick.record({ item: "settings" });
+      document.defaultView.openPreferences("general-highlight-to-search");
+      panel.hide();
+    });
+
+    moreActionsButton.setAttribute("type", buttonDefaultState);
+    moreActionsButton.ariaExpanded = "false";
+    moreActionsPanel.addEventListener("popupshown", event => {
+      if (event.target == moreActionsPanel) {
+        moreActionsButton.ariaExpanded = "true";
+      }
+    });
+    moreActionsPanel.addEventListener("popuphidden", event => {
+      if (event.target == moreActionsPanel) {
+        moreActionsButton.setAttribute("type", buttonDefaultState);
+        moreActionsButton.ariaExpanded = "false";
+      }
+    });
+    moreActionsButton.addEventListener("click", async () => {
+      if (moreActionsPanel.state != "closed") {
+        moreActionsPanel.hidePopup();
+        return;
+      }
+      chatShortcutsOptionsPanel.hidePopup();
+      renderMoreActions();
+      // Open with the AI row already named, so a screen reader doesn't land on
+      // an unnamed switch while Fluent catches up.
+      await document.l10n.translateElements([aiToggle]);
+      if (panel.state != "open" || moreActionsPanel.state != "closed") {
+        return;
+      }
+      moreActionsButton.setAttribute("type", buttonActiveState);
+      moreActionsPanel.openPopup(panel, "after_start", 0, 10);
+      const state = toggle => {
+        if (toggle.hidden) {
+          return "absent";
+        }
+        return toggle.pressed ? "on" : "off";
+      };
+      Glean.selectionMenu.menuShown.record({
+        ai: state(aiToggle),
+        search: state(searchToggle),
+        copy: state(copyToggle),
+      });
+    });
 
     // Helper to show rounded warning numbers
     const roundDownToNearestHundred = number => {
@@ -653,6 +944,7 @@ export const GenAI = {
 
     // build the ask popup
     const buildPopup = async () => {
+      moreActionsPanel.hidePopup();
       aiActionButton.setAttribute("type", buttonActiveState);
       const vbox = chatShortcutsOptionsPanel.querySelector("vbox");
       vbox.innerHTML = "";
@@ -690,7 +982,10 @@ export const GenAI = {
           return button;
         },
         "shortcuts",
-        panel.hide
+        () => {
+          panel.markInteracted();
+          panel.hide();
+        }
       );
 
       // Add custom textarea box if configured
@@ -713,6 +1008,7 @@ export const GenAI = {
         textAreaEl.addEventListener("keydown", event => {
           if (event.key == "Enter" && !event.shiftKey) {
             this.handleAskChat({ value: textAreaEl.value }, context);
+            panel.markInteracted();
             panel.hide();
           }
         });
@@ -850,40 +1146,37 @@ export const GenAI = {
         // Any other hide reason closes the panel normally.
         const imeHiding = data === "selectionchange-ime";
         shortcutPanel.toggleAttribute("ime-hiding", imeHiding);
-        if (!imeHiding) {
+        if (imeHiding) {
+          shortcutPanel.recordDismissed();
+        } else {
           shortcutPanel.hide();
         }
         break;
       }
       case "GenAI:ShowShortcuts": {
         // Save the latest selection so it can be used by popup
-        shortcutPanel.selectionData = data;
+        shortcutPanel.selectionData = { ...data, browser };
+        shortcutPanel.resetCopyConfirmation();
 
         // Smart Window has its own separate gate above and only ever offers
-        // the AI action; don't let the Search action leak in there, and don't
-        // touch the AI button's visibility on that path either.
-        let searchEngine = null;
-        if (!isSmartWindow) {
-          const aiActionButton =
-            shortcutPanel.querySelector("#ai-action-button");
-          const aiVisible = this.canShowAIAction;
-          aiActionButton.hidden = !aiVisible;
-          searchEngine = shortcutPanel.setSearchButtonLabel(
-            data.selection,
-            browser
-          );
-          if (!aiVisible && !searchEngine) {
-            // Nothing to offer: don't open an empty menu or log an impression
-            // of one, and close any menu left from the previous selection.
-            shortcutPanel.hide();
-            return;
-          }
+        // the AI action.
+        const { hasActions, searchEngine } = shortcutPanel.updateActions(
+          data.selection,
+          browser,
+          isSmartWindow
+        );
+        if (!hasActions) {
+          // Nothing to offer: don't open an empty menu or log an impression
+          // of one, and close any menu left from the previous selection.
+          shortcutPanel.hide();
+          return;
         }
 
         // Clear any CSS hide from a prior selectionchange so the panel
         // is visible when it opens for the new selection.
         shortcutPanel.removeAttribute("ime-hiding");
 
+        shortcutPanel.recordDismissed();
         Glean.genaiChatbot.shortcutsDisplayed.record({
           delay: data.delay,
           inputType: data.inputType,
@@ -901,6 +1194,7 @@ export const GenAI = {
             "text_selection"
           );
         }
+        shortcutPanel.startDisplay(isSmartWindow);
 
         // Position the shortcuts relative to the browser's top-left corner
         const screenYBase = data.screenYDevPx / devicePixelRatio;
@@ -1880,7 +2174,9 @@ function onChatShortcutsChange(value) {
         "selection-shortcut-action-panel"
       );
 
-      selectionShortcutActionPanel.hidePopup();
+      if (!selectionShortcutActionPanel.editingActions) {
+        selectionShortcutActionPanel.hidePopup();
+      }
     });
   }
 }

@@ -4,6 +4,7 @@
 
 package org.mozilla.fenix.listentopage
 
+import android.view.View
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.isTraversalGroup
@@ -84,6 +86,7 @@ class ListenSheetIntegration(
         val view =
             ComposeView(container.context).apply {
                 id = R.id.listenSheet
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
                 layoutParams =
                     CoordinatorLayout.LayoutParams(
                             CoordinatorLayout.LayoutParams.MATCH_PARENT,
@@ -91,12 +94,14 @@ class ListenSheetIntegration(
                         )
                         .apply { behavior = ListenSheetBehavior(isAddressBarAtBottom = isAddressBarAtBottom) }
                 setContent { ListenFeatureHost() }
+                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             }
         listenFeature = view
 
         container.post {
             if (listenFeature === view) {
                 container.addView(view)
+                container.findViewById<View>(R.id.engineView)?.accessibilityTraversalAfter = view.id
             }
         }
     }
@@ -227,11 +232,10 @@ private fun ListenSheetContent(
         modifier =
             Modifier.fillMaxWidth()
                 .semantics(
-                    mergeDescendants = false,
                     properties = {
                         contentDescription = cardContentDescription
                         isTraversalGroup = true
-                    },
+                    }
                 ),
     )
 }

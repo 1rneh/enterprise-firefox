@@ -1730,6 +1730,9 @@ class NativeObject : public JSObject {
   void shrinkElements(JSContext* cx, uint32_t cap);
 
  private:
+  // Like growElements, but doesn't call Watchtower::watchFirstDenseElementAdd.
+  bool growElementsNoWatchtowerCheck(JSContext* cx, uint32_t newcap);
+
   // Run a post write barrier that encompasses multiple contiguous elements in a
   // single step.
   inline void elementsRangePostWriteBarrier(uint32_t start, uint32_t count);

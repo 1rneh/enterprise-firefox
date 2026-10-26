@@ -101,6 +101,8 @@ private fun reducePlayback(state: ListenState, action: ListenAction.Playback): L
             )
         }
 
+        is VoiceChangeStarted -> state.copy(articleProgress = state.progressAtTextPosition(action.positionInArticle))
+
         ListenAction.Playback.PlaybackWaiting ->
             if (state.playbackState.phase == PlaybackPhase.Paused) {
                 state
@@ -163,6 +165,10 @@ private fun ArticleMeasurements.progressAt(
         .copy(chunkDurationsMs = mapper.chunkDurationsMs())
         .correctLength()
 }
+
+/** The progress at [textPosition], between 0 and 1 of the article's text, or none before the article is split. */
+private fun ListenState.progressAtTextPosition(textPosition: Float): ArticleProgress =
+    articleMeasurements?.getArticleProgressAtTextPosition(textPosition) ?: ArticleProgress()
 
 /** This progress at the end of the article, with the bar full, however the article got there. */
 private fun ArticleProgress.atEnd(): ArticleProgress =

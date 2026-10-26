@@ -111,7 +111,11 @@ class MenuFragment : BottomSheetDialogFragment() {
                     event: KeyEvent,
                 ): Boolean {
                     if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_MENU) {
-                        dismiss()
+                        // Repeats from a held down hardware key would otherwise keep dismissing
+                        // and reopening the menu.
+                        if (event.repeatCount == 0) {
+                            dismiss()
+                        }
                         return true
                     }
                     return super.onKeyDown(keyCode, event)

@@ -558,6 +558,8 @@ pref("browser.urlbar.trustPanel.breachAlerts", true);
 
 // Whether or not Unified Search Button is shown always.
 pref("browser.urlbar.unifiedSearchButton.always", false);
+// Whether or not history is shown when in search mode.
+pref("browser.urlbar.unifiedSearchButton.historyInSearchMode", false);
 
 // Enable trending suggestions and recent searches.
 pref("browser.urlbar.trending.featureGate", true);

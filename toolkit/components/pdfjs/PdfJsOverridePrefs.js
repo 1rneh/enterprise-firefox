@@ -45,6 +45,10 @@
 
 pref("pdfjs.enableOptimizedPartialRendering", true);
 
+#ifdef EARLY_BETA_OR_EARLIER
+  pref("pdfjs.disableWorkerRendering", false);
+#endif
+
 // Off by default until the UX is exercised in Enterprise. Flip via
 // `about:config`, a profile pref, or the `enableSignatureVerification`
 // variable of the `pdfjs` Nimbus feature. The viewer also short-circuits its

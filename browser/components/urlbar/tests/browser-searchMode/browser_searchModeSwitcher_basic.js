@@ -159,9 +159,10 @@ add_task(async function basic() {
   gURLBar.querySelector(".searchmode-switcher-close").click();
   await UrlbarTestUtils.assertSearchMode(window, null);
   observer.disconnect();
-  Assert.ok(
-    !viewOpened,
-    "The view never opened, since the engine had no results to show"
+  Assert.equal(
+    viewOpened,
+    UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode"),
+    "The view only opens if historyInSearchMode provides results, since the engine has none"
   );
 });
 

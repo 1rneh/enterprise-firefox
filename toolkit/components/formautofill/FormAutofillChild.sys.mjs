@@ -659,10 +659,13 @@ export class FormAutofillChild extends JSWindowActorChild {
       if (!anchorElement) {
         // Unable to find an anchor element under the previously tracked fields.
         // So going over the elements that were added/became visible on form change
-        const addedElements = changes[lazy.FORM_CHANGE_REASON.ADDED_NODES];
+        const addedElements = changes[lazy.FORM_CHANGE_REASON.NODES_ADDED];
         const visibleElements =
           changes[lazy.FORM_CHANGE_REASON.ELEMENT_VISIBLE];
-        anchorElement = findAnchorElement([addedElements, visibleElements]);
+        anchorElement = findAnchorElement([
+          ...(addedElements ?? []),
+          ...(visibleElements ?? []),
+        ]);
       }
       if (anchorElement) {
         currentForm = lazy.AutofillFormFactory.createFromField(anchorElement);

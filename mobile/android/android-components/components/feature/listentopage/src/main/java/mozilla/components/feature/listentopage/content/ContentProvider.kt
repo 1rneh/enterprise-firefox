@@ -12,11 +12,22 @@ import kotlinx.coroutines.CancellationException
  *
  * @property text The article text, as plain prose.
  * @property languageTag BCP 47 language tag of the article, used to pick a voice and to find sentence boundaries.
+ * @property languageSource Where [languageTag] came from.
  */
 data class Content(
     val text: String,
     val languageTag: String,
+    val languageSource: LanguageSource = LanguageSource.Page,
 )
+
+/** Where the language of an article came from. */
+enum class LanguageSource {
+    /** The page declares the language. */
+    Page,
+
+    /** The page declares no usable language, so the fallback language is used. */
+    Fallback,
+}
 
 /**
  * Provides the [Content] of the article a listening session reads out.
@@ -49,9 +60,19 @@ fun interface ContentProvider {
             try {
                 val metadata = pageMetadataExtractor.getPageMetadata(tabId).getOrThrow()
                 val text = pageContentExtractor.getPageContent(tabId).getOrThrow()
-                val languageTag = metadata.languageTag.asLanguageTagOrNull() ?: fallbackLanguageTag()
+                val declaredLanguageTag = metadata.languageTag.asLanguageTagOrNull()
+                val content =
+                    if (declaredLanguageTag != null) {
+                        Content(text = text, languageTag = declaredLanguageTag, languageSource = LanguageSource.Page)
+                    } else {
+                        Content(
+                            text = text,
+                            languageTag = fallbackLanguageTag(),
+                            languageSource = LanguageSource.Fallback,
+                        )
+                    }
 
-                Result.success(Content(text = text, languageTag = languageTag))
+                Result.success(content)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

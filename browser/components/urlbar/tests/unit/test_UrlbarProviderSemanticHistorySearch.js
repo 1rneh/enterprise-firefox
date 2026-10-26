@@ -164,9 +164,10 @@ add_task(async function test_isActive_conditions() {
   const engineSearchMode = createContext("hello world", {
     searchMode: { engineName: "testEngine" },
   });
-  Assert.ok(
-    !(await provider.isActive(engineSearchMode)),
-    "Should not be active when in search engine mode"
+  Assert.equal(
+    await provider.isActive(engineSearchMode),
+    UrlbarPrefs.get("unifiedSearchButton.historyInSearchMode"),
+    "Should only be active in search engine mode with historyInSearchMode"
   );
 
   const historySearchMode = createContext("hello world", {

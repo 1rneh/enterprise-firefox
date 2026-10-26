@@ -923,8 +923,7 @@ nsDisplayListBuilder::nsDisplayListBuilder(nsIFrame* aReferenceFrame,
       mBuildAsyncZoomContainer(false),
       mIsRelativeToLayoutViewport(false),
       mUseOverlayScrollbars(false),
-      mAlwaysLayerizeScrollbars(false),
-      mIsDestroying(false) {
+      mAlwaysLayerizeScrollbars(false) {
   MOZ_COUNT_CTOR(nsDisplayListBuilder);
 
   ShouldRebuildDisplayListDueToPrefChange();
@@ -1178,6 +1177,7 @@ nsDisplayListBuilder::~nsDisplayListBuilder() {
   while (c) {
     DisplayItemClipChain* next = c->mNextClipChainToDestroy;
     c->DisplayItemClipChain::~DisplayItemClipChain();
+    DisplayListArena::Free(DisplayListArenaObjectId::CLIPCHAIN, c);
     c = next;
   }
 
@@ -1462,7 +1462,7 @@ void nsDisplayListBuilder::FreeClipChains() {
 
       mClipDeduplicator.erase(*indirect);
       (*indirect)->DisplayItemClipChain::~DisplayItemClipChain();
-      Destroy(DisplayListArenaObjectId::CLIPCHAIN, *indirect);
+      DisplayListArena::Free(DisplayListArenaObjectId::CLIPCHAIN, *indirect);
 
       *indirect = next;
     } else {
@@ -1638,8 +1638,8 @@ const DisplayItemClipChain* nsDisplayListBuilder::AllocateDisplayItemClipChain(
     const DisplayItemClip& aClip, const ActiveScrolledRoot* aASR,
     const DisplayItemClipChain* aParent) {
   MOZ_DIAGNOSTIC_ASSERT(!(aParent && aParent->mOnStack));
-  void* p = Allocate(sizeof(DisplayItemClipChain),
-                     DisplayListArenaObjectId::CLIPCHAIN);
+  void* p = DisplayListArena::Allocate(DisplayListArenaObjectId::CLIPCHAIN,
+                                       sizeof(DisplayItemClipChain));
   DisplayItemClipChain* c = new (KnownNotNull, p)
       DisplayItemClipChain(aClip, aASR, aParent, mFirstClipChainToDestroy);
 #if defined(DEBUG) || defined(MOZ_DIAGNOSTIC_ASSERT_ENABLED)
@@ -1653,7 +1653,7 @@ const DisplayItemClipChain* nsDisplayListBuilder::AllocateDisplayItemClipChain(
     // collapse into the same clip chain object, because clip chains do not keep
     // track of the reference frame that they were created in.
     c->DisplayItemClipChain::~DisplayItemClipChain();
-    Destroy(DisplayListArenaObjectId::CLIPCHAIN, c);
+    DisplayListArena::Free(DisplayListArenaObjectId::CLIPCHAIN, c);
     return *(result.first);
   }
   mFirstClipChainToDestroy = c;
@@ -1989,8 +1989,6 @@ void nsDisplayTransform::AddSizeOfExcludingThis(nsWindowSizes& aSizes) const {
 }
 
 void nsDisplayListBuilder::AddSizeOfExcludingThis(nsWindowSizes& aSizes) const {
-  mPool.AddSizeOfExcludingThis(aSizes, Arena::ArenaKind::DisplayList);
-
   size_t n = 0;
   MallocSizeOf mallocSizeOf = aSizes.mState.mMallocSizeOf;
   n += mRetainedWindowDraggingRegion.SizeOfExcludingThis(mallocSizeOf);

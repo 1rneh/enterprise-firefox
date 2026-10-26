@@ -334,6 +334,11 @@
     "dark": "{Theme$button/text/color/muted/active}",
     "forcedColors": "{Theme$button/text/color/ghost/active}"
   },
+  "button/text/color/menu": {
+    "light": "{Theme$button/text/color/ghost}",
+    "dark": "{Theme$button/text/color/ghost}",
+    "forcedColors": "MenuText"
+  },
   "button/text/color/menu/disabled": {
     "light": "{Theme$button/text/color/ghost/disabled}",
     "dark": "{Theme$button/text/color/disabled}",

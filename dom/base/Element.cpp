@@ -3789,7 +3789,8 @@ nsresult Element::SetAttr(int32_t aNamespaceID, nsAtom* aName, nsAtom* aPrefix,
       aNamespaceID, aName, aPrefix, valueForComparison, aSubjectPrincipal,
       aNotify,
       [&](nsAttrValue& attrValue) {
-        if (!ParseAttribute(aNamespaceID, aName, aValue, aSubjectPrincipal,
+        if (!aName->IsStatic() ||
+            !ParseAttribute(aNamespaceID, aName, aValue, aSubjectPrincipal,
                             attrValue)) {
           attrValue.SetTo(aValue);
         }
@@ -3840,7 +3841,8 @@ nsresult Element::SetAttr(int32_t aNamespaceID, nsAtom* aName, nsAtom* aPrefix,
       aNamespaceID, aName, aPrefix, valueForComparison, aSubjectPrincipal,
       aNotify,
       [&](nsAttrValue& attrValue) {
-        if (!ParseAttribute(aNamespaceID, aName, valueString, aSubjectPrincipal,
+        if (!aName->IsStatic() ||
+            !ParseAttribute(aNamespaceID, aName, valueString, aSubjectPrincipal,
                             attrValue)) {
           attrValue.SetTo(aValue);
         }
@@ -4037,12 +4039,12 @@ nsresult Element::SetNoNameSpaceAttrOnNewlyCreatedElement(
             const char16_t* strPtr = valueAtom->GetUTF16String();
             char16_t c = *strPtr;
             if (c >= u'0' && c <= u'9') {
-              nsString str;  // Deliberately not Auto
-              valueAtom->ToString(str);
               // See https://bugzilla.mozilla.org/show_bug.cgi?id=2043161 about
               // possibly introducing a `ParseAttribute` overload for taking
               // value as atom.
-              if (ParseAttribute(kNameSpaceID_None, namePtr, str, nullptr,
+              if (namePtr->IsStatic() &&
+                  ParseAttribute(kNameSpaceID_None, namePtr,
+                                 nsDependentAtomString(valueAtom), nullptr,
                                  value)) {
                 valueAtom = nullptr;
               } else if (namePtr == nsGkAtoms::selected &&
@@ -4077,7 +4079,8 @@ nsresult Element::SetNoNameSpaceAttrOnNewlyCreatedElement(
     }
     nsString str;          // Deliberately not Auto
     aValue.ToString(str);  // Deliberately not move
-    if (!ParseAttribute(kNameSpaceID_None, namePtr, str, nullptr, value)) {
+    if (!namePtr->IsStatic() ||
+        !ParseAttribute(kNameSpaceID_None, namePtr, str, nullptr, value)) {
       if (aValue.IsStringBuffer()) {
         MOZ_ASSERT(!(NS_IS_ATOM_ARRAY_ATTRIBUTE(namePtr) ||
                      NS_IS_ATOM_ARRAY_ATTRIBUTE_HTML(namePtr) ||
@@ -4258,10 +4261,7 @@ bool Element::ParseAttribute(int32_t aNamespaceID, nsAtom* aAttribute,
                              const nsAString& aValue,
                              nsIPrincipal* aMaybeScriptedPrincipal,
                              nsAttrValue& aResult) {
-  if (!aAttribute->IsStatic()) {
-    return false;
-  }
-
+  MOZ_ASSERT(aAttribute->IsStatic());
   if (aAttribute == nsGkAtoms::lang) {
     aResult.ParseAtom(aValue);
     return true;

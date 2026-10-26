@@ -22,6 +22,12 @@ let filterActionsMode = action =>
   action.source != UrlbarShared.RESULT_SOURCE.ACTIONS;
 
 add_setup(async function () {
+  await SpecialPowers.pushPrefEnv({
+    set: [
+      ["browser.urlbar.unifiedSearchButton.always", false],
+      ["browser.urlbar.unifiedSearchButton.historyInSearchMode", false],
+    ],
+  });
   gMaxResults = Services.prefs.getIntPref("browser.urlbar.maxRichResults");
 
   // Add a search suggestion engine and move it to the front so that it appears

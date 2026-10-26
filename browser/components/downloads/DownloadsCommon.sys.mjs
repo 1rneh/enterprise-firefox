@@ -415,9 +415,9 @@ export var DownloadsCommon = {
       return null;
     }
     let contentType = download.contentType;
-    let url = Cc["@mozilla.org/network/standard-url-mutator;1"]
-      .createInstance(Ci.nsIURIMutator)
-      .setSpec("http://example.com") // construct the URL
+    let url = Services.io
+      .newURI("http://example.com") // construct the URL
+      .mutate()
       .setFilePath(download.target.path)
       .finalize()
       .QueryInterface(Ci.nsIURL);

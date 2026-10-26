@@ -1005,7 +1005,11 @@ void Theme::PaintProgress(nsIFrame* aFrame, PaintBackendData& aPaintData,
     } else {
       double clipHeight = rect.height * position;
       clipRect.height = clipHeight;
-      clipRect.y += rect.height - clipHeight;
+      const WritingMode wm = aFrame->GetWritingMode();
+      if (!wm.IsVertical() ||
+          wm.PhysicalSide(LogicalSide::IStart) == eSideBottom) {
+        clipRect.y += rect.height - clipHeight;
+      }
     }
   }
 

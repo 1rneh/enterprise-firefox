@@ -101,3 +101,4 @@ firefox-on-glean = { path = "../../toolkit/components/glean/api" }
 moz_task = { path = "../../xpcom/rust/moz_task" }
 futures-channel = "0.3"
 futures-util = { version = "0.3", default-features = false }
+scopeguard = "1.2"

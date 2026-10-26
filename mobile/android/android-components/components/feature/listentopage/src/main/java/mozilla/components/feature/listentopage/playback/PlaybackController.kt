@@ -76,6 +76,13 @@ interface PlaybackController {
     val seekRequests: Flow<Long>
         get() = emptyFlow()
 
+    /**
+     * Emits when the playback ends without [release] ending it, such as when the app is removed from the recent apps or
+     * the notification is dismissed.
+     */
+    val sessionEnded: Flow<Unit>
+        get() = emptyFlow()
+
     /** Tells the notification how long the whole article lasts. Does nothing while no playback is connected. */
     suspend fun setArticleDuration(durationMs: Long)
 
@@ -84,14 +91,8 @@ interface PlaybackController {
      * [articleDisplayData] describes it.
      *
      * @param tabId The tab the article is from, which tapping the notification opens.
-     * @param positionMs How far into the article to start, inside [chunk].
      */
-    suspend fun startArticle(
-        chunk: ChunkFile,
-        articleDisplayData: ArticleDisplayData,
-        tabId: String,
-        positionMs: Long = 0,
-    )
+    suspend fun startArticle(chunk: ChunkFile, articleDisplayData: ArticleDisplayData, tabId: String)
 
     /** Adds [chunk] to the end of what is queued, to be read out once the rest has been. */
     suspend fun enqueue(chunk: ChunkFile)
@@ -134,9 +135,6 @@ interface PlaybackController {
 
     /** Gives up the playback, which takes the notification away. A later call starts it again. */
     suspend fun release()
-
-    /** How far into the article playback has got, or `0` when nothing is playing. */
-    suspend fun currentPositionMs(): Long
 }
 
 /**
@@ -196,6 +194,10 @@ internal constructor(
         MutableSharedFlow<Long>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     override val seekRequests: SharedFlow<Long> = _seekRequests.asSharedFlow()
 
+    private val _sessionEnded =
+        MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    override val sessionEnded: SharedFlow<Unit> = _sessionEnded.asSharedFlow()
+
     // The length of the article last given to the session, which a restart carries on.
     private var articleDurationMs = 0L
 
@@ -232,37 +234,32 @@ internal constructor(
             }
         }
 
-    override suspend fun startArticle(
-        chunk: ChunkFile,
-        articleDisplayData: ArticleDisplayData,
-        tabId: String,
-        positionMs: Long,
-    ) = onController {
-        // Published before the command, so that a report the previous session left behind cannot be read as this
-        // session's in the time it takes the player to report for itself.
-        _status.value =
-            PlaybackState(
-                phase = PlaybackPhase.Buffering,
-                speed = PlaybackSpeed.nearest(it.playbackParameters.speed),
+    override suspend fun startArticle(chunk: ChunkFile, articleDisplayData: ArticleDisplayData, tabId: String) =
+        onController {
+            // Published before the command, so that a report the previous session left behind cannot be read as this
+            // session's in the time it takes the player to report for itself.
+            _status.value =
+                PlaybackState(
+                    phase = PlaybackPhase.Buffering,
+                    speed = PlaybackSpeed.nearest(it.playbackParameters.speed),
+                )
+
+            val displayDataWithAppNameIfUntitled = articleDisplayData.withAppNameIfUntitled(appName)
+            displayData = displayDataWithAppNameIfUntitled
+
+            it.sendCustomCommand(
+                SessionCommand(COMMAND_SET_SESSION_ACTIVITY, Bundle.EMPTY),
+                sessionActivity(tabId).toSessionActivityArgs(),
             )
 
-        val displayDataWithAppNameIfUntitled = articleDisplayData.withAppNameIfUntitled(appName)
-        displayData = displayDataWithAppNameIfUntitled
-
-        it.sendCustomCommand(
-            SessionCommand(COMMAND_SET_SESSION_ACTIVITY, Bundle.EMPTY),
-            sessionActivity(tabId).toSessionActivityArgs(),
-        )
-
-        // A new article starts at its top, with no length until one is worked out.
-        articleDurationMs = 0
-        it.setMediaItem(
-            chunk.toMediaItem(displayData = displayDataWithAppNameIfUntitled, articleTimeline = ArticleTimeline()),
-            positionMs,
-        )
-        it.prepare()
-        it.play()
-    }
+            // A new article starts at its top, with no length until one is worked out.
+            articleDurationMs = 0
+            it.setMediaItem(
+                chunk.toMediaItem(displayData = displayDataWithAppNameIfUntitled, articleTimeline = ArticleTimeline())
+            )
+            it.prepare()
+            it.play()
+        }
 
     override suspend fun enqueue(chunk: ChunkFile) = onController {
         val displayData = this.displayData ?: return@onController
@@ -336,12 +333,6 @@ internal constructor(
             controller.release()
         }
     }
-
-    override suspend fun currentPositionMs(): Long =
-        withContext(Dispatchers.Main) {
-            val connected = connection ?: return@withContext 0L
-            runCatching { connected.await() }.getOrNull()?.currentPosition ?: 0L
-        }
 
     /**
      * Keeps [status] a second fresh while the audio plays, and stops sampling when it does not.
@@ -418,8 +409,11 @@ internal constructor(
                         // service once the article ends with nobody commanding it. Commands sent to a disconnected
                         // controller are dropped without a word, so the next request has to build a new one.
                         override fun onDisconnected(controller: MediaController) {
+                            // A connection still kept here means the session ended without being asked to.
+                            val isConnected = connection != null
                             connection = null
                             forgetStatus()
+                            if (isConnected) _sessionEnded.tryEmit(Unit)
                         }
 
                         override fun onCustomCommand(

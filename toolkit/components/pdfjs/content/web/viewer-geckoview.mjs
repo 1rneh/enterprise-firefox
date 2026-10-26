@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.273
- * pdfjsBuild = 5d143c409
+ * pdfjsVersion = 6.5.334
+ * pdfjsBuild = 67667f1e4
  */
 
 ;// ./web/ui_utils.js
@@ -904,7 +904,7 @@ const {
 } = globalThis.pdfjsLib;
 
 ;// ./web/internal_evt.js
-const INTERNAL_EVT = "fc035972-b0fa-48f2-b210-0956ed9f371d";
+const INTERNAL_EVT = "a27af040-4d63-41f5-90b3-b0c747d7cdd3";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -3875,7 +3875,7 @@ function isEntireWord(content, startIdx, length) {
 }
 let NormalizeWithNFKC;
 function getNormalizeWithNFKC() {
-  NormalizeWithNFKC ||= `\xA0¨ª¯²-µ¸-º¼-¾Ĳ-ĳĿ-ŀŉſǄ-ǌǱ-ǳʰ-ʸ˘-˝ˠ-ˤʹͺ;΄-΅·ϐ-ϖϰ-ϲϴ-ϵϹևٵ-ٸक़-य़ড়-ঢ়য়ਲ਼ਸ਼ਖ਼-ਜ਼ਫ਼ଡ଼-ଢ଼ำຳໜ-ໝ༌གྷཌྷདྷབྷཛྷཀྵჼᴬ-ᴮᴰ-ᴺᴼ-ᵍᵏ-ᵪᵸᶛ-ᶿẚ-ẛάέήίόύώΆ᾽-῁ΈΉ῍-῏ΐΊ῝-῟ΰΎ῭-`ΌΏ´-῾ - ‑‗․-… ″-‴‶-‷‼‾⁇-⁉⁗ ⁰-ⁱ⁴-₎ₐ-ₜ₨℀-℃℅-ℇ℉-ℓℕ-№ℙ-ℝ℠-™ℤΩℨK-ℭℯ-ℱℳ-ℹ℻-⅀ⅅ-ⅉ⅐-ⅿ↉∬-∭∯-∰〈-〉①-⓪⨌⩴-⩶⫝̸ⱼ-ⱽⵯ⺟⻳⼀-⿕　〶〸-〺゛-゜ゟヿㄱ-ㆎ㆒-㆟㈀-㈞㈠-㉇㉐-㉾㊀-㏿ꚜ-ꚝꝰ꟱-ꟴꟸ-ꟹꭜ-ꭟꭩ豈-嗀塚晴凞-羽蘒諸逸-都飯-舘並-龎ﬀ-ﬆﬓ-ﬗיִײַ-זּטּ-לּמּנּ-סּףּ-פּצּ-ﮱﯓ-ﴽﵐ-ﶏﶒ-ﷇﷰ-﷼︐-︙︰-﹄﹇-﹒﹔-﹦﹨-﹫ﹰ-ﹲﹴﹶ-ﻼ！-ﾾￂ-ￇￊ-ￏￒ-ￗￚ-ￜ￠-￦`;
+  NormalizeWithNFKC ||= `\xA0¨ª¯²-µ¸-º¼-¾Ĳ-ĳĿ-ŀŉſǄ-ǌǱ-ǳʰ-ʸ˘-˝ˠ-ˤʹͺ;΄-΅·ϐ-ϖϰ-ϲϴ-ϵϹևٵ-ٸक़-य़ড়-ঢ়য়ਲ਼ਸ਼ਖ਼-ਜ਼ਫ਼ଡ଼-ଢ଼ำຳໜ-ໝ༌གྷཌྷདྷབྷཛྷཀྵჼᴬ-ᴮᴰ-ᴺᴼ-ᵍᵏ-ᵪᵸᶛ-ᶿẚ-ẛάέήίόύώΆ᾽-῁ΈΉ῍-῏ΐΊ῝-῟ΰΎ῭-`ΌΏ´-῾ - ‑‗․-… ″-‴‶-‷‼‾⁇-⁉⁗ ⁰-ⁱ⁴-₎ₐ-ₜ₨℀-℃℅-ℇ℉-ℓℕ-№ℙ-ℝ℠-™ℤΩℨK-ℭℯ-ℱℳ-ℹ℻-⅀ⅅ-ⅉ⅐-ⅿ↉∬-∭∯-∰〈-〉①-⓪⨌⩴-⩶⫝̸ⱼ-ⱽⵯ⺟⻳⼀-⿕　〶〸-〺゛-゜ゟヿㄱ-ㆎ㆒-㆟㈀-㈞㈠-㉇㉐-㉾㊀-㏿ꚜ-ꚝꝰ꟱-ꟴꟸ-ꟹꭜ-ꭟꭩ豈-嗀塚晴凞-羽蘒諸逸-都飯-舘並-龎ﬀ-ﬆﬓ-ﬗיִײַ-זּטּ-לּמּנּ-סּףּ-פּצּ-ﮱﯓ-ﴽﵐ-ﶏﶒ-ﷇﷰ-﷼︐-︙︰-﹄﹇-﹒﹔-﹦﹨-﹫ﹰ-ﹲﹴﹶ-ﻼ！-ﾾￂ-ￇￊ-ￏￒ-ￗￚ-ￜ￠-￦￨-￮`;
   return NormalizeWithNFKC;
 }
 
@@ -4300,9 +4300,16 @@ class PDFFindController {
       }
       return p5;
     });
+    if (!query) {
+      return [false, ""];
+    }
     const trailingSpaces = "[ ]*";
     if (query.endsWith(trailingSpaces)) {
       query = query.slice(0, query.length - trailingSpaces.length);
+    }
+    query = query.replaceAll(/(?:\[ \][*+]){2,}/g, spaces => `[ ]{${spaces.split("+").length - 1},}`);
+    if (query.startsWith("[ ]")) {
+      query = `(?:(?<![ ])|(?![ ]{2}))${query}`;
     }
     if (matchDiacritics) {
       if (hasDiacritics) {
@@ -4362,8 +4369,8 @@ class PDFFindController {
       query = query.sort().reverse().map(q => {
         const [isUnicodePart, queryPart] = this.#convertToRegExpString(q, hasDiacritics);
         isUnicode ||= isUnicodePart;
-        return `(${queryPart})`;
-      }).join("|");
+        return queryPart && `(${queryPart})`;
+      }).filter(Boolean).join("|");
     }
     if (!query) {
       return undefined;
@@ -6372,29 +6379,6 @@ function textPosition(container, offset) {
   } while (currentContainer !== container);
   throw new Error("Offset is bigger than container's contents length.");
 }
-function createLinkAnnotation({
-  url,
-  index,
-  length
-}, pdfPageView, id) {
-  const highlighter = pdfPageView._textHighlighter;
-  const [{
-    begin,
-    end
-  }] = highlighter._convertMatches([index], [length]);
-  const range = new Range();
-  range.setStart(...textPosition(highlighter.textDivs[begin.divIdx], begin.offset));
-  range.setEnd(...textPosition(highlighter.textDivs[end.divIdx], end.offset));
-  return {
-    id: `inferred_link_${id}`,
-    unsafeUrl: url,
-    url,
-    annotationType: AnnotationType.LINK,
-    rotation: 0,
-    ...calculateLinkPosition(range, pdfPageView),
-    borderStyle: null
-  };
-}
 class Autolinker {
   static #index = 0;
   static #regex;
@@ -6437,7 +6421,36 @@ class Autolinker {
     return links;
   }
   static processLinks(pdfPageView) {
-    return this.findLinks(pdfPageView._textHighlighter.textContentItemsStr.join("\n")).map(link => createLinkAnnotation(link, pdfPageView, this.#index++));
+    const highlighter = pdfPageView._textHighlighter;
+    const links = this.findLinks(highlighter.textContentItemsStr.join("\n"));
+    const matches = highlighter._convertMatches(links.map(({
+      index
+    }) => index), links.map(({
+      length
+    }) => length));
+    const {
+      textDivs
+    } = highlighter;
+    const range = new Range();
+    return links.map(({
+      url
+    }, i) => {
+      const {
+        begin,
+        end
+      } = matches[i];
+      range.setStart(...textPosition(textDivs[begin.divIdx], begin.offset));
+      range.setEnd(...textPosition(textDivs[end.divIdx], end.offset));
+      return {
+        id: `inferred_link_${this.#index++}`,
+        unsafeUrl: url,
+        url,
+        annotationType: AnnotationType.LINK,
+        rotation: 0,
+        ...calculateLinkPosition(range, pdfPageView),
+        borderStyle: null
+      };
+    });
   }
 }
 
@@ -8850,7 +8863,7 @@ class PDFViewer {
   #savedPageViews = null;
   #deletedPageNumbers = null;
   constructor(options) {
-    const viewerVersion = "6.5.273";
+    const viewerVersion = "6.5.334";
     if (version !== viewerVersion) {
       throw new Error(`The API version "${version}" does not match the Viewer version "${viewerVersion}".`);
     }

@@ -4049,7 +4049,12 @@ def repackage_desktop_file(
 @CommandArgument(
     "--verbose", action="store_true", help="Log informative status messages."
 )
-def package_l10n(command_context, verbose=False, locales=[]):
+@CommandArgument(
+    "--package-tests",
+    action="store_true",
+    help="Package the multi-locale test archives after packaging.",
+)
+def package_l10n(command_context, locales, verbose=False, package_tests=False):
     if "RecursiveMake" not in command_context.substs["BUILD_BACKENDS"]:
         print(
             "Artifact builds do not support localization. "
@@ -4148,6 +4153,29 @@ def package_l10n(command_context, verbose=False, locales=[]):
             + "to install the multi-locale geckoview_example and test APKs."
         )
 
+    if package_tests:
+        command_context._run_make(
+            directory=command_context.topobjdir,
+            target=["package-tests", "AB_CD=multi"],
+            pass_thru=True,
+            ensure_exit_code=True,
+        )
+
+    return 0
+
+
+@SubCommand(
+    "package-multi-locale",
+    "upload",
+    description="Copy the multi-locale package to $UPLOAD_PATH.",
+)
+def package_l10n_upload(command_context):
+    command_context._run_make(
+        directory=command_context.topobjdir,
+        target=["upload", "AB_CD=multi"],
+        pass_thru=True,
+        ensure_exit_code=True,
+    )
     return 0
 
 

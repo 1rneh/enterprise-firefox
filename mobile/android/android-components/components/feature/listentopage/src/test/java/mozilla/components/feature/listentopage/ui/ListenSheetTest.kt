@@ -11,28 +11,40 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.feature.listentopage.ArticleProgress
+import mozilla.components.feature.listentopage.ListenAction
 import mozilla.components.feature.listentopage.ListenError
 import mozilla.components.feature.listentopage.PlaybackPhase
 import mozilla.components.feature.listentopage.PlaybackSpeed
 import mozilla.components.feature.listentopage.R
 import mozilla.components.feature.listentopage.VoiceState
 import mozilla.components.support.test.robolectric.testContext
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -52,10 +64,10 @@ class ListenSheetTest {
     private val rewind = testContext.getString(R.string.mozac_feature_listentopage_back_10_sec)
     private val pause = testContext.getString(R.string.mozac_feature_listentopage_pause)
     private val play = testContext.getString(R.string.mozac_feature_listentopage_play)
-    private val voices = testContext.getString(R.string.mozac_feature_listentopage_audio)
-    private val playbackSpeedNormal =
-        testContext.getString(R.string.mozac_feature_listentopage_notification_playback_speed_1)
     private val close = testContext.getString(R.string.mozac_feature_listentopage_close)
+    private val voiceOptions = testContext.getString(R.string.mozac_feature_listentopage_voice_options)
+    private val playbackSpeed = testContext.getString(R.string.mozac_feature_listentopage_playback_speed)
+    private val expandedState = testContext.getString(R.string.mozac_feature_listentopage_dropdown_expanded)
 
     // The player formats times with DateUtils, whose exact output is platform dependent (Robolectric
     // zero-pads the minutes where a device does not), so the expected value comes from the same call.
@@ -64,6 +76,7 @@ class ListenSheetTest {
     private fun setContent(
         expanded: Boolean,
         onExpandClicked: () -> Unit = {},
+        onAction: (ListenAction) -> Unit = {},
         articleProgress: ArticleProgress = ArticleProgress(LESS_THAN_ONE_SEC_ELAPSED_TIME_MS, TOTAL_DURATION_MS),
         playbackPhase: PlaybackPhase = PlaybackPhase.Playing,
         error: ListenError? = null,
@@ -78,7 +91,7 @@ class ListenSheetTest {
                         playbackPhase = playbackPhase,
                         speed = PlaybackSpeed.Default,
                         voiceState = VoiceState(),
-                        onAction = {},
+                        onAction = onAction,
                         onExpandClicked = onExpandClicked,
                         expanded = expanded,
                         error = error,
@@ -94,17 +107,19 @@ class ListenSheetTest {
         setContent(expanded = true)
 
         composeTestRule.onNodeWithTag(PLAY_PAUSE_BUTTON_TEST_TAG).assertExists()
-        composeTestRule.onNodeWithContentDescription(playbackSpeedNormal).assertExists()
-        composeTestRule.onNodeWithContentDescription(voices).assertExists()
+        composeTestRule.onNodeWithContentDescription(playbackSpeed).assertExists()
+        composeTestRule.onNodeWithContentDescription(voiceOptions).assertExists()
         composeTestRule.onNodeWithContentDescription(close).assertExists()
         composeTestRule.onNodeWithContentDescription(rewind).assertExists()
         composeTestRule.onNodeWithContentDescription(forward).assertExists()
         composeTestRule.onNodeWithTag(AUDIO_PROGRESS_BAR_TEST_TAG_EXPANDED).assertExists()
         composeTestRule.onNodeWithTag(AUDIO_PROGRESS_BAR_TEST_TAG_COMPACT).assertDoesNotExist()
         composeTestRule
-            .onNodeWithTag(ELAPSED_TIME_TEST_TAG_EXPANDED)
+            .onNodeWithTag(ELAPSED_TIME_TEST_TAG_EXPANDED, useUnmergedTree = true)
             .assertTextEquals(formatted(LESS_THAN_ONE_SEC_ELAPSED_TIME_MS))
-        composeTestRule.onNodeWithTag(TOTAL_TIME_TEST_TAG_EXPANDED).assertTextEquals(formatted(TOTAL_DURATION_MS))
+        composeTestRule
+            .onNodeWithTag(TOTAL_TIME_TEST_TAG_EXPANDED, useUnmergedTree = true)
+            .assertTextEquals(formatted(TOTAL_DURATION_MS))
     }
 
     @Test
@@ -112,15 +127,15 @@ class ListenSheetTest {
         setContent(expanded = false)
 
         composeTestRule.onNodeWithTag(PLAY_PAUSE_BUTTON_TEST_TAG).assertExists()
-        composeTestRule.onNodeWithContentDescription(playbackSpeedNormal).assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription(voices).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(playbackSpeed).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(voiceOptions).assertDoesNotExist()
         composeTestRule.onNodeWithContentDescription(close).assertExists()
         composeTestRule.onNodeWithContentDescription(rewind).assertExists()
         composeTestRule.onNodeWithContentDescription(forward).assertDoesNotExist()
         composeTestRule.onNodeWithTag(AUDIO_PROGRESS_BAR_TEST_TAG_EXPANDED).assertDoesNotExist()
         composeTestRule.onNodeWithTag(AUDIO_PROGRESS_BAR_TEST_TAG_COMPACT).assertExists()
-        composeTestRule.onNodeWithTag(ELAPSED_TIME_TEST_TAG_EXPANDED).assertDoesNotExist()
-        composeTestRule.onNodeWithTag(TOTAL_TIME_TEST_TAG_EXPANDED).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(ELAPSED_TIME_TEST_TAG_EXPANDED, useUnmergedTree = true).assertDoesNotExist()
+        composeTestRule.onNodeWithTag(TOTAL_TIME_TEST_TAG_EXPANDED, useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -155,7 +170,7 @@ class ListenSheetTest {
             articleProgress = ArticleProgress(positionMs = 60_000, durationMs = 600_000, barPosition = 0.2f),
         )
 
-        composeTestRule.onNodeWithText("05:00").assertExists()
+        composeTestRule.onNodeWithText("05:00", useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -244,10 +259,10 @@ class ListenSheetTest {
         )
         composeTestRule.onNodeWithTag(PLAY_PAUSE_BUTTON_TEST_TAG).assertIsNotEnabled()
         composeTestRule.onNodeWithTag(AUDIO_PROGRESS_BAR_TEST_TAG_EXPANDED).assertIsNotEnabled()
-        composeTestRule.onNodeWithTag(ELAPSED_TIME_TEST_TAG_EXPANDED).assertIsDisplayed()
-        composeTestRule.onNodeWithTag(TOTAL_TIME_TEST_TAG_EXPANDED).assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription(playbackSpeedNormal).assertIsNotEnabled()
-        composeTestRule.onNodeWithContentDescription(voices).assertIsNotEnabled()
+        composeTestRule.onNodeWithTag(ELAPSED_TIME_TEST_TAG_EXPANDED, useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(TOTAL_TIME_TEST_TAG_EXPANDED, useUnmergedTree = true).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(playbackSpeed).assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription(voiceOptions).assertIsNotEnabled()
         composeTestRule.onNodeWithContentDescription(rewind).assertIsNotEnabled()
         composeTestRule.onNodeWithContentDescription(forward).assertIsNotEnabled()
         composeTestRule.onNodeWithContentDescription(close).assertIsEnabled()
@@ -295,6 +310,76 @@ class ListenSheetTest {
         setContent(expanded = false, availableWidth = NARROW_WINDOW_WIDTH)
 
         composeTestRule.onNodeWithTag(LISTEN_SHEET_PLAYER_CARD_TEST_TAG).assertWidthIsEqualTo(NARROW_WINDOW_WIDTH)
+    }
+
+    @Test
+    fun `GIVEN the voice menu is collapsed WHEN the voice button is clicked THEN its dropdown state changes from collapsed to expanded`() {
+        setContent(expanded = true)
+        val voiceButton = composeTestRule.onNodeWithContentDescription(voiceOptions)
+
+        voiceButton
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assert(
+                hasStateDescription(testContext.getString(R.string.mozac_feature_listentopage_dropdown_voice_collapsed))
+            )
+            .performClick()
+
+        voiceButton.assert(hasStateDescription(expandedState))
+    }
+
+    @Test
+    fun `WHEN the speed button is clicked THEN its dropdown expands and is read from the top`() {
+        setContent(expanded = true)
+        val speedButton = composeTestRule.onNodeWithContentDescription(playbackSpeed)
+
+        speedButton.assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)).performClick()
+
+        speedButton.assert(hasStateDescription(expandedState))
+        composeTestRule
+            .onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.TraversalIndex))
+            .assertCountEquals(0)
+    }
+
+    @Test
+    fun `WHEN the sheet is expanded THEN the seek bar is labelled and accessibility services can seek with it`() {
+        val actions = mutableListOf<ListenAction>()
+        setContent(
+            expanded = true,
+            onAction = { actions.add(it) },
+            articleProgress = ArticleProgress(positionMs = 84_000, durationMs = 360_000),
+        )
+        val spokenState =
+            testContext.getString(
+                R.string.mozac_feature_listentopage_seek_state,
+                formatSpokenDuration(84, Locale.getDefault()),
+                formatSpokenDuration(360, Locale.getDefault()),
+            )
+
+        composeTestRule
+            .onNodeWithTag(AUDIO_PROGRESS_BAR_TEST_TAG_EXPANDED)
+            .assert(hasStateDescription(spokenState))
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress))
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(0.5f) }
+
+        composeTestRule
+            .onNodeWithTag(ELAPSED_TIME_TEST_TAG_EXPANDED, useUnmergedTree = true)
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.HideFromAccessibility))
+        assertEquals(listOf(ListenAction.Playback.SeekRequested(0.5f)), actions)
+    }
+
+    @Test
+    fun `WHEN the sheet is compact THEN the article heading announces expanding and changes to it`() {
+        setContent(expanded = false)
+
+        composeTestRule
+            .onNodeWithText(TITLE)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+            .assert(
+                SemanticsMatcher("has the expand player click label") {
+                    it.config.getOrNull(SemanticsActions.OnClick)?.label ==
+                        testContext.getString(R.string.mozac_feature_listentopage_expand_player)
+                }
+            )
     }
 
     private companion object {

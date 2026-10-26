@@ -126,6 +126,14 @@ EncodeSupportSet FFmpegEncoderModule<V>::Supports(
     }
   }
   auto support = SupportsCodec(aConfig.mCodec);
+#ifdef MOZ_WIDGET_ANDROID
+  // mediacodecenc doesn't expose MediaCodec temporal layering (ts-schema), and
+  // per-frame layer ids are only reported on Android 17+ by encoders supporting
+  // a webrtc.svc schema.
+  if (aConfig.mScalabilityMode != ScalabilityMode::None) {
+    support -= EncodeSupport::HardwareEncode;
+  }
+#endif
   if (aConfig.mHardwarePreference == HardwarePreference::RequireHardware &&
       !support.contains(EncodeSupport::HardwareEncode)) {
     return {};
@@ -156,19 +164,29 @@ EncodeSupportSet FFmpegEncoderModule<V>::SupportsCodec(CodecType aCodec) const {
     auto hwCodecs = sSupportedHWCodecs.Lock();
     if (hwCodecs->Contains(static_cast<uint32_t>(id))) {
 #  ifdef MOZ_WIDGET_ANDROID
-      // Because we don't provide software implementations of H264 or HEVC on
-      // Android, we must use the platform software encoders even if true
-      // hardware encoding support is missing.
+      // We don't provide software implementations of H264 or HEVC on Android,
+      // so advertise whichever of MediaCodec's software and hardware encoders
+      // are available.
       switch (id) {
         case AV_CODEC_ID_H264:
-          supports += gfx::gfxVars::UseH264HwEncode()
-                          ? EncodeSupport::HardwareEncode
-                          : EncodeSupport::SoftwareEncode;
+          if (media::MCSInfo::SupportsSoftwareEncode(
+                  gfx::gfxVars::PlatformMediaCodecsSupported(),
+                  media::MediaCodec::H264)) {
+            supports += EncodeSupport::SoftwareEncode;
+          }
+          if (gfx::gfxVars::UseH264HwEncode()) {
+            supports += EncodeSupport::HardwareEncode;
+          }
           break;
         case AV_CODEC_ID_HEVC:
-          supports += gfx::gfxVars::UseHEVCHwEncode()
-                          ? EncodeSupport::HardwareEncode
-                          : EncodeSupport::SoftwareEncode;
+          if (media::MCSInfo::SupportsSoftwareEncode(
+                  gfx::gfxVars::PlatformMediaCodecsSupported(),
+                  media::MediaCodec::HEVC)) {
+            supports += EncodeSupport::SoftwareEncode;
+          }
+          if (gfx::gfxVars::UseHEVCHwEncode()) {
+            supports += EncodeSupport::HardwareEncode;
+          }
           break;
         default:
           supports += EncodeSupport::HardwareEncode;

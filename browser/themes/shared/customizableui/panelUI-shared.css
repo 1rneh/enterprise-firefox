@@ -2001,12 +2001,6 @@ toolbarbutton[itemtype="showinactivebutton"] {
     display: none;
   }
 
-  &:is(:not([cui-areatype="toolbar"]), [overflowedItem="true"]) > toolbarbutton:not(.toolbarbutton-1)[disabled] {
-    opacity: var(--button-opacity-disabled);
-    /* Override toolbarbutton.css which sets the color to GrayText */
-    color: inherit;
-  }
-
   &:is(:not([cui-areatype="toolbar"]), [overflowedItem="true"]) > separator {
     /* Override toolbarbuttons.css which sets the color to currentColor */
     /* stylelint-disable-next-line stylelint-plugin-mozilla/use-design-tokens */

@@ -251,6 +251,7 @@ nsWindow* nsWindow::sCurrentWindow = nullptr;
 bool nsWindow::sJustGotDeactivate = false;
 bool nsWindow::sJustGotActivate = false;
 bool nsWindow::sIsInMouseCapture = false;
+TimeStamp nsWindow::sLastAppDeactivationTime;
 
 // Urgent-message reentrancy depth for the static `WindowProc` callback.
 //
@@ -5772,6 +5773,9 @@ bool nsWindow::ProcessMessageInternal(UINT msg, WPARAM& wParam, LPARAM& lParam,
     } break;
 
     case WM_ACTIVATEAPP: {
+      if (!wParam) {
+        sLastAppDeactivationTime = TimeStamp::Now();
+      }
       // Bug 1851991: Sometimes this can be called before gfxPlatform::Init
       // when a window is created very early. In that case we just forego
       // setting this and accept the GPU process might briefly run at a lower

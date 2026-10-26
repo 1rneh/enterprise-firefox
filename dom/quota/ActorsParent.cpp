@@ -9641,6 +9641,9 @@ Result<nsCString, nsresult> QuotaManager::EnsureStorageOriginFromOrigin(
       auto storageOrigin,
       mOriginToStorageOriginMap.TryLookupOrInsertWith(
           aOrigin, [this, &aOrigin]() -> Result<nsCString, nsresult> {
+            // Validate that the origin is well formed. Nothing of it is
+            // carried over into the storage origin, which is entirely
+            // synthesized below.
             OriginAttributes originAttributes;
 
             nsCString originNoSuffix;
@@ -9649,12 +9652,9 @@ Result<nsCString, nsresult> QuotaManager::EnsureStorageOriginFromOrigin(
 
             nsCOMPtr<nsIURI> uri;
             QM_TRY(MOZ_TO_RESULT(
-                NS_MutateURI(NS_STANDARDURLMUTATOR_CONTRACTID)
-                    .SetSpec(originNoSuffix)
-                    .SetScheme(kUUIDOriginScheme)
-                    .SetHost(NSID_TrimBracketsASCII(nsID::GenerateUUID()))
-                    .SetPort(-1)
-                    .Finalize(uri)));
+                NS_NewURI(getter_AddRefs(uri),
+                          kUUIDOriginScheme + "://"_ns +
+                              NSID_TrimBracketsASCII(nsID::GenerateUUID()))));
 
             nsCOMPtr<nsIPrincipal> principal =
                 BasePrincipal::CreateContentPrincipal(uri, OriginAttributes{});

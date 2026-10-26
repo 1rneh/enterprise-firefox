@@ -309,7 +309,6 @@ reason = "Windows only test"
 ["marStageFailurePartialZucchini.js"]
 
 ["marStageSuccessComplete.js"]
-run-sequentially = ["os == 'linux'"] # frequent fail in parallel on Linux
 
 ["marStageSuccessPartial.js"]
 

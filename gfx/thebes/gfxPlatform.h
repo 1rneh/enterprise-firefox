@@ -1003,6 +1003,9 @@ class gfxPlatform : public mozilla::layers::MemoryPressureListener {
   };
   CMSOutputProfileStatus mCMSOutputProfileStatus =
       CMSOutputProfileStatus::Uninitialized;
+  // gfx.color_management.display_profile when mCMSOutputProfile was chosen,
+  // since the pref has no effect until restart. Reported in about:support.
+  nsCString mCMSOutputProfilePrefAtStartup;
 
   RefPtr<gfxASurface> mScreenReferenceSurface;
   RefPtr<mozilla::layers::MemoryPressureObserver> mMemoryPressureObserver;

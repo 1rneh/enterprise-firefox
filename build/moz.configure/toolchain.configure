@@ -1469,6 +1469,7 @@ def compiler(
         vc_compiler_version,
         multiarch_dir,
         winsysroot,
+        msvc_sysroot_flags,
         host,
         sccache_environment,
     )
@@ -1488,6 +1489,7 @@ def compiler(
         vc_compiler_version,
         multiarch_dir,
         winsysroot,
+        msvc_sysroot_flags,
         host,
         sccache_environment,
     ):
@@ -1632,6 +1634,8 @@ def compiler(
                 overlay = os.path.join(winsysroot, "overlay.yaml")
                 if os.path.exists(overlay):
                     flags.extend(["-Xclang", "-ivfsoverlay", "-Xclang", overlay])
+            if msvc_sysroot_flags:
+                flags.extend(msvc_sysroot_flags.cl)
 
         if (info.type, host_or_target.abi) in (
             ("clang", "msvc"),
@@ -3214,6 +3218,12 @@ def as_info(target, c_compiler):
 
 assembler_is_masm = depends(as_info)(lambda info: info.type == "masm")
 assembler_is_armasm = depends(as_info)(lambda info: info.type == "armasm")
+
+
+@depends(msvc_include_dirs, asm_flags, when=assembler_is_masm)
+def masm_include_flags(msvc_include_dirs, asm_flags):
+    for path in msvc_include_dirs:
+        asm_flags.asflags.extend(["-I", path])
 
 
 # One would expect the assembler to be specified merely as a program.  But in

@@ -958,6 +958,18 @@ class nsPresContext : public nsISupports,
       TransactionId aTransactionId = TransactionId{0},
       const mozilla::TimeStamp& aTimeStamp = mozilla::TimeStamp());
   void NotifyRevokingDidPaint(TransactionId aTransactionId);
+
+  // Tells the parent to stop painting the previous document of this browser.
+  // Deferred for an inbound view transition, see Document::Reveal.
+  void SendReadyToReplaceRetainedPaint();
+  void DeferReadyToReplaceRetainedPaint() {
+    mReadyToReplaceRetainedPaintDeferred = true;
+  }
+  bool IsReadyToReplaceRetainedPaintDeferred() const {
+    return mReadyToReplaceRetainedPaintDeferred;
+  }
+  void SendReadyToReplaceRetainedPaintAfterNextComposite();
+  void FlushDeferredReadyToReplaceRetainedPaint();
   // TODO: Convert this to MOZ_CAN_RUN_SCRIPT (bug 1415230)
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void FireDOMPaintEvent(
       nsTArray<nsRect>* aList, TransactionId aTransactionId,
@@ -1310,6 +1322,11 @@ class nsPresContext : public nsISupports,
 
   Maybe<TransactionId> mFirstContentfulPaintTransactionId;
 
+  // ReadyToReplaceRetainedPaint is sent when this transaction, or a later one,
+  // has been composited. The refresh driver can have older transactions in
+  // flight.
+  Maybe<TransactionId> mReadyToReplaceRetainedPaintTransactionId;
+
   mozilla::UniquePtr<mozilla::MediaFeatureChange>
       mPendingMediaFeatureValuesChange;
 
@@ -1431,6 +1448,8 @@ class nsPresContext : public nsISupports,
 
   // Has NotifyDidPaintForSubtree been called for a contentful paint?
   unsigned mHadContentfulPaintComposite : 1;
+  // Whether ReadyToReplaceRetainedPaint waits for an inbound view transition.
+  unsigned mReadyToReplaceRetainedPaintDeferred : 1;
 
   // Whether we might need to update c-v state for animations.
   unsigned mNeedsToUpdateHiddenByContentVisibilityForAnimations : 1;

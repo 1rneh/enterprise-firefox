@@ -10,7 +10,6 @@
 #include "mozilla/net/NeckoChild.h"
 #include "nsContentSecurityManager.h"
 #include "nsIBrowserChild.h"
-#include "nsIURIMutator.h"
 #include "nsStringStream.h"
 #include "SerializedLoadContext.h"
 
@@ -187,20 +186,14 @@ void GeckoViewContentChannelChild::DoOnStartRequest(
   mContentLength = -1;
   SetContentType(aContentType);
 
-  nsCString spec;
-  nsresult rv = aURI->GetSpec(spec);
-  if (NS_SUCCEEDED(rv)) {
-    // Changes nsBaseChannel::URI()
-    rv = NS_MutateURI(mURI).SetSpec(spec).Finalize(mURI);
-  }
-
-  if (NS_FAILED(rv)) {
-    Cancel(rv);
-  }
+  // Changes nsBaseChannel::URI(). The parent has already parsed this URI, so
+  // adopt it directly instead of re-parsing its spec.
+  mURI = aURI;
 
   AutoEventEnqueuer ensureSerialDispatch(mEventQ);
   nsCOMPtr<nsIStreamListener> listener = mListener;
-  rv = listener->OnStartRequest(reinterpret_cast<nsBaseChannel*>(this));
+  nsresult rv =
+      listener->OnStartRequest(reinterpret_cast<nsBaseChannel*>(this));
   if (MOZ_UNLIKELY(NS_FAILED(rv))) {
     Cancel(rv);
   }

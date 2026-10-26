@@ -219,6 +219,11 @@ run-if = [
 ]
 support-files = ["native_menus_window.xhtml"]
 
+["test_nested_native_loop_wakeup_mac.html"]
+run-if = [
+  "os == 'mac'", # Cocoa widget test
+]
+
 ["test_panel_mouse_coords.xhtml"]
 
 ["test_platform_colors.xhtml"]

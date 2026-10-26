@@ -38,6 +38,7 @@ import androidx.core.os.BundleCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.text.layoutDirection
 import androidx.core.view.doOnLayout
+import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
@@ -1336,27 +1337,15 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
         if (event.action == KeyEvent.ACTION_DOWN && event.keyCode == KeyEvent.KEYCODE_MENU) {
             val navHostFragment = supportFragmentManager.findFragmentById(R.id.container) as? NavHostFragment
             val currentFragment = navHostFragment?.childFragmentManager?.primaryNavigationFragment
-            when (currentFragment) {
-                is HomeFragment -> {
-                    val action =
-                        when (getSettings().isMenuCustomizationEnabled) {
-                            true -> HomeFragmentDirections.actionHomeFragmentToMenuFragment(MenuAccessPoint.Home)
-                            else -> NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Home)
-                        }
-                    navHost.navController.navigate(action)
-                    return true
-                }
-
-                is BrowserFragment -> {
-                    val action =
-                        when (getSettings().isMenuCustomizationEnabled) {
-                            true ->
-                                BrowserFragmentDirections.actionBrowserFragmentToMenuFragment(MenuAccessPoint.Browser)
-                            else -> NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Browser)
-                        }
-                    navHost.navController.navigate(action)
-                    return true
-                }
+            if (
+                handleMenuKeyPress(
+                    event = event,
+                    currentFragment = currentFragment,
+                    navController = navHost.navController,
+                    isMenuCustomizationEnabled = getSettings().isMenuCustomizationEnabled,
+                )
+            ) {
+                return true
             }
         }
         return super.dispatchKeyEvent(event)
@@ -1871,5 +1860,48 @@ open class HomeActivity : LocaleAwareAppCompatActivity(), NavHostActivity, Crash
                 R.id.turnOnSyncFragment,
                 R.id.pairFragment,
             )
+
+        /**
+         * Opens the menu for a menu key [event] when [currentFragment] is home or the browser.
+         *
+         * @return true if the event was consumed, false if it should be handled elsewhere.
+         */
+        @VisibleForTesting
+        internal fun handleMenuKeyPress(
+            event: KeyEvent,
+            currentFragment: Fragment?,
+            navController: NavController,
+            isMenuCustomizationEnabled: Boolean,
+        ): Boolean {
+            val (expectedDestinationId, directions) =
+                when (currentFragment) {
+                    is HomeFragment ->
+                        R.id.homeFragment to
+                            when (isMenuCustomizationEnabled) {
+                                true -> HomeFragmentDirections.actionHomeFragmentToMenuFragment(MenuAccessPoint.Home)
+                                else -> NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Home)
+                            }
+
+                    is BrowserFragment ->
+                        R.id.browserFragment to
+                            when (isMenuCustomizationEnabled) {
+                                true ->
+                                    BrowserFragmentDirections.actionBrowserFragmentToMenuFragment(
+                                        MenuAccessPoint.Browser
+                                    )
+                                else -> NavGraphDirections.actionGlobalMenuDialogFragment(MenuAccessPoint.Browser)
+                            }
+
+                    else -> return false
+                }
+
+            // Hardware keyboards auto repeat ACTION_DOWN while the key is held down, so only
+            // the initial press may open the menu. Navigating is also skipped when the menu is
+            // already open.
+            if (event.repeatCount == 0) {
+                navController.nav(expectedDestinationId, directions)
+            }
+            return true
+        }
     }
 }

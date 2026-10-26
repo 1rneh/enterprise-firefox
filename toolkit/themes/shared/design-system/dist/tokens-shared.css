@@ -536,7 +536,7 @@
     --toolbarbutton-badge-padding-inline: 2px;
     --toolbarbutton-badge-size: 14px;
     --toolbarbutton-border-radius: var(--button-border-radius);
-    --toolbarbutton-icon-fill: light-dark(var(--color-gray-70), var(--color-gray-0));
+    --toolbarbutton-icon-fill: light-dark(color-mix(in srgb, currentColor 69%, transparent), currentColor);
     --toolbarbutton-icon-fill-hover: var(--toolbarbutton-icon-fill);
     --toolbarbutton-icon-fill-active: var(--toolbarbutton-icon-fill);
     --toolbarbutton-icon-fill-disabled: var(--toolbarbutton-icon-fill);
@@ -595,6 +595,8 @@
       --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-hover: var(--button-text-color-hover);
       --button-text-color-ghost-active: var(--button-text-color-active);
+      --button-text-color-ghost-disabled: inherit;
+      --button-text-color-menu: inherit;
 
       /** card **/
       --card-border-color: color-mix(in srgb, currentColor 41%, transparent);
@@ -691,6 +693,7 @@
       --button-text-color-ghost: var(--button-text-color);
       --button-text-color-ghost-hover: var(--button-text-color-hover);
       --button-text-color-ghost-active: var(--button-text-color-active);
+      --button-text-color-ghost-disabled: var(--button-text-color-disabled);
       --button-text-color-menu: MenuText;
       --button-text-color-menu-hover: -moz-menuhovertext;
       --button-text-color-menu-active: var(--button-text-color-menu-hover);
@@ -835,6 +838,7 @@
       --button-text-color-ghost-hover: var(--button-text-color-ghost);
       --button-text-color-ghost-active: var(--button-text-color-ghost);
       --button-text-color-ghost-selected: var(--button-text-color-ghost-active);
+      --button-text-color-menu: var(--button-text-color-ghost);
       --button-text-color-menu-hover: light-dark(var(--button-text-color-ghost-hover), var(--button-text-color-hover));
       --button-text-color-menu-active: light-dark(var(--button-text-color-ghost-active), var(--button-text-color-active));
       --button-text-color-menu-disabled: light-dark(var(--button-text-color-ghost-disabled), var(--button-text-color-disabled));
@@ -1125,6 +1129,7 @@
         --button-text-color-destructive-selected: var(--button-text-color-destructive-active);
         --button-text-color-ghost-hover: var(--button-text-color-ghost-active);
         --button-text-color-ghost-selected: var(--button-text-color-selected);
+        --button-text-color-menu: MenuText;
         --button-text-color-menu-hover: -moz-menuhovertext;
         --button-text-color-menu-disabled: var(--button-text-color-disabled);
         --button-text-color-menu-selected: var(--button-text-color-primary-selected);

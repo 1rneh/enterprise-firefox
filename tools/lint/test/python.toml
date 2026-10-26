@@ -97,6 +97,8 @@ sequential = true
 
 ["test_updatebot.py"]
 
+["test_uri_setspec.py"]
+
 ["test_wpt-subsuite-tagging.py"]
 
 ["test_yaml.py"]

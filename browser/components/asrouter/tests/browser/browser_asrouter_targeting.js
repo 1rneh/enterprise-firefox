@@ -28,7 +28,7 @@ ChromeUtils.defineESModuleGetters(this, {
   PlacesUtils: "resource://gre/modules/PlacesUtils.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   ProfileAge: "resource://gre/modules/ProfileAge.sys.mjs",
-  PushService: "resource://gre/modules/PushService.sys.mjs",
+  PushService: "moz-src:///dom/push/PushService.sys.mjs",
   QueryCache: "resource:///modules/asrouter/ASRouterTargeting.sys.mjs",
   Region: "resource://gre/modules/Region.sys.mjs",
   ReinstallCheck: "moz-src:///browser/components/ReinstallCheck.sys.mjs",

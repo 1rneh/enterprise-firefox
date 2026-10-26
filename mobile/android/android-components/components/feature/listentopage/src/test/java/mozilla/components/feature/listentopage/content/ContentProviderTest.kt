@@ -26,6 +26,7 @@ class ContentProviderTest {
 
         assertEquals("Article text", content.text)
         assertEquals("de", content.languageTag)
+        assertEquals(LanguageSource.Page, content.languageSource)
     }
 
     @Test
@@ -66,7 +67,10 @@ class ContentProviderTest {
                 fallbackLanguageTag = { "en-US" },
             )
 
-        assertEquals("en-US", provider.getContent("tab-1").getOrThrow().languageTag)
+        val content = provider.getContent("tab-1").getOrThrow()
+
+        assertEquals("en-US", content.languageTag)
+        assertEquals(LanguageSource.Fallback, content.languageSource)
     }
 
     @Test
@@ -79,7 +83,10 @@ class ContentProviderTest {
                     fallbackLanguageTag = { "en-US" },
                 )
 
-            assertEquals("en-US", provider.getContent("tab-1").getOrThrow().languageTag)
+            val content = provider.getContent("tab-1").getOrThrow()
+
+            assertEquals("en-US", content.languageTag)
+            assertEquals(LanguageSource.Fallback, content.languageSource)
         }
     }
 

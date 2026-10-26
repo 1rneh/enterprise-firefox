@@ -172,6 +172,7 @@ def build(
     show_all_warnings=None,
     allow_subdirectory_build=False,
     no_completion_messages=False,
+    append_env=None,
 ):
     """Build the source tree.
 
@@ -276,7 +277,6 @@ def build(
         # Keep going by default on automation so that we exhaust as many errors as
         # possible.
         keep_going = keep_going or bool(os.environ.get("MOZ_AUTOMATION"))
-        append_env = None
 
         # By setting the current process's priority, by default our child processes
         # will also inherit this same priority.

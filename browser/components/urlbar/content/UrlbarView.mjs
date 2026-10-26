@@ -3199,9 +3199,11 @@ export class UrlbarView {
       isItemVisible &&
       // Show the search suggestions label only if there are other visible
       // results before this one that aren't the heuristic or suggestions.
+      // Also show the label for atypical search results that define their own.
       !(
         item.result.type == UrlbarShared.RESULT_TYPE.SEARCH &&
         item.result.payload.suggestion &&
+        !item.result.rowLabel &&
         seenOnlyHeuristicOrSearchSuggestions
       )
     ) {

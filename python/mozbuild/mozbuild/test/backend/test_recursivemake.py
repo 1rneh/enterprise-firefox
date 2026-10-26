@@ -1363,6 +1363,29 @@ class TestRecursiveMakeBackend(BackendTester):
         dist_bin = mozpath.join(env.topobjdir, "dist", "bin")
         self.assertEqual(edge["rustflags"], ["-C", f"link-arg=-Wl,-rpath,{dist_bin}"])
 
+    def test_rust_tests_command_spec_clang_cl(self):
+        env = self._get_environment(
+            "rust-library-flags", substs={"OS_TARGET": "WINNT", "CC_TYPE": "clang-cl"}
+        )
+        env = self._consume("rust-library-flags", RecursiveMakeBackend, env=env)
+        edge = self._cargo_spec(env, ".cargo-tests-spec.json")["edge"]
+        self.assertEqual(edge["rustflags"], ["-C", "link-arg=-FORCE:UNRESOLVED"])
+
+    def test_rust_tests_command_spec_mingw(self):
+        env = self._get_environment(
+            "rust-library-flags", substs={"OS_TARGET": "WINNT", "CC_TYPE": "clang"}
+        )
+        env = self._consume("rust-library-flags", RecursiveMakeBackend, env=env)
+        edge = self._cargo_spec(env, ".cargo-tests-spec.json")["edge"]
+        self.assertEqual(edge["rustflags"], [])
+
+    def test_rust_tests_index(self):
+        env = self._consume("rust-library-flags", RecursiveMakeBackend)
+        self.assertEqual(
+            self._cargo_spec(env, "rust-tests.json"),
+            {"crates": ["flags-tests"]},
+        )
+
     def test_rust_library_command_spec_computed_flags(self):
         """A directory's computed compile and link flags reach the spec."""
         env = self._consume("rust-library-flags", RecursiveMakeBackend)

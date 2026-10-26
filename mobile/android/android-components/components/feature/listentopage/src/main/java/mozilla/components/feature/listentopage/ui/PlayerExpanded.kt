@@ -4,6 +4,9 @@
 
 package mozilla.components.feature.listentopage.ui
 
+import android.icu.text.MeasureFormat
+import android.icu.util.Measure
+import android.icu.util.MeasureUnit
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -30,12 +33,19 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.offset
+import java.util.Locale
+import kotlin.time.Duration.Companion.seconds
 import mozilla.components.compose.base.button.IconButton
 import mozilla.components.compose.base.theme.AcornTheme
 import mozilla.components.feature.listentopage.ArticleProgress
@@ -129,7 +139,17 @@ private fun AudioProgress(
     val totalTime by remember {
         derivedStateOf { DateUtils.formatElapsedTime(articleProgressState.value.shownDurationMs() / MS_PER_SECOND) }
     }
-
+    // Format the duration to be spoken as "$minutes minutes, $seconds seconds of $minutes minutes, $seconds"
+    val locale = LocalConfiguration.current.locales[0]
+    val spokenElapsedTime by
+        remember(locale) {
+            derivedStateOf { formatSpokenDuration(articleProgressState.value.positionMs / MS_PER_SECOND, locale) }
+        }
+    val spokenTotalTime by
+        remember(locale) {
+            derivedStateOf { formatSpokenDuration(articleProgressState.value.durationMs / MS_PER_SECOND, locale) }
+        }
+    val seekState = stringResource(R.string.mozac_feature_listentopage_seek_state, spokenElapsedTime, spokenTotalTime)
     // Media player controls are always LTR:
     // https://m3.material.io/foundations/layout/bidirectionality-rtl
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -148,7 +168,10 @@ private fun AudioProgress(
                 onSeek = {
                     onAction(ListenAction.Playback.SeekRequested(it))
                 },
-                modifier = Modifier.extendTrackLength(thumbWidth = AcornTheme.layout.size.static200),
+                modifier =
+                    Modifier.extendTrackLength(thumbWidth = AcornTheme.layout.size.static200).semantics {
+                        stateDescription = seekState
+                    },
                 isSeekable = isSeekable,
                 isEnabled = isEnabled,
             )
@@ -159,20 +182,22 @@ private fun AudioProgress(
                     MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = DISABLED_ALPHA)
                 }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                // Clear the semantics of the elapsed & total time text because the stateDescription of the Slider
+                // announces the time.
+                modifier = Modifier.fillMaxWidth().clearAndSetSemantics {},
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
                     text = elapsedTime,
                     style = AcornTheme.typography.caption,
                     color = textColor,
-                    modifier = Modifier.testTag(ELAPSED_TIME_TEST_TAG_EXPANDED),
+                    modifier = Modifier.testTag(ELAPSED_TIME_TEST_TAG_EXPANDED).semantics { hideFromAccessibility() },
                 )
                 Text(
                     text = totalTime,
                     style = AcornTheme.typography.caption,
                     color = textColor,
-                    modifier = Modifier.testTag(TOTAL_TIME_TEST_TAG_EXPANDED),
+                    modifier = Modifier.testTag(TOTAL_TIME_TEST_TAG_EXPANDED).semantics { hideFromAccessibility() },
                 )
             }
         }
@@ -212,6 +237,19 @@ private fun PlayerExpandedPreview(@PreviewParameter(PlaybackUIStatePreviewProvid
                 voiceState = VoiceState(),
                 onAction = {},
             )
+        }
+    }
+}
+
+internal fun formatSpokenDuration(totalSeconds: Long, locale: Locale): String {
+    val format = MeasureFormat.getInstance(locale, MeasureFormat.FormatWidth.WIDE)
+    return totalSeconds.seconds.toComponents { hours, minutes, seconds, _ ->
+        val spokenMinutes = Measure(minutes, MeasureUnit.MINUTE)
+        val spokenSeconds = Measure(seconds, MeasureUnit.SECOND)
+        if (hours > 0) {
+            format.formatMeasures(Measure(hours, MeasureUnit.HOUR), spokenMinutes, spokenSeconds)
+        } else {
+            format.formatMeasures(spokenMinutes, spokenSeconds)
         }
     }
 }

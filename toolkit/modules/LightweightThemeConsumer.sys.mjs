@@ -328,6 +328,10 @@ LightweightThemeConsumer.prototype = {
   },
 
   _update(themeData) {
+    // The pref observers can still call this after the window unloaded.
+    if (!this._doc) {
+      return;
+    }
     const manager = lazy.LightweightThemeManager;
 
     // Store user's theme before replacing with aiThemeData or privateThemeData.

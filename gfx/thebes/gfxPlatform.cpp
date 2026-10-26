@@ -1901,16 +1901,14 @@ DeviceColor gfxPlatform::TransformPixel(const sRGBColor& in,
   return DeviceColor(in.r, in.g, in.b, in.a);
 }
 
-nsTArray<uint8_t> gfxPlatform::GetPrefCMSOutputProfileData() {
-  const auto mirror = StaticPrefs::gfx_color_management_display_profile();
-  const auto& fname = *mirror;
-  if (fname == "") {
+static nsTArray<uint8_t> ReadCMSProfileFile(const nsCString& aPath) {
+  if (aPath.IsEmpty()) {
     return nsTArray<uint8_t>();
   }
 
   void* mem = nullptr;
   size_t size = 0;
-  qcms_data_from_path(fname.get(), &mem, &size);
+  qcms_data_from_path(aPath.get(), &mem, &size);
 
   nsTArray<uint8_t> result;
 
@@ -1920,6 +1918,11 @@ nsTArray<uint8_t> gfxPlatform::GetPrefCMSOutputProfileData() {
   }
 
   return result;
+}
+
+nsTArray<uint8_t> gfxPlatform::GetPrefCMSOutputProfileData() {
+  const auto mirror = StaticPrefs::gfx_color_management_display_profile();
+  return ReadCMSProfileFile(*mirror);
 }
 
 Maybe<nsTArray<uint8_t>>& gfxPlatform::GetCMSOutputProfileData() {
@@ -1956,6 +1959,10 @@ void gfxPlatform::InitializeCMS() {
   }
 
   if (!mCMSOutputProfile) {
+    {
+      const auto mirror = StaticPrefs::gfx_color_management_display_profile();
+      mCMSOutputProfilePrefAtStartup = *mirror;
+    }
     nsTArray<uint8_t> outputProfileData = GetPlatformCMSOutputProfileData();
     if (outputProfileData.IsEmpty()) {
       mCMSOutputProfileStatus = CMSOutputProfileStatus::NoProfileData;
@@ -3641,6 +3648,60 @@ void gfxPlatform::GetCMSSupportInfo(mozilla::widget::InfoObject& aObj) {
     return "unknown";
   }();
   aObj.DefineProperty("CMSOutputProfileInUse", inUse);
+
+  if (mCMSOutputProfileStatus != CMSOutputProfileStatus::Uninitialized &&
+      mCMSOutputProfileStatus != CMSOutputProfileStatus::ForcedSRGB) {
+    // The platform code uses the pref's file whenever it can be read, and falls
+    // back to the system profile otherwise. Only a loaded profile's data is
+    // kept, so that is the only case we can verify.
+    nsAutoCString source;
+    if (mCMSOutputProfilePrefAtStartup.IsEmpty()) {
+      source.AssignLiteral("system");
+    } else if (mCMSOutputProfileStatus ==
+               CMSOutputProfileStatus::NoProfileData) {
+      source.AssignLiteral(
+          "none (could not read gfx.color_management.display_profile or get "
+          "system profile)");
+    } else if (mCMSOutputProfileStatus == CMSOutputProfileStatus::ParseFailed ||
+               mCMSOutputProfileStatus == CMSOutputProfileStatus::Bogus) {
+      source.AssignLiteral(
+          "gfx.color_management.display_profile or system (unknown because "
+          "the profile was rejected)");
+    } else if (mCMSOutputProfileStatus == CMSOutputProfileStatus::Loaded) {
+      MOZ_ASSERT(mCMSOutputProfileData.isSome());
+      if (mCMSOutputProfileData.isSome() &&
+          ReadCMSProfileFile(mCMSOutputProfilePrefAtStartup) ==
+              *mCMSOutputProfileData) {
+        source.AssignLiteral("gfx.color_management.display_profile");
+      } else {
+        source.AssignLiteral(
+            "system, unless the gfx.color_management.display_profile file "
+            "changed since startup (it does not match the profile in use)");
+      }
+    }
+    bool prefChanged;
+    {
+      const auto mirror = StaticPrefs::gfx_color_management_display_profile();
+      prefChanged = mCMSOutputProfilePrefAtStartup != *mirror;
+    }
+    if (prefChanged) {
+      source.AppendLiteral(
+          " (gfx.color_management.display_profile pref changed since startup, "
+          "restart to apply)");
+    }
+    aObj.DefineProperty("CMSOutputProfileSource", source.get());
+  }
+
+  if (mCMSOutputProfileStatus == CMSOutputProfileStatus::Loaded) {
+    size_t descriptionLength = 0;
+    const char* description =
+        qcms_profile_get_description(mCMSOutputProfile, &descriptionLength);
+    if (description) {
+      aObj.DefineProperty(
+          "CMSOutputProfileDescription",
+          NS_ConvertUTF8toUTF16(Span(description, descriptionLength)));
+    }
+  }
 
   qcms_CIE_xyYTRIPLE primaries;
   qcms_CIE_xyY white;

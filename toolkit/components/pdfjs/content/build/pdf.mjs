@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.273
- * pdfjsBuild = 5d143c409
+ * pdfjsVersion = 6.5.334
+ * pdfjsBuild = 67667f1e4
  */
 
 ;// ./src/shared/util.js
@@ -547,6 +547,11 @@ class Util {
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
   }
+  static get identity0to256Map() {
+    return shadow(this, "identity0to256Map", Uint8Array.from({
+      length: 256
+    }, (_, i) => i));
+  }
   static transform(m1, m2) {
     return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1], m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3], m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
   }
@@ -613,10 +618,10 @@ class Util {
       b1 += m1r2;
       b2 += m1r2;
     }
-    output[0] = Math.min(output[0], a0, a1, a2, a3);
-    output[1] = Math.min(output[1], b0, b1, b2, b3);
-    output[2] = Math.max(output[2], a0, a1, a2, a3);
-    output[3] = Math.max(output[3], b0, b1, b2, b3);
+    output[0] = Math.min(output[0], a0, a1, Math.min(a2, a3));
+    output[1] = Math.min(output[1], b0, b1, Math.min(b2, b3));
+    output[2] = Math.max(output[2], a0, a1, Math.max(a2, a3));
+    output[3] = Math.max(output[3], b0, b1, Math.max(b2, b3));
   }
   static inverseTransform(m) {
     const d = m[0] * m[3] - m[1] * m[2];
@@ -2045,7 +2050,7 @@ class FloatingToolbar {
 }
 
 ;// ./src/shared/internal_evt.js
-const INTERNAL_EVT = "fc035972-b0fa-48f2-b210-0956ed9f371d";
+const INTERNAL_EVT = "a27af040-4d63-41f5-90b3-b0c747d7cdd3";
 const internalOpt = Object.freeze({
   internal: INTERNAL_EVT
 });
@@ -9575,15 +9580,8 @@ class TransferMapsFallback {
   #maps;
   constructor(maps) {
     const [mapR, mapG = mapR, mapB = mapR] = maps;
-    const {
-      identityMap
-    } = TransferMapsFallback;
+    const identityMap = Util.identity0to256Map.slice();
     this.#maps = [mapR || identityMap, mapG || identityMap, mapB || identityMap];
-  }
-  static get identityMap() {
-    return shadow(this, "identityMap", Uint8Array.from({
-      length: 256
-    }, (_, i) => i));
   }
   applyToColor(color) {
     if (typeof color !== "string" || !color.startsWith("#")) {
@@ -10682,8 +10680,14 @@ class CanvasGraphics {
       const dims = this.current.tilingPatternDims;
       const tileIdx = dims && fillColor.canSkipPatternCanvas(dims);
       if (tileIdx) {
-        fillColor.drawPattern(this, path, this.pendingEOFill, tileIdx, opIdx);
+        const {
+          pendingClip,
+          pendingEOFill
+        } = this;
+        this.pendingClip = null;
         this.pendingEOFill = false;
+        fillColor.drawPattern(this, path, pendingEOFill, tileIdx, opIdx);
+        this.pendingClip = pendingClip;
         if (consumePath) {
           this.consumePath(opIdx, path, intersect);
         }
@@ -11150,9 +11154,9 @@ class CanvasGraphics {
     const textHScale = current.textHScale * fontDirection;
     const fontMatrix = current.fontMatrix || FONT_IDENTITY_MATRIX;
     const glyphsLength = glyphs.length;
-    const isTextInvisible = current.textRenderingMode === TextRenderingMode.INVISIBLE;
+    const isTextVisible = current.textRenderingMode !== TextRenderingMode.INVISIBLE;
     let i, glyph, width, spacingLength;
-    if (isTextInvisible || fontSize === 0) {
+    if (fontSize === 0) {
       return;
     }
     this._cachedScaleForStroking[0] = -1;
@@ -11177,20 +11181,14 @@ class CanvasGraphics {
         const operatorList = font.charProcOperatorList.get(glyph.operatorListId);
         if (!operatorList) {
           warn(`Type3 character "${glyph.operatorListId}" is not available.`);
-        } else if (this.contentVisible) {
+        } else if (this.contentVisible && isTextVisible) {
           this.save();
-          if (operatorList.fnArray[0] === OPS.setCharWidth) {
-            this.current.fillAlpha = this.current.strokeAlpha = 1;
-            ctx.globalAlpha = 1;
-          }
           ctx.scale(fontSize, fontSize);
           ctx.transform(...fontMatrix);
           this.executeOperatorList(operatorList);
           this.restore();
         }
-        const p = [glyph.width, 0];
-        Util.applyTransform(p, fontMatrix);
-        width = p[0] * fontSize + spacing;
+        width = glyph.width * fontMatrix[0] * fontSize + spacing * fontDirection;
         ctx.translate(width, 0);
         current.x += width * textHScale;
       }
@@ -14567,7 +14565,7 @@ class RendererWorker {
         terminateEarly("TypedArray transfer test failed.");
         return;
       }
-      const apiVersion = "6.5.273";
+      const apiVersion = "6.5.334";
       if (apiVersion !== data.workerVersion) {
         terminateEarly(`The API version "${apiVersion}" does not match the Worker version "${data.workerVersion}".`);
         return;
@@ -15201,7 +15199,7 @@ function getDocument(src = {}) {
   }
   const docParams = {
     docId,
-    apiVersion: "6.5.273",
+    apiVersion: "6.5.334",
     data,
     password,
     disableAutoFetch,
@@ -16871,8 +16869,8 @@ class InternalRenderTask {
     }
   }
 }
-const version = "6.5.273";
-const build = "5d143c409";
+const version = "6.5.334";
+const build = "67667f1e4";
 
 ;// ./src/display/editor/color_picker.js
 

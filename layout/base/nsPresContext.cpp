@@ -290,6 +290,7 @@ nsPresContext::nsPresContext(dom::Document* aDocument, nsPresContextType aType)
       mHadFirstContentfulPaint(false),
       mHadNonTickContentfulPaint(false),
       mHadContentfulPaintComposite(false),
+      mReadyToReplaceRetainedPaintDeferred(false),
       mNeedsToUpdateHiddenByContentVisibilityForAnimations(false),
       mUserInputEventsAllowed(false),
 #ifdef DEBUG
@@ -2427,8 +2428,41 @@ void nsPresContext::NotifyRevokingDidPaint(TransactionId aTransactionId) {
   });
 }
 
+void nsPresContext::SendReadyToReplaceRetainedPaint() {
+  mReadyToReplaceRetainedPaintDeferred = false;
+  mReadyToReplaceRetainedPaintTransactionId.reset();
+  if (!IsRootContentDocumentCrossProcess()) {
+    return;
+  }
+  if (auto* bc = BrowserChild::GetFrom(mDocument->GetDocShell())) {
+    if (mDocument->IsInitialDocument()) {
+      bc->SendReadyToReplaceRetainedPaintNormalPriority();
+    } else {
+      bc->SendReadyToReplaceRetainedPaint();
+    }
+  }
+}
+
+void nsPresContext::SendReadyToReplaceRetainedPaintAfterNextComposite() {
+  mReadyToReplaceRetainedPaintDeferred = false;
+  mReadyToReplaceRetainedPaintTransactionId =
+      Some(mRefreshDriver->LastTransactionId().Next());
+}
+
+void nsPresContext::FlushDeferredReadyToReplaceRetainedPaint() {
+  if (mReadyToReplaceRetainedPaintDeferred ||
+      mReadyToReplaceRetainedPaintTransactionId) {
+    SendReadyToReplaceRetainedPaint();
+  }
+}
+
 void nsPresContext::NotifyDidPaintForSubtree(
     TransactionId aTransactionId, const mozilla::TimeStamp& aTimeStamp) {
+  if (mReadyToReplaceRetainedPaintTransactionId &&
+      aTransactionId >= *mReadyToReplaceRetainedPaintTransactionId) {
+    SendReadyToReplaceRetainedPaint();
+  }
+
   if (mFirstContentfulPaintTransactionId && !mHadContentfulPaintComposite) {
     if (aTransactionId >= *mFirstContentfulPaintTransactionId) {
       mHadContentfulPaintComposite = true;

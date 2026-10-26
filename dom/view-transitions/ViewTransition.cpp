@@ -1920,6 +1920,10 @@ void ViewTransition::ClearActiveTransition(bool aIsDocumentHidden) {
       ClearViewTransitionsAnimationData(mDocument->GetRootElement());
     }
   }
+  // An inbound transition can end before its first frame is composited.
+  if (nsPresContext* pc = mDocument->GetPresContext()) {
+    pc->FlushDeferredReadyToReplaceRetainedPaint();
+  }
   mDocument->ClearActiveViewTransition();
 }
 

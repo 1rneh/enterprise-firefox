@@ -4703,7 +4703,7 @@ ContentChild::RecvBeginOutboundCrossDocumentViewTransition(
     const NavigationType& aNavigationType, const TabId& aSnapshotTargetTab,
     BeginOutboundCrossDocumentViewTransitionResolver&& aResolver) {
   if (aContext.IsNullOrDiscarded()) {
-    aResolver(true);
+    aResolver(false);
     return IPC_OK();
   }
   BrowsingContext* browsingContext = aContext.get();
@@ -4713,14 +4713,16 @@ ContentChild::RecvBeginOutboundCrossDocumentViewTransition(
   RefPtr<nsDocShell> docShell =
       nsDocShell::Cast(browsingContext->GetDocShell());
   if (!docShell) {
-    aResolver(true);
+    aResolver(false);
     return IPC_OK();
   }
 
   docShell->BeginDeferredOutboundCrossDocumentViewTransition(
       aPageSwapTargetInfo.ptrOr(nullptr), aNavigationType,
       uint64_t(aSnapshotTargetTab),
-      [resolver = std::move(aResolver)] { resolver(true); });
+      [resolver = std::move(aResolver)](bool aCaptured) {
+        resolver(aCaptured);
+      });
 
   return IPC_OK();
 }

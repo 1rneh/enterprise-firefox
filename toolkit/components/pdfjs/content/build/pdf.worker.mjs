@@ -20,8 +20,8 @@
  */
 
 /**
- * pdfjsVersion = 6.5.273
- * pdfjsBuild = 5d143c409
+ * pdfjsVersion = 6.5.334
+ * pdfjsBuild = 67667f1e4
  */
 
 ;// ./src/shared/util.js
@@ -538,6 +538,11 @@ class Util {
   static makeHexColor(r, g, b) {
     return `#${this.hexNums[r]}${this.hexNums[g]}${this.hexNums[b]}`;
   }
+  static get identity0to256Map() {
+    return shadow(this, "identity0to256Map", Uint8Array.from({
+      length: 256
+    }, (_, i) => i));
+  }
   static transform(m1, m2) {
     return [m1[0] * m2[0] + m1[2] * m2[1], m1[1] * m2[0] + m1[3] * m2[1], m1[0] * m2[2] + m1[2] * m2[3], m1[1] * m2[2] + m1[3] * m2[3], m1[0] * m2[4] + m1[2] * m2[5] + m1[4], m1[1] * m2[4] + m1[3] * m2[5] + m1[5]];
   }
@@ -604,10 +609,10 @@ class Util {
       b1 += m1r2;
       b2 += m1r2;
     }
-    output[0] = Math.min(output[0], a0, a1, a2, a3);
-    output[1] = Math.min(output[1], b0, b1, b2, b3);
-    output[2] = Math.max(output[2], a0, a1, a2, a3);
-    output[3] = Math.max(output[3], b0, b1, b2, b3);
+    output[0] = Math.min(output[0], a0, a1, Math.min(a2, a3));
+    output[1] = Math.min(output[1], b0, b1, Math.min(b2, b3));
+    output[2] = Math.max(output[2], a0, a1, Math.max(a2, a3));
+    output[3] = Math.max(output[3], b0, b1, Math.max(b2, b3));
   }
   static inverseTransform(m) {
     const d = m[0] * m[3] - m[1] * m[2];
@@ -3846,16 +3851,27 @@ class DecodeStream extends BaseStream {
         writable
       } = new DecompressionStream(name);
       const writer = writable.getWriter();
-      await writer.ready;
-      writer.write(bytes).then(async () => {
-        await writer.ready;
-        await writer.close();
-      }).catch(() => {});
+      writer.write(bytes).catch(() => {});
+      writer.close().catch(() => {});
       const chunks = [];
       let totalLength = 0;
-      for await (const chunk of readable) {
+      const reader = readable.getReader();
+      while (true) {
+        const {
+          value: chunk,
+          done
+        } = await reader.read();
+        if (done) {
+          break;
+        }
         chunks.push(chunk);
         totalLength += chunk.byteLength;
+      }
+      if (chunks.length === 1) {
+        return {
+          decompressed: chunks[0],
+          compressed: bytes
+        };
       }
       const data = new Uint8Array(totalLength);
       let offset = 0;
@@ -6239,23 +6255,16 @@ function meshUpdateBounds(self) {
   self.bounds = [minX, minY, maxX, maxY];
 }
 function meshPackData(self) {
-  let i, j, ii;
   const coords = self.coords;
   const coordsPacked = new Float32Array(coords.length * 2);
-  for (i = 0, j = 0, ii = coords.length; i < ii; i++) {
-    const xy = coords[i];
-    coordsPacked[j++] = xy[0];
-    coordsPacked[j++] = xy[1];
+  for (let i = 0, ii = coords.length; i < ii; i++) {
+    coordsPacked.set(coords[i], i * 2);
   }
   self.coords = coordsPacked;
   const colors = self.colors;
   const colorsPacked = new Uint8Array(colors.length * 4);
-  for (i = 0, j = 0, ii = colors.length; i < ii; i++) {
-    const c = colors[i];
-    colorsPacked[j++] = c[0];
-    colorsPacked[j++] = c[1];
-    colorsPacked[j++] = c[2];
-    j++;
+  for (let i = 0, ii = colors.length; i < ii; i++) {
+    colorsPacked.set(colors[i], i * 4);
   }
   self.colors = colorsPacked;
   for (const figure of self.figures) {
@@ -10607,6 +10616,7 @@ class JpxStream extends DecodeStream {
 
 ;// ./src/core/lzw_stream.js
 
+
 class LZWStream extends DecodeStream {
   constructor(str, maybeLength, earlyChange) {
     super(maybeLength);
@@ -10625,9 +10635,7 @@ class LZWStream extends DecodeStream {
       currentSequence: new Uint8Array(maxLzwDictionarySize),
       currentSequenceLength: 0
     };
-    for (let i = 0; i < 256; ++i) {
-      lzwState.dictionaryValues[i] = i;
-    }
+    lzwState.dictionaryValues.set(Util.identity0to256Map, 0);
     this.lzwState = lzwState;
   }
   readBits(n) {
@@ -17408,7 +17416,19 @@ class DataBuilder {
 
 
 const MAX_SUBR_NESTING = 10;
+const MAX_CHARSTRING_TOKENS = 64 * 1024 * 1024;
+const MAX_STACK_SIZE = 48;
 const MAX_FD_ARRAY_COUNT = 256;
+function removeCharStringByte(cursor, data, pos) {
+  const {
+    readStart
+  } = cursor;
+  if (pos > readStart) {
+    data.copyWithin(cursor.writePos, readStart, pos);
+    cursor.writePos += pos - readStart;
+  }
+  cursor.readStart = pos + 1;
+}
 function looksLikeUnsigned16BitNegative(coord) {
   return coord > 0x7fff && coord <= 0xffff;
 }
@@ -17865,12 +17885,34 @@ class CFFParser {
     if (!data || state.callDepth > MAX_SUBR_NESTING) {
       return false;
     }
+    const cursor = {
+      readStart: 0,
+      writePos: 0
+    };
+    try {
+      return this.#parseCharString(state, data, localSubrIndex, globalSubrIndex, cursor);
+    } finally {
+      const {
+        readStart,
+        writePos
+      } = cursor;
+      if (readStart > 0) {
+        data.copyWithin(writePos, readStart);
+        data.fill(14, data.length - readStart + writePos);
+      }
+    }
+  }
+  #parseCharString(state, data, localSubrIndex, globalSubrIndex, cursor) {
     const view = new DataView(data.buffer, data.byteOffset, data.bytesLength);
     let stackSize = state.stackSize;
     const stack = state.stack;
-    let length = data.length;
+    const length = data.length;
     for (let j = 0; j < length;) {
       const value = data[j++];
+      if (++state.tokens > MAX_CHARSTRING_TOKENS || stackSize > MAX_STACK_SIZE) {
+        warn("Charstring exceeds the execution limits.");
+        return false;
+      }
       let validationCommand = null;
       if (value === 12) {
         const q = data[j++];
@@ -17908,9 +17950,7 @@ class CFFParser {
       } else if (value === 19 || value === 20) {
         state.hints += stackSize >> 1;
         if (state.hints === 0) {
-          data.copyWithin(j - 1, j, -1);
-          j -= 1;
-          length -= 1;
+          removeCharStringByte(cursor, data, j - 1);
           continue;
         }
         j += state.hints + 7 >> 3;
@@ -17951,9 +17991,7 @@ class CFFParser {
         data[j - 1] = 14;
         validationCommand = CharstringValidationData[14];
       } else if (value === 9) {
-        data.copyWithin(j - 1, j, -1);
-        j -= 1;
-        length -= 1;
+        removeCharStringByte(cursor, data, j - 1);
         continue;
       } else {
         validationCommand = CharstringValidationData[value];
@@ -17998,9 +18036,6 @@ class CFFParser {
         }
       }
     }
-    if (length < data.length) {
-      data.fill(14, length);
-    }
     state.stackSize = stackSize;
     return true;
   }
@@ -18019,6 +18054,7 @@ class CFFParser {
       const charstring = charStrings.get(i);
       const state = {
         callDepth: 0,
+        tokens: 0,
         stackSize: 0,
         stack: [],
         hints: 0,
@@ -24865,6 +24901,10 @@ class OpenTypeFileBuilder {
 
 
 const HINTING_ENABLED = false;
+const type1_parser_MAX_SUBR_NESTING = 16;
+const type1_parser_MAX_CHARSTRING_TOKENS = 64 * 1024 * 1024;
+const type1_parser_MAX_STACK_SIZE = 48;
+const MAX_CHARSTRING_LENGTH = 65535;
 const COMMAND_MAP = {
   hstem: [1],
   vstem: [3],
@@ -24888,11 +24928,18 @@ class Type1CharString {
   flexing = false;
   output = [];
   stack = [];
-  convert(encoded, subrs, seacAnalysisEnabled) {
+  tokens = 0;
+  convert(encoded, subrs, seacAnalysisEnabled, depth = 0) {
+    if (depth > type1_parser_MAX_SUBR_NESTING) {
+      return true;
+    }
     const count = encoded.length;
     let error = false;
     let wx, sbx, subrNumber;
     for (let i = 0; i < count; i++) {
+      if (++this.tokens > type1_parser_MAX_CHARSTRING_TOKENS || this.stack.length > type1_parser_MAX_STACK_SIZE) {
+        return true;
+      }
       let value = encoded[i];
       if (value < 32) {
         if (value === 12) {
@@ -24950,7 +24997,7 @@ class Type1CharString {
               error = true;
               break;
             }
-            error = this.convert(subrs[subrNumber], subrs, seacAnalysisEnabled);
+            error = this.convert(subrs[subrNumber], subrs, seacAnalysisEnabled, depth + 1);
             break;
           case 11:
             return error;
@@ -24968,6 +25015,7 @@ class Type1CharString {
             break;
           case 14:
             this.output.push(COMMAND_MAP.endchar[0]);
+            error = this.output.length > MAX_CHARSTRING_LENGTH;
             break;
           case 21:
             if (this.flexing) {
@@ -25102,7 +25150,7 @@ class Type1CharString {
     } else {
       this.stack.length = 0;
     }
-    return false;
+    return this.output.length > MAX_CHARSTRING_LENGTH;
   }
 }
 const EEXEC_ENCRYPT_KEY = 55665;
@@ -28353,6 +28401,9 @@ class Font {
     builder.addTable("cmap", createCmapTable(newCharCodeToGlyphId, toUnicodeExtraMap, numGlyphs));
     builder.addTable("head", function fontTableHead() {
       const dateArr = [0x00, 0x00, 0x00, 0x00, 0x9e, 0x0b, 0x7e, 0x27];
+      const bbox = font.cff?.topDict.getByName("FontBBox") ?? properties.bbox;
+      const xMin = Math.min(Math.floor(bbox?.[0] || 0), 0);
+      const xMax = Math.max(Math.ceil(bbox?.[2] || 0), 0x0fff);
       const head = new DataBuilder({
         exactLength: 54
       });
@@ -28364,9 +28415,9 @@ class Font {
       head.setSafeInt16(unitsPerEm);
       head.setArray(dateArr);
       head.setArray(dateArr);
-      head.skip(2);
+      head.setSafeInt16(xMin);
       head.setSafeInt16(properties.descent);
-      head.setArray([0x0f, 0xff]);
+      head.setSafeInt16(xMax);
       head.setSafeInt16(properties.ascent);
       head.setInt16(properties.italicAngle ? 2 : 0);
       head.setArray([0x00, 0x11]);
@@ -29369,7 +29420,7 @@ function _evalUnaryConst(op, v) {
       return undefined;
   }
 }
-const MAX_STACK_SIZE = 100;
+const ast_MAX_STACK_SIZE = 100;
 const MAX_WORK = 100_000;
 const MAX_FORK_DEPTH = 1000;
 const MAX_TREE_DEPTH = 500;
@@ -29411,7 +29462,7 @@ class PSStackToTree {
     this._failed = false;
     this._work = 0;
     this._forkDepth = 0;
-    if (numInputs > MAX_STACK_SIZE) {
+    if (numInputs > ast_MAX_STACK_SIZE) {
       return null;
     }
     const stack = [];
@@ -29473,7 +29524,7 @@ class PSStackToTree {
       switch (instr.type) {
         case PS_NODE.number:
           stack.push(new PsConstNode(instr.value));
-          if (stack.length > MAX_STACK_SIZE) {
+          if (stack.length > ast_MAX_STACK_SIZE) {
             this._failed = true;
           }
           break;
@@ -29599,13 +29650,13 @@ class PSStackToTree {
     switch (op) {
       case TOKEN.true:
         stack.push(new PsConstNode(true));
-        if (stack.length > MAX_STACK_SIZE) {
+        if (stack.length > ast_MAX_STACK_SIZE) {
           this._failed = true;
         }
         break;
       case TOKEN.false:
         stack.push(new PsConstNode(false));
-        if (stack.length > MAX_STACK_SIZE) {
+        if (stack.length > ast_MAX_STACK_SIZE) {
           this._failed = true;
         }
         break;
@@ -29615,7 +29666,7 @@ class PSStackToTree {
           break;
         }
         stack.push(stack.at(-1));
-        if (stack.length > MAX_STACK_SIZE) {
+        if (stack.length > ast_MAX_STACK_SIZE) {
           this._failed = true;
         }
         break;
@@ -29650,7 +29701,7 @@ class PSStackToTree {
               this._failed = true;
             } else {
               stack.push(...stack.slice(-n));
-              if (stack.length > MAX_STACK_SIZE) {
+              if (stack.length > ast_MAX_STACK_SIZE) {
                 this._failed = true;
               }
             }
@@ -32361,10 +32412,7 @@ function bidi(str, startLevel = -1, vertical = false) {
       startLevel = 1;
     }
   }
-  const levels = [];
-  for (i = 0; i < strLength; ++i) {
-    levels[i] = startLevel;
-  }
+  const levels = new Array(strLength).fill(startLevel);
   const e = isOdd(startLevel) ? "R" : "L";
   const sor = e;
   const eor = sor;
@@ -37499,6 +37547,8 @@ class TranslatedFont {
             if (!fontBBoxSize) {
               this.#guessType3FontBBox(operatorList);
             }
+            operatorList.fnArray.splice(1, 0, OPS.setGState);
+            operatorList.argsArray.splice(1, 0, [[["ca", 1], ["CA", 1]]]);
             break;
         }
         charProcOperatorList.set(key, operatorList.getIR());
@@ -56789,9 +56839,11 @@ function calculateMD5(data, offset, length) {
   const paddedLength = length + 72 & ~63;
   const padded = new Uint8Array(paddedLength),
     view = new DataView(padded.buffer);
-  let i, j;
-  for (i = 0; i < length; ++i) {
-    padded[i] = data[offset++];
+  let i = 0,
+    j;
+  if (length > 0) {
+    padded.set(data.subarray(offset, offset + length), i);
+    i += length;
   }
   padded[i++] = 0x80;
   const n = paddedLength - 8;
@@ -57198,9 +57250,11 @@ function calculateSHA512(data, offset, length, mode384 = false) {
   const paddedLength = Math.ceil((length + 17) / 128) * 128;
   const padded = new Uint8Array(paddedLength),
     view = new DataView(padded.buffer);
-  let i, j;
-  for (i = 0; i < length; ++i) {
-    padded[i] = data[offset++];
+  let i = 0,
+    j;
+  if (length > 0) {
+    padded.set(data.subarray(offset, offset + length), i);
+    i += length;
   }
   padded[i++] = 0x80;
   const n = paddedLength - 16;
@@ -57355,9 +57409,11 @@ function calculateSHA256(data, offset, length) {
   const paddedLength = Math.ceil((length + 9) / 64) * 64;
   const padded = new Uint8Array(paddedLength),
     view = new DataView(padded.buffer);
-  let i, j;
-  for (i = 0; i < length; ++i) {
-    padded[i] = data[offset++];
+  let i = 0,
+    j;
+  if (length > 0) {
+    padded.set(data.subarray(offset, offset + length), i);
+    i += length;
   }
   padded[i++] = 0x80;
   const n = paddedLength - 8;
@@ -57475,9 +57531,7 @@ class ARCFourCipher {
   a = 0;
   b = 0;
   constructor(key) {
-    const s = Uint8Array.from({
-      length: 256
-    }, (_, i) => i);
+    const s = Util.identity0to256Map.slice();
     const keyLength = key.length;
     for (let i = 0, j = 0; i < 256; ++i) {
       const tmp = s[i];
@@ -58176,9 +58230,10 @@ class CipherTransformFactory {
     let strf = Name.get("Identity");
     let eff = stmf;
     if (algorithm >= 4) {
-      cf = dict.get("CF");
-      if (cf instanceof Dict) {
-        cf.suppressEncryption = true;
+      const cfDict = dict.get("CF");
+      if (cfDict instanceof Dict) {
+        cfDict.suppressEncryption = true;
+        cf = cfDict;
       }
       stmf = dict.get("StmF") || Name.get("Identity");
       strf = dict.get("StrF") || Name.get("Identity");
@@ -58265,7 +58320,7 @@ class CipherTransformFactory {
         if (!(filterName instanceof Name)) {
           throw new FormatError("Invalid crypt filter name.");
         }
-        const cryptFilter = this.cf.get(filterName.name);
+        const cryptFilter = this.cf?.get(filterName.name);
         const cfm = cryptFilter?.get("CFM");
         if (!cfm || cfm.name === "None") {
           return NullCipher;
@@ -64506,7 +64561,7 @@ class WorkerMessageHandler {
       docId,
       apiVersion
     } = docParams;
-    const workerVersion = "6.5.273";
+    const workerVersion = "6.5.334";
     if (apiVersion !== workerVersion) {
       throw new Error(`The API version "${apiVersion}" does not match the Worker version "${workerVersion}".`);
     }

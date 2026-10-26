@@ -105,15 +105,6 @@ browser/modules/webrtcUI.sys.mjs
 browser/themes/BuiltInThemeConfig.sys.mjs
 browser/themes/BuiltInThemes.sys.mjs
 browser/themes/ThemeVariableMap.sys.mjs
-dom/push/ChromePushSubscription.sys.mjs
-dom/push/Push.sys.mjs
-dom/push/PushBroadcastService.sys.mjs
-dom/push/PushComponents.sys.mjs
-dom/push/PushCrypto.sys.mjs
-dom/push/PushDB.sys.mjs
-dom/push/PushRecord.sys.mjs
-dom/push/PushService.sys.mjs
-dom/push/PushServiceWebSocket.sys.mjs
 dom/webauthn/WebAuthnRelatedOriginFetcher.sys.mjs
 js/xpconnect/loader/ComponentUtils.sys.mjs
 js/xpconnect/loader/XPCOMUtils.sys.mjs

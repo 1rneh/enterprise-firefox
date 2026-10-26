@@ -174,6 +174,7 @@ using mozilla::PermissionDelegateHandler::DelegatedPermissionList from "mozilla/
 using class mozilla::dom::SessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
 using class mozilla::dom::PreviousSessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
 using struct mozilla::dom::LoadingSessionHistoryInfo from "mozilla/dom/SessionHistoryEntry.h";
+using struct mozilla::dom::NewSessionHistorySharedState from "mozilla/dom/SessionHistoryEntry.h";
 using struct nsPoint from "nsPoint.h";
 using mozilla::media::MediaCodecsSupported from "MediaCodecsSupport.h";
 using mozilla::RemoteMediaIn from "mozilla/RemoteMediaManagerChild.h";
@@ -1081,12 +1082,13 @@ child:
     // captures its state in the next rendering update. The reply comes after
     // the capture, or right away if there is nothing to capture.
     // aSnapshotTargetTab is the tab of a document restored from BFCache that
-    // takes the snapshots, or 0.
+    // takes the snapshots, or 0. captured is true if the old document captured
+    // its state.
     async BeginOutboundCrossDocumentViewTransition(
         MaybeDiscardedBrowsingContext aContext,
         SessionHistoryInfo? aPageSwapTargetInfo,
         NavigationType aNavigationType,
-        TabId aSnapshotTargetTab) returns (bool unused);
+        TabId aSnapshotTargetTab) returns (bool captured);
     async ReactivateDocuments(MaybeDiscardedBrowsingContext aContext,
                               SessionHistoryInfo? aReactivatedEntry,
                               SessionHistoryInfo[] aNewSHEs,
@@ -1863,12 +1865,14 @@ parent:
                              nsCString aPartitionKey)
       returns (BlobURLDataRequestResult aResult);
 
-    async SetActiveSessionHistoryEntry(MaybeDiscardedBrowsingContext context,
+    async SetActiveSessionHistoryEntry(MaybeDiscardedWindowContext context,
                                        nsPoint? previousScrollPosition,
                                        SessionHistoryInfo info, uint32_t loadType,
-                                       uint32_t updatedCacheKey, nsID changeID);
+                                       uint32_t updatedCacheKey, nsID changeID,
+                                       NewSessionHistorySharedState? newSharedState);
     async ReplaceActiveSessionHistoryEntry(
-        MaybeDiscardedBrowsingContext context, SessionHistoryInfo info);
+        MaybeDiscardedWindowContext context, SessionHistoryInfo info,
+        NewSessionHistorySharedState? newSharedState);
 
     async RemoveDynEntriesFromActiveSessionHistoryEntry(
         MaybeDiscardedBrowsingContext aContext);

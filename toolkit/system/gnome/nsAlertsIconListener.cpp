@@ -265,7 +265,8 @@ nsresult nsAlertsIconListener::ShowAlert(imgIContainer* aImage) {
 
 void nsAlertsIconListener::SendCallback() {
   if (mAlertCallbacks) {
-    mAlertCallbacks->OnAlertClick(nullptr);
+    mAlertCallbacks->OnAlertClick(nullptr,
+                                  nsIAlertCallbacks::ApplicationState::UNKNOWN);
   }
 }
 
@@ -273,7 +274,8 @@ void nsAlertsIconListener::SendActionCallback(const nsAString& aActionName) {
   if (mAlertCallbacks) {
     nsCOMPtr<nsIAlertAction> alertAction;
     mAlertNotification->GetAction(aActionName, getter_AddRefs(alertAction));
-    mAlertCallbacks->OnAlertClick(alertAction);
+    mAlertCallbacks->OnAlertClick(alertAction,
+                                  nsIAlertCallbacks::ApplicationState::UNKNOWN);
   }
 }
 

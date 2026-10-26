@@ -107,6 +107,7 @@ class TestCargoInvocation(unittest.TestCase):
             "CARGO_RUSTCFLAGS": "-C 'link-arg=-L/opt/my libs'",
             "CARGO_EXTRA_FLAGS": "--offline",
             "RUSTC_BOOTSTRAP": "1",
+            "MOZ_RUST_TEST_SELECTION": "crashreporter l10nregistry",
         })
         self.assertEqual(
             invocation,
@@ -117,6 +118,7 @@ class TestCargoInvocation(unittest.TestCase):
                 cargo_rustcflags=("-C", "link-arg=-L/opt/my libs"),
                 cargo_extra_flags=("--offline",),
                 rustc_bootstrap="1",
+                test_crates=("crashreporter", "l10nregistry"),
             ),
         )
 
@@ -452,6 +454,42 @@ class TestComposeArgv(unittest.TestCase):
                 "--manifest-path",
                 cmd.manifest_path,
                 "--extra",
+            ],
+        )
+
+    def test_test_edge_without_workspace_hack(self):
+        cmd = _cmd(kind="test", features=("f",), names=("style",))
+        argv = _argv(cmd, _substs(), workspace_hack=False)
+        self.assertEqual(
+            argv,
+            [
+                "cargo",
+                "test",
+                *TARGET_ARGS,
+                "--no-fail-fast",
+                "-p",
+                "style",
+                "--features",
+                "f",
+                "--manifest-path",
+                cmd.manifest_path,
+            ],
+        )
+
+    def test_test_edge_without_features_or_workspace_hack(self):
+        cmd = _cmd(kind="test", names=("style",))
+        argv = _argv(cmd, _substs(), workspace_hack=False)
+        self.assertEqual(
+            argv,
+            [
+                "cargo",
+                "test",
+                *TARGET_ARGS,
+                "--no-fail-fast",
+                "-p",
+                "style",
+                "--manifest-path",
+                cmd.manifest_path,
             ],
         )
 

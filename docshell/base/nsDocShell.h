@@ -963,12 +963,13 @@ class nsDocShell final : public nsDocLoader,
 
   // Fires pageswap with an outbound view transition and captures the old state
   // in the next rendering update. aProceed runs after the capture, or right
-  // away if there is nothing to capture.
+  // away if there is nothing to capture. Its argument is true if the old state
+  // was captured.
   MOZ_CAN_RUN_SCRIPT_BOUNDARY void
   BeginDeferredOutboundCrossDocumentViewTransition(
       const mozilla::dom::SessionHistoryInfo* aPageSwapTargetInfo,
       mozilla::dom::NavigationType aNavigationType,
-      uint64_t aSnapshotTargetTabId, std::function<void()>&& aProceed);
+      uint64_t aSnapshotTargetTabId, std::function<void(bool)>&& aProceed);
 
   nsresult Dispatch(already_AddRefed<nsIRunnable> aRunnable);
 

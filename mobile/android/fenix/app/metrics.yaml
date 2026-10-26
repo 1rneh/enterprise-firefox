@@ -9290,6 +9290,11 @@ listen_to_page:
         description: |
           The BCP 47 language the page is read in.
         type: string
+      language_source:
+        description: |
+          Where the language came from: `page` when the page declares a usable language,
+          or `device` when it declares none and the device language is used instead.
+        type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878
     data_reviews:
@@ -9332,8 +9337,12 @@ listen_to_page:
     extra_keys:
       source:
         description: |
-          Session ended due to either the `close_button` or `tab_closed`
-          (the listened tab was closed or user navigated elsewhere).
+          Session ended due to either the `close_button`, `tab_closed`
+          (the listened tab was closed or user navigated elsewhere),
+          `reader_mode_closed` when the user left reader mode on the listened tab,
+          or `media_session_ended_outside_app` when the media session ended
+          outside the app, such as when the app was removed from the recent apps
+          or the notification was dismissed.
         type: string
     bugs:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=2064878

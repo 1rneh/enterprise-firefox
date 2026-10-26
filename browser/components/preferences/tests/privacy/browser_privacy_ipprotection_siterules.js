@@ -960,11 +960,6 @@ add_task(async function test_delete_rule_dialog_error_retry() {
         "The error is announced"
       );
       is(
-        list.deleteIconEl.getAttribute("src"),
-        "chrome://global/skin/icons/warning.svg",
-        "Dialog shows the warning icon"
-      );
-      is(
         list.deleteConfirmButtonEl.dataset.l10nId,
         "ip-protection-delete-site-rule-retry",
         "Primary button has the expected label"

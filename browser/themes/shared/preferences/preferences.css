@@ -1640,10 +1640,3 @@ setting-pane[onsearchpane] {
     grid-template-columns: 1fr;
   }
 }
-
-#fxaUnlinkButton[restricted-enterprise-view],
-#verifiedManage[restricted-enterprise-view],
-#connect-another-device[restricted-enterprise-view],
-#syncNotConfigured[restricted-enterprise-view] {
-  display: none;
-}

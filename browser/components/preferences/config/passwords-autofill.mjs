@@ -145,18 +145,6 @@ export class PasswordSettingHelpers {
   static _initMasterPasswordUI() {
     var noMP = !LoginHelper.isPrimaryPasswordSet();
 
-    if (LoginHelper.isEnterpriseManagedPrimaryPassword()) {
-      const masterPasswordRow = document.getElementById("masterPasswordRow");
-      if (masterPasswordRow) {
-        masterPasswordRow.hidden = true;
-        // Remove the "formerly known as Master Password" note instead of
-        // hiding it: Fluent manages its hidden attribute.
-        document
-          .querySelector('[data-l10n-id="forms-primary-pw-former-name"]')
-          ?.remove();
-      }
-    }
-
     // Check if settings-redesign is enabled to determine which UI is active
     const srdEnabled = Services.prefs.getBoolPref(
       "browser.settings-redesign.enabled",

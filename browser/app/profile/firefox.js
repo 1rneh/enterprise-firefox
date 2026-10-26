@@ -3381,7 +3381,12 @@ pref("security.certerrors.felt-privacy-v1", true);
 // This pref will surface existing Firefox Account information
 // as a button next to the hamburger menu. It allows
 // quick access to sign-in and manage your Firefox Account.
+#ifdef MOZ_ENTERPRISE
+// In enterprise builds Firefox Accounts is replaced by Enterprise Accounts
+pref("identity.fxaccounts.toolbar.enabled", false, locked);
+#else
 pref("identity.fxaccounts.toolbar.enabled", true);
+#endif
 pref("identity.fxaccounts.toolbar.accessed", false);
 pref("identity.fxaccounts.toolbar.defaultVisible", true);
 

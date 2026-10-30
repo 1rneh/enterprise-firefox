@@ -81,7 +81,7 @@ macosx64-aarch64-enterprise/debug:
         enable-full-crashsymbols: true
         code-review: true
     treeherder:
-        platform: osx-cross-enterprise/debug
+        platform: osx-cross-aarch64-enterprise/debug
         symbol: Bent
         tier: 1
     worker-type: b-linux-docker-xlarge-amd
@@ -514,7 +514,7 @@ macosx64-aarch64-enterprise/opt:
         code-review: true
     shipping-phase: build
     treeherder:
-        platform: osx-cross-enterprise/opt
+        platform: osx-cross-aarch64-enterprise/opt
         symbol: Bent
         tier: 1
     worker-type: b-linux-docker-xlarge-amd

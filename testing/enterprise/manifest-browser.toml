@@ -34,8 +34,6 @@ run-if = [
   "os == 'win'",
 ]
 
-["test_felt_browser_fxa.py"]
-
 ["test_felt_browser_launcher_process.py"]
 run-if = [
   "os == 'win'",
@@ -44,10 +42,6 @@ skip-if = [
   "asan",
   "os == 'win' && arch == 'aarch64'",
 ]
-
-["test_felt_browser_shutdown_lock.py"]
-
-["test_felt_restart_lock.py"]
 
 ["test_felt_browser_new_window_from_cli.py"]
 
@@ -83,6 +77,8 @@ run-if = [
 
 ["test_felt_browser_shutdown_crash_exit.py"]
 
+["test_felt_browser_shutdown_lock.py"]
+
 ["test_felt_browser_signout.py"]
 
 ["test_felt_browser_signout_on_exit.py"]
@@ -111,6 +107,8 @@ run-if = [
 ["test_felt_external_link.py"]
 
 ["test_felt_harness_prefs.py"]
+
+["test_felt_restart_lock.py"]
 
 ["test_felt_restart_persists_session.py"]
 

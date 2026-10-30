@@ -22,6 +22,7 @@ add_task(function test_fxa_toolbar_pref_is_locked_off() {
 });
 
 add_task(async function test_fxa_ui_hidden_when_signed_in() {
+  registerCleanupFunction(() => gSync.updateAllUI(UIState.get()));
   gSync.updateAllUI({
     status: UIState.STATUS_SIGNED_IN,
     syncEnabled: true,
